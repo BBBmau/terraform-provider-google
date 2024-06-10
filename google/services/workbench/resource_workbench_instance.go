@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
@@ -60,13 +60,11 @@ func WorkbenchInstanceLabelsDiffSuppress(k, old, new string, d *schema.ResourceD
 }
 
 var WorkbenchInstanceProvidedMetadata = []string{
-	"disable-swap-binaries",
-	"enable-guest-attributes",
-	"proxy-backend-id",
-	"proxy-registration-url",
 	"agent-health-check-interval-seconds",
 	"agent-health-check-path",
 	"container",
+	"custom-container-image",
+	"custom-container-payload",
 	"data-disk-uri",
 	"dataproc-allow-custom-clusters",
 	"dataproc-cluster-name",
@@ -87,16 +85,19 @@ var WorkbenchInstanceProvidedMetadata = []string{
 	"install-monitoring-agent",
 	"install-nvidia-driver",
 	"installed-extensions",
+	"last_updated_diagnostics",
 	"notebooks-api",
 	"notebooks-api-version",
 	"notebooks-examples-location",
 	"notebooks-location",
-	"nvidia-driver-gcs-path",
+	"proxy-backend-id",
+	"proxy-byoid-url",
 	"proxy-mode",
 	"proxy-status",
 	"proxy-url",
 	"proxy-user-mail",
 	"report-container-health",
+	"report-event-url",
 	"report-notebook-metrics",
 	"report-system-health",
 	"report-system-status",
@@ -105,8 +106,13 @@ var WorkbenchInstanceProvidedMetadata = []string{
 	"shutdown-script",
 	"title",
 	"use-collaborative",
+	"user-data",
 	"version",
+
+	"disable-swap-binaries",
+	"enable-guest-attributes",
 	"enable-oslogin",
+	"proxy-registration-url",
 }
 
 func WorkbenchInstanceMetadataDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
@@ -157,9 +163,9 @@ func WorkbenchInstanceTagsDiffSuppress(_, _, _ string, d *schema.ResourceData) b
 
 // waitForWorkbenchInstanceActive waits for an workbench instance to become "ACTIVE"
 func waitForWorkbenchInstanceActive(d *schema.ResourceData, config *transport_tpg.Config, timeout time.Duration) error {
-	return resource.Retry(timeout, func() *resource.RetryError {
+	return retry.Retry(timeout, func() *retry.RetryError {
 		if err := resourceWorkbenchInstanceRead(d, config); err != nil {
-			return resource.NonRetryableError(err)
+			return retry.NonRetryableError(err)
 		}
 
 		name := d.Get("name").(string)
@@ -168,7 +174,7 @@ func waitForWorkbenchInstanceActive(d *schema.ResourceData, config *transport_tp
 			log.Printf("[DEBUG] Workbench Instance %q has state %q.", name, state)
 			return nil
 		} else {
-			return resource.RetryableError(fmt.Errorf("Workbench Instance %q has state %q. Waiting for ACTIVE state", name, state))
+			return retry.RetryableError(fmt.Errorf("Workbench Instance %q has state %q. Waiting for ACTIVE state", name, state))
 		}
 
 	})

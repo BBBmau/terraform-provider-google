@@ -354,6 +354,12 @@ func (p *FrameworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 					transport_tpg.CustomEndpointValidator(),
 				},
 			},
+			"composer_custom_endpoint": &schema.StringAttribute{
+				Optional: true,
+				Validators: []validator.String{
+					transport_tpg.CustomEndpointValidator(),
+				},
+			},
 			"compute_custom_endpoint": &schema.StringAttribute{
 				Optional: true,
 				Validators: []validator.String{
@@ -738,6 +744,12 @@ func (p *FrameworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 					transport_tpg.CustomEndpointValidator(),
 				},
 			},
+			"security_center_management_custom_endpoint": &schema.StringAttribute{
+				Optional: true,
+				Validators: []validator.String{
+					transport_tpg.CustomEndpointValidator(),
+				},
+			},
 			"securityposture_custom_endpoint": &schema.StringAttribute{
 				Optional: true,
 				Validators: []validator.String{
@@ -837,12 +849,6 @@ func (p *FrameworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 
 			// Handwritten Products / Versioned / Atypical Entries
 			"cloud_billing_custom_endpoint": &schema.StringAttribute{
-				Optional: true,
-				Validators: []validator.String{
-					transport_tpg.CustomEndpointValidator(),
-				},
-			},
-			"composer_custom_endpoint": &schema.StringAttribute{
 				Optional: true,
 				Validators: []validator.String{
 					transport_tpg.CustomEndpointValidator(),

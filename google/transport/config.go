@@ -176,7 +176,7 @@ type Config struct {
 	DefaultLabels                             map[string]string
 	AddTerraformAttributionLabel              bool
 	TerraformAttributionLabelAdditionStrategy string
-	// PollInterval is passed to resource.StateChangeConf in common_operation.go
+	// PollInterval is passed to retry.StateChangeConf in common_operation.go
 	// It controls the interval at which we poll for successful operations
 	PollInterval time.Duration
 
@@ -222,6 +222,7 @@ type Config struct {
 	CloudRunV2BasePath               string
 	CloudSchedulerBasePath           string
 	CloudTasksBasePath               string
+	ComposerBasePath                 string
 	ComputeBasePath                  string
 	ContainerAnalysisBasePath        string
 	ContainerAttachedBasePath        string
@@ -286,6 +287,7 @@ type Config struct {
 	SecretManagerBasePath            string
 	SecureSourceManagerBasePath      string
 	SecurityCenterBasePath           string
+	SecurityCenterManagementBasePath string
 	SecuritypostureBasePath          string
 	ServiceManagementBasePath        string
 	ServiceUsageBasePath             string
@@ -304,7 +306,6 @@ type Config struct {
 	WorkflowsBasePath                string
 
 	CloudBillingBasePath      string
-	ComposerBasePath          string
 	ContainerBasePath         string
 	DataflowBasePath          string
 	IamCredentialsBasePath    string
@@ -358,6 +359,7 @@ const CloudRunBasePathKey = "CloudRun"
 const CloudRunV2BasePathKey = "CloudRunV2"
 const CloudSchedulerBasePathKey = "CloudScheduler"
 const CloudTasksBasePathKey = "CloudTasks"
+const ComposerBasePathKey = "Composer"
 const ComputeBasePathKey = "Compute"
 const ContainerAnalysisBasePathKey = "ContainerAnalysis"
 const ContainerAttachedBasePathKey = "ContainerAttached"
@@ -422,6 +424,7 @@ const ResourceManagerBasePathKey = "ResourceManager"
 const SecretManagerBasePathKey = "SecretManager"
 const SecureSourceManagerBasePathKey = "SecureSourceManager"
 const SecurityCenterBasePathKey = "SecurityCenter"
+const SecurityCenterManagementBasePathKey = "SecurityCenterManagement"
 const SecuritypostureBasePathKey = "Securityposture"
 const ServiceManagementBasePathKey = "ServiceManagement"
 const ServiceUsageBasePathKey = "ServiceUsage"
@@ -439,7 +442,6 @@ const VPCAccessBasePathKey = "VPCAccess"
 const WorkbenchBasePathKey = "Workbench"
 const WorkflowsBasePathKey = "Workflows"
 const CloudBillingBasePathKey = "CloudBilling"
-const ComposerBasePathKey = "Composer"
 const ContainerBasePathKey = "Container"
 const DataflowBasePathKey = "Dataflow"
 const IAMBasePathKey = "IAM"
@@ -488,6 +490,7 @@ var DefaultBasePaths = map[string]string{
 	CloudRunV2BasePathKey:               "https://run.googleapis.com/v2/",
 	CloudSchedulerBasePathKey:           "https://cloudscheduler.googleapis.com/v1/",
 	CloudTasksBasePathKey:               "https://cloudtasks.googleapis.com/v2/",
+	ComposerBasePathKey:                 "https://composer.googleapis.com/v1/",
 	ComputeBasePathKey:                  "https://compute.googleapis.com/compute/v1/",
 	ContainerAnalysisBasePathKey:        "https://containeranalysis.googleapis.com/v1/",
 	ContainerAttachedBasePathKey:        "https://{{location}}-gkemulticloud.googleapis.com/v1/",
@@ -552,6 +555,7 @@ var DefaultBasePaths = map[string]string{
 	SecretManagerBasePathKey:            "https://secretmanager.googleapis.com/v1/",
 	SecureSourceManagerBasePathKey:      "https://securesourcemanager.googleapis.com/v1/",
 	SecurityCenterBasePathKey:           "https://securitycenter.googleapis.com/v1/",
+	SecurityCenterManagementBasePathKey: "https://securitycentermanagement.googleapis.com/v1/",
 	SecuritypostureBasePathKey:          "https://securityposture.googleapis.com/v1/",
 	ServiceManagementBasePathKey:        "https://servicemanagement.googleapis.com/v1/",
 	ServiceUsageBasePathKey:             "https://serviceusage.googleapis.com/v1/",
@@ -569,7 +573,6 @@ var DefaultBasePaths = map[string]string{
 	WorkbenchBasePathKey:                "https://notebooks.googleapis.com/v2/",
 	WorkflowsBasePathKey:                "https://workflows.googleapis.com/v1/",
 	CloudBillingBasePathKey:             "https://cloudbilling.googleapis.com/v1/",
-	ComposerBasePathKey:                 "https://composer.googleapis.com/v1/",
 	ContainerBasePathKey:                "https://container.googleapis.com/v1/",
 	DataflowBasePathKey:                 "https://dataflow.googleapis.com/v1b3/",
 	IAMBasePathKey:                      "https://iam.googleapis.com/v1/",
@@ -828,6 +831,11 @@ func SetEndpointDefaults(d *schema.ResourceData) error {
 		d.Set("cloud_tasks_custom_endpoint", MultiEnvDefault([]string{
 			"GOOGLE_CLOUD_TASKS_CUSTOM_ENDPOINT",
 		}, DefaultBasePaths[CloudTasksBasePathKey]))
+	}
+	if d.Get("composer_custom_endpoint") == "" {
+		d.Set("composer_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_COMPOSER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ComposerBasePathKey]))
 	}
 	if d.Get("compute_custom_endpoint") == "" {
 		d.Set("compute_custom_endpoint", MultiEnvDefault([]string{
@@ -1148,6 +1156,11 @@ func SetEndpointDefaults(d *schema.ResourceData) error {
 		d.Set("security_center_custom_endpoint", MultiEnvDefault([]string{
 			"GOOGLE_SECURITY_CENTER_CUSTOM_ENDPOINT",
 		}, DefaultBasePaths[SecurityCenterBasePathKey]))
+	}
+	if d.Get("security_center_management_custom_endpoint") == "" {
+		d.Set("security_center_management_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECURITY_CENTER_MANAGEMENT_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecurityCenterManagementBasePathKey]))
 	}
 	if d.Get("securityposture_custom_endpoint") == "" {
 		d.Set("securityposture_custom_endpoint", MultiEnvDefault([]string{
@@ -2157,6 +2170,7 @@ func ConfigureBasePaths(c *Config) {
 	c.CloudRunV2BasePath = DefaultBasePaths[CloudRunV2BasePathKey]
 	c.CloudSchedulerBasePath = DefaultBasePaths[CloudSchedulerBasePathKey]
 	c.CloudTasksBasePath = DefaultBasePaths[CloudTasksBasePathKey]
+	c.ComposerBasePath = DefaultBasePaths[ComposerBasePathKey]
 	c.ComputeBasePath = DefaultBasePaths[ComputeBasePathKey]
 	c.ContainerAnalysisBasePath = DefaultBasePaths[ContainerAnalysisBasePathKey]
 	c.ContainerAttachedBasePath = DefaultBasePaths[ContainerAttachedBasePathKey]
@@ -2221,6 +2235,7 @@ func ConfigureBasePaths(c *Config) {
 	c.SecretManagerBasePath = DefaultBasePaths[SecretManagerBasePathKey]
 	c.SecureSourceManagerBasePath = DefaultBasePaths[SecureSourceManagerBasePathKey]
 	c.SecurityCenterBasePath = DefaultBasePaths[SecurityCenterBasePathKey]
+	c.SecurityCenterManagementBasePath = DefaultBasePaths[SecurityCenterManagementBasePathKey]
 	c.SecuritypostureBasePath = DefaultBasePaths[SecuritypostureBasePathKey]
 	c.ServiceManagementBasePath = DefaultBasePaths[ServiceManagementBasePathKey]
 	c.ServiceUsageBasePath = DefaultBasePaths[ServiceUsageBasePathKey]
