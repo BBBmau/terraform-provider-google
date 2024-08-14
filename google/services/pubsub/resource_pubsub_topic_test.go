@@ -12,7 +12,7 @@ import (
 
 func TestAccPubsubTopic_update(t *testing.T) {
 	t.Parallel()
-	t.Fail()
+	t.FailNow()
 	topic := fmt.Sprintf("tf-test-topic-%s", acctest.RandString(t, 10))
 
 	acctest.VcrTest(t, resource.TestCase{
