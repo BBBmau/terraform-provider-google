@@ -1,4 +1,4 @@
-# Terraform Provider for Google Cloud Platform
+# Mauricio's Terraform Provider for Google Cloud Platform
 
 # Hello!
 
