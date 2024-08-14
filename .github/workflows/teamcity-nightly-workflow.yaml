@@ -21,9 +21,9 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400, 401, 403, 404, 422
           script: |
-                  let dateToday = new Date().toLocaleString('en-US').slice(0, 9).replaceAll("/","-"); // necessary in order to grab date in PST
+                  let dateToday = new Date().toJSON().slice(0, 10);
                   const oldBranchName = "nightly-test";
-                  const newBranchName = "nightly-tests-" + dateToday;
+                  const newBranchName = "UTC-nightly-tests-" + dateToday;
                   
                   try{
                   await github.rest.repos.renameBranch({
