@@ -20,7 +20,7 @@ import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import replaceCharsId
 
-fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot, config: AccTestConfiguration): Project {
+fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot, config: AccTestConfiguration, cron: NightlyTriggerConfiguration): Project {
 
     // Create unique ID for the dynamically-created project
     var projectId = "${parentProject}_${NightlyTestsProjectId}"
@@ -35,9 +35,12 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
         else -> throw Exception("Provider name not supplied when generating a nightly test subproject")
     }
 
-    // Create build configs to run acceptance tests for each package defined in packages.kt and services.kt files
-    val allPackages = getAllPackageInProviderVersion(providerName)
-    val packageBuildConfigs = BuildConfigurationsForPackages(allPackages, providerName, projectId, vcsRoot, sharedResources, config)
+    var pubsubpackage = mapOf("pubsub" to mapOf(
+        "name" to "pubsub",
+        "displayName" to "Pubsub",
+        "path" to "./google/services/pubsub"
+    ),)
+    val packageBuildConfigs = BuildConfigurationsForPackages(pubsubpackage, providerName, projectId, vcsRoot, sharedResources, config)
     val accTestTrigger  = NightlyTriggerConfiguration()
     packageBuildConfigs.forEach { buildConfiguration ->
         buildConfiguration.addTrigger(accTestTrigger)
@@ -50,9 +53,6 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
         ProviderNameBeta -> sweepersList = SweepersListBeta
         else -> throw Exception("Provider name not supplied when generating a nightly test subproject")
     }
-    val serviceSweeperConfig = BuildConfigurationForServiceSweeper(providerName, ServiceSweeperName, sweepersList, projectId, vcsRoot, sharedResources, config)
-    val sweeperTrigger  = NightlyTriggerConfiguration(startHour=11)  // Override hour
-    serviceSweeperConfig.addTrigger(sweeperTrigger)
 
     return Project {
         id(projectId)
@@ -63,7 +63,7 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
         packageBuildConfigs.forEach { buildConfiguration ->
             buildType(buildConfiguration)
         }
-        buildType(serviceSweeperConfig)
+        // buildType(serviceSweeperConfig)
 
         params{
             configureGoogleSpecificTestParameters(config)

@@ -60,8 +60,6 @@ fun googleCloudRootProject(allConfig: AllContextParameters): Project {
 
         // Projects required for nightly testing, testing MM upstreams, and sweepers
         subProject(googleSubProjectGa(allConfig))
-        subProject(googleSubProjectBeta(allConfig))
-        subProject(projectSweeperSubProject(allConfig))
 
         params {
             readOnlySettings()
