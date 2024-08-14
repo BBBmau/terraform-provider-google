@@ -33,7 +33,7 @@ jobs:
                     new_name: newBranchName, 
                   })
                   } catch (error){
-                    core.setFailed(error + "- Failed to rename branch to be used running tonight\'s tests; branch with name " + oldBranchName + " doesn\'t exist")
+                    core.setFailed(error + "- Failed to rename branch to be used running tonight\'s tests")
                   }
                   console.log("Renamed branch " + oldBranchName + " to " + newBranchName)
 
