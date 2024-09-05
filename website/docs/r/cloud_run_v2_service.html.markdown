@@ -403,7 +403,7 @@ resource "google_cloud_run_v2_service" "default" {
 
   location     = "us-central1"
   deletion_protection = false
-
+  launch_stage = "BETA"
 
   template {
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
@@ -446,6 +446,7 @@ resource "google_cloud_run_v2_service" "default" {
   location     = "us-central1"
   deletion_protection = false
   ingress      = "INGRESS_TRAFFIC_ALL"
+  launch_stage = "BETA"
 
   template {
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
@@ -488,45 +489,6 @@ resource "google_filestore_instance" "default" {
     network = "default"
     modes   = ["MODE_IPV4"]
   }
-}
-```
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=cloudrunv2_service_mesh&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
-## Example Usage - Cloudrunv2 Service Mesh
-
-
-```hcl
-resource "google_cloud_run_v2_service" "default" {
-  provider = google-beta
-  name     = "cloudrun-service"
-  depends_on = [time_sleep.wait_for_mesh]
-  deletion_protection = false
-
-  location     = "us-central1"
-  launch_stage = "BETA"
-
-  template {
-    containers {
-      image = "us-docker.pkg.dev/cloudrun/container/hello"
-    }
-    service_mesh {
-      mesh = google_network_services_mesh.mesh.id
-    }
-  }
-}
-
-resource "time_sleep" "wait_for_mesh" {
-  depends_on = [google_network_services_mesh.mesh]
-
-  create_duration = "1m"
-}
-
-resource "google_network_services_mesh" "mesh" {
-  provider = google-beta
-  name     = "network-services-mesh"
 }
 ```
 
@@ -615,11 +577,6 @@ The following arguments are supported:
 * `session_affinity` -
   (Optional)
   Enables session affinity. For more information, go to https://cloud.google.com/run/docs/configuring/session-affinity
-
-* `service_mesh` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
-  Enables Cloud Service Mesh for this Revision.
-  Structure is [documented below](#nested_service_mesh).
 
 
 <a name="nested_scaling"></a>The `scaling` block supports:
@@ -980,7 +937,7 @@ The following arguments are supported:
 
 * `gcs` -
   (Optional)
-  Cloud Storage bucket mounted as a volume using GCSFuse. This feature is only supported in the gen2 execution environment.
+  Cloud Storage bucket mounted as a volume using GCSFuse. This feature is only supported in the gen2 execution environment and requires launch-stage to be set to ALPHA or BETA.
   Structure is [documented below](#nested_gcs).
 
 * `nfs` -
@@ -1060,12 +1017,6 @@ The following arguments are supported:
 * `read_only` -
   (Optional)
   If true, mount the NFS volume as read only
-
-<a name="nested_service_mesh"></a>The `service_mesh` block supports:
-
-* `mesh` -
-  (Optional)
-  The Mesh resource name. For more information see https://cloud.google.com/service-mesh/docs/reference/network-services/rest/v1/projects.locations.meshes#resource:-mesh.
 
 - - -
 

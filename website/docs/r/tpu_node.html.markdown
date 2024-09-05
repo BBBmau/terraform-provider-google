@@ -68,7 +68,6 @@ resource "google_tpu_node" "tpu" {
 
   description = "Terraform Google Provider test TPU"
   use_service_networking = true
-
   network = google_service_networking_connection.private_service_connection.network
 
   labels = {

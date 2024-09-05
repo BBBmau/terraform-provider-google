@@ -32,15 +32,15 @@ import (
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 )
 
-func ResourceNetappBackupVault() *schema.Resource {
+func ResourceNetappbackupVault() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceNetappBackupVaultCreate,
-		Read:   resourceNetappBackupVaultRead,
-		Update: resourceNetappBackupVaultUpdate,
-		Delete: resourceNetappBackupVaultDelete,
+		Create: resourceNetappbackupVaultCreate,
+		Read:   resourceNetappbackupVaultRead,
+		Update: resourceNetappbackupVaultUpdate,
+		Delete: resourceNetappbackupVaultDelete,
 
 		Importer: &schema.ResourceImporter{
-			State: resourceNetappBackupVaultImport,
+			State: resourceNetappbackupVaultImport,
 		},
 
 		Timeouts: &schema.ResourceTimeout{
@@ -116,7 +116,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 	}
 }
 
-func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupVaultCreate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -124,13 +124,13 @@ func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) e
 	}
 
 	obj := make(map[string]interface{})
-	descriptionProp, err := expandNetappBackupVaultDescription(d.Get("description"), d, config)
+	descriptionProp, err := expandNetappbackupVaultDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(descriptionProp)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	labelsProp, err := expandNetappBackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
+	labelsProp, err := expandNetappbackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
@@ -142,12 +142,12 @@ func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	log.Printf("[DEBUG] Creating new BackupVault: %#v", obj)
+	log.Printf("[DEBUG] Creating new backupVault: %#v", obj)
 	billingProject := ""
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for BackupVault: %s", err)
+		return fmt.Errorf("Error fetching project for backupVault: %s", err)
 	}
 	billingProject = project
 
@@ -168,7 +168,7 @@ func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) e
 		Headers:   headers,
 	})
 	if err != nil {
-		return fmt.Errorf("Error creating BackupVault: %s", err)
+		return fmt.Errorf("Error creating backupVault: %s", err)
 	}
 
 	// Store the ID now
@@ -179,21 +179,21 @@ func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) e
 	d.SetId(id)
 
 	err = NetappOperationWaitTime(
-		config, res, project, "Creating BackupVault", userAgent,
+		config, res, project, "Creating backupVault", userAgent,
 		d.Timeout(schema.TimeoutCreate))
 
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-		return fmt.Errorf("Error waiting to create BackupVault: %s", err)
+		return fmt.Errorf("Error waiting to create backupVault: %s", err)
 	}
 
-	log.Printf("[DEBUG] Finished creating BackupVault %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished creating backupVault %q: %#v", d.Id(), res)
 
-	return resourceNetappBackupVaultRead(d, meta)
+	return resourceNetappbackupVaultRead(d, meta)
 }
 
-func resourceNetappBackupVaultRead(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupVaultRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -209,7 +209,7 @@ func resourceNetappBackupVaultRead(d *schema.ResourceData, meta interface{}) err
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for BackupVault: %s", err)
+		return fmt.Errorf("Error fetching project for backupVault: %s", err)
 	}
 	billingProject = project
 
@@ -228,36 +228,36 @@ func resourceNetappBackupVaultRead(d *schema.ResourceData, meta interface{}) err
 		Headers:   headers,
 	})
 	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("NetappBackupVault %q", d.Id()))
+		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("NetappbackupVault %q", d.Id()))
 	}
 
 	if err := d.Set("project", project); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
 
-	if err := d.Set("state", flattenNetappBackupVaultState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+	if err := d.Set("state", flattenNetappbackupVaultState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
-	if err := d.Set("create_time", flattenNetappBackupVaultCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+	if err := d.Set("create_time", flattenNetappbackupVaultCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
-	if err := d.Set("description", flattenNetappBackupVaultDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+	if err := d.Set("description", flattenNetappbackupVaultDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
-	if err := d.Set("labels", flattenNetappBackupVaultLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+	if err := d.Set("labels", flattenNetappbackupVaultLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
-	if err := d.Set("terraform_labels", flattenNetappBackupVaultTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+	if err := d.Set("terraform_labels", flattenNetappbackupVaultTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
-	if err := d.Set("effective_labels", flattenNetappBackupVaultEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackupVault: %s", err)
+	if err := d.Set("effective_labels", flattenNetappbackupVaultEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backupVault: %s", err)
 	}
 
 	return nil
 }
 
-func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupVaultUpdate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -268,18 +268,18 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for BackupVault: %s", err)
+		return fmt.Errorf("Error fetching project for backupVault: %s", err)
 	}
 	billingProject = project
 
 	obj := make(map[string]interface{})
-	descriptionProp, err := expandNetappBackupVaultDescription(d.Get("description"), d, config)
+	descriptionProp, err := expandNetappbackupVaultDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	labelsProp, err := expandNetappBackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
+	labelsProp, err := expandNetappbackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
@@ -291,7 +291,7 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	log.Printf("[DEBUG] Updating BackupVault %q: %#v", d.Id(), obj)
+	log.Printf("[DEBUG] Updating backupVault %q: %#v", d.Id(), obj)
 	headers := make(http.Header)
 	updateMask := []string{}
 
@@ -328,13 +328,13 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 		})
 
 		if err != nil {
-			return fmt.Errorf("Error updating BackupVault %q: %s", d.Id(), err)
+			return fmt.Errorf("Error updating backupVault %q: %s", d.Id(), err)
 		} else {
-			log.Printf("[DEBUG] Finished updating BackupVault %q: %#v", d.Id(), res)
+			log.Printf("[DEBUG] Finished updating backupVault %q: %#v", d.Id(), res)
 		}
 
 		err = NetappOperationWaitTime(
-			config, res, project, "Updating BackupVault", userAgent,
+			config, res, project, "Updating backupVault", userAgent,
 			d.Timeout(schema.TimeoutUpdate))
 
 		if err != nil {
@@ -342,10 +342,10 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 		}
 	}
 
-	return resourceNetappBackupVaultRead(d, meta)
+	return resourceNetappbackupVaultRead(d, meta)
 }
 
-func resourceNetappBackupVaultDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupVaultDelete(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -356,7 +356,7 @@ func resourceNetappBackupVaultDelete(d *schema.ResourceData, meta interface{}) e
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for BackupVault: %s", err)
+		return fmt.Errorf("Error fetching project for backupVault: %s", err)
 	}
 	billingProject = project
 
@@ -374,7 +374,7 @@ func resourceNetappBackupVaultDelete(d *schema.ResourceData, meta interface{}) e
 
 	headers := make(http.Header)
 
-	log.Printf("[DEBUG] Deleting BackupVault %q", d.Id())
+	log.Printf("[DEBUG] Deleting backupVault %q", d.Id())
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "DELETE",
@@ -386,22 +386,22 @@ func resourceNetappBackupVaultDelete(d *schema.ResourceData, meta interface{}) e
 		Headers:   headers,
 	})
 	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, "BackupVault")
+		return transport_tpg.HandleNotFoundError(err, d, "backupVault")
 	}
 
 	err = NetappOperationWaitTime(
-		config, res, project, "Deleting BackupVault", userAgent,
+		config, res, project, "Deleting backupVault", userAgent,
 		d.Timeout(schema.TimeoutDelete))
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] Finished deleting BackupVault %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished deleting backupVault %q: %#v", d.Id(), res)
 	return nil
 }
 
-func resourceNetappBackupVaultImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceNetappbackupVaultImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	config := meta.(*transport_tpg.Config)
 	if err := tpgresource.ParseImportId([]string{
 		"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/backupVaults/(?P<name>[^/]+)$",
@@ -421,19 +421,19 @@ func resourceNetappBackupVaultImport(d *schema.ResourceData, meta interface{}) (
 	return []*schema.ResourceData{d}, nil
 }
 
-func flattenNetappBackupVaultState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVaultState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupVaultCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVaultCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupVaultDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVaultDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupVaultLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVaultLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
 	}
@@ -448,7 +448,7 @@ func flattenNetappBackupVaultLabels(v interface{}, d *schema.ResourceData, confi
 	return transformed
 }
 
-func flattenNetappBackupVaultTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVaultTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
 	}
@@ -463,15 +463,15 @@ func flattenNetappBackupVaultTerraformLabels(v interface{}, d *schema.ResourceDa
 	return transformed
 }
 
-func flattenNetappBackupVaultEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVaultEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func expandNetappBackupVaultDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappbackupVaultDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappBackupVaultEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
+func expandNetappbackupVaultEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
 	if v == nil {
 		return map[string]string{}, nil
 	}

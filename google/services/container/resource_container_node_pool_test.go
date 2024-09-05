@@ -1598,11 +1598,7 @@ func TestAccContainerNodePool_gcfsConfig(t *testing.T) {
 		CheckDestroy:             testAccCheckContainerNodePoolDestroyProducer(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccContainerNodePool_gcfsConfig(cluster, np, networkName, subnetworkName, true),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("google_container_node_pool.np",
-						"node_config.0.gcfs_config.0.enabled", "true"),
-				),
+				Config: testAccContainerNodePool_gcfsConfig(cluster, np, networkName, subnetworkName),
 			},
 			{
 				ResourceName:      "google_container_node_pool.np",
@@ -1613,7 +1609,7 @@ func TestAccContainerNodePool_gcfsConfig(t *testing.T) {
 	})
 }
 
-func testAccContainerNodePool_gcfsConfig(cluster, np, networkName, subnetworkName string, enabled bool) string {
+func testAccContainerNodePool_gcfsConfig(cluster, np, networkName, subnetworkName string) string {
 	return fmt.Sprintf(`
 resource "google_container_cluster" "cluster" {
   name               = "%s"
@@ -1634,11 +1630,11 @@ resource "google_container_node_pool" "np" {
     machine_type = "n1-standard-8"
     image_type = "COS_CONTAINERD"
     gcfs_config {
-      enabled = %t
+      enabled = true
     }
   }
 }
-`, cluster, networkName, subnetworkName, np, enabled)
+`, cluster, networkName, subnetworkName, np)
 }
 
 func TestAccContainerNodePool_gvnic(t *testing.T) {
@@ -4469,30 +4465,30 @@ func TestAccContainerNodePool_privateRegistry(t *testing.T) {
 
 func testAccContainerNodePool_privateRegistryEnabled(secretID, cluster, nodepool, network, subnetwork string) string {
 	return fmt.Sprintf(`
-data "google_project" "test_project" {
+data "google_project" "test_project" { 
 	}
 
-resource "google_secret_manager_secret" "secret-basic" {
-	secret_id     = "%s"
-	replication {
-		user_managed {
-		replicas {
-			location = "us-central1"
-		}
-		}
-	}
+resource "google_secret_manager_secret" "secret-basic" { 
+	secret_id     = "%s" 
+	replication { 
+		user_managed { 
+		replicas { 
+			location = "us-central1" 
+		} 
+		} 
+	} 
 }
 
-resource "google_secret_manager_secret_version" "secret-version-basic" {
-	secret = google_secret_manager_secret.secret-basic.id
-	secret_data = "dummypassword"
-  }
-
-resource "google_secret_manager_secret_iam_member" "secret_iam" {
-	secret_id  = google_secret_manager_secret.secret-basic.id
-	role       = "roles/secretmanager.admin"
-	member     = "serviceAccount:${data.google_project.test_project.number}-compute@developer.gserviceaccount.com"
-	depends_on = [google_secret_manager_secret_version.secret-version-basic]
+resource "google_secret_manager_secret_version" "secret-version-basic" { 
+	secret = google_secret_manager_secret.secret-basic.id 
+	secret_data = "dummypassword" 
+  } 
+   
+resource "google_secret_manager_secret_iam_member" "secret_iam" { 
+	secret_id  = google_secret_manager_secret.secret-basic.id 
+	role       = "roles/secretmanager.admin" 
+	member     = "serviceAccount:${data.google_project.test_project.number}-compute@developer.gserviceaccount.com" 
+	depends_on = [google_secret_manager_secret_version.secret-version-basic] 
   }
 
 resource "google_container_cluster" "cluster" {
@@ -4503,13 +4499,13 @@ resource "google_container_cluster" "cluster" {
   network    = "%s"
   subnetwork    = "%s"
 }
-
+	
 resource "google_container_node_pool" "np" {
   name               = "%s"
   location           = "us-central1-a"
   cluster            = google_container_cluster.cluster.name
   initial_node_count = 1
-
+	
   node_config {
 	oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform",

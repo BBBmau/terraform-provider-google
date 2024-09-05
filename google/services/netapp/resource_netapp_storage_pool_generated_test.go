@@ -30,7 +30,7 @@ import (
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 )
 
-func TestAccNetappStoragePool_storagePoolCreateExample(t *testing.T) {
+func TestAccNetappstoragePool_storagePoolCreateExample(t *testing.T) {
 	t.Parallel()
 
 	context := map[string]interface{}{
@@ -40,10 +40,10 @@ func TestAccNetappStoragePool_storagePoolCreateExample(t *testing.T) {
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
-		CheckDestroy:             testAccCheckNetappStoragePoolDestroyProducer(t),
+		CheckDestroy:             testAccCheckNetappstoragePoolDestroyProducer(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccNetappStoragePool_storagePoolCreateExample(context),
+				Config: testAccNetappstoragePool_storagePoolCreateExample(context),
 			},
 			{
 				ResourceName:            "google_netapp_storage_pool.test_pool",
@@ -55,7 +55,7 @@ func TestAccNetappStoragePool_storagePoolCreateExample(t *testing.T) {
 	})
 }
 
-func testAccNetappStoragePool_storagePoolCreateExample(context map[string]interface{}) string {
+func testAccNetappstoragePool_storagePoolCreateExample(context map[string]interface{}) string {
 	return acctest.Nprintf(`
 # Create a network or use datasource to reference existing network
 resource "google_compute_network" "peering_network" {
@@ -103,7 +103,7 @@ resource "google_netapp_storage_pool" "test_pool" {
 `, context)
 }
 
-func testAccCheckNetappStoragePoolDestroyProducer(t *testing.T) func(s *terraform.State) error {
+func testAccCheckNetappstoragePoolDestroyProducer(t *testing.T) func(s *terraform.State) error {
 	return func(s *terraform.State) error {
 		for name, rs := range s.RootModule().Resources {
 			if rs.Type != "google_netapp_storage_pool" {
@@ -134,7 +134,7 @@ func testAccCheckNetappStoragePoolDestroyProducer(t *testing.T) func(s *terrafor
 				UserAgent: config.UserAgent,
 			})
 			if err == nil {
-				return fmt.Errorf("NetappStoragePool still exists at %s", url)
+				return fmt.Errorf("NetappstoragePool still exists at %s", url)
 			}
 		}
 

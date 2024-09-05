@@ -33,15 +33,15 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/verify"
 )
 
-func ResourceNetappStoragePool() *schema.Resource {
+func ResourceNetappstoragePool() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceNetappStoragePoolCreate,
-		Read:   resourceNetappStoragePoolRead,
-		Update: resourceNetappStoragePoolUpdate,
-		Delete: resourceNetappStoragePoolDelete,
+		Create: resourceNetappstoragePoolCreate,
+		Read:   resourceNetappstoragePoolRead,
+		Update: resourceNetappstoragePoolUpdate,
+		Delete: resourceNetappstoragePoolDelete,
 
 		Importer: &schema.ResourceImporter{
-			State: resourceNetappStoragePoolImport,
+			State: resourceNetappstoragePoolImport,
 		},
 
 		Timeouts: &schema.ResourceTimeout{
@@ -161,7 +161,7 @@ using security identifiers for NFSv4.1 or principal names for kerberized NFSv4.1
 	}
 }
 
-func resourceNetappStoragePoolCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappstoragePoolCreate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -169,49 +169,49 @@ func resourceNetappStoragePoolCreate(d *schema.ResourceData, meta interface{}) e
 	}
 
 	obj := make(map[string]interface{})
-	serviceLevelProp, err := expandNetappStoragePoolServiceLevel(d.Get("service_level"), d, config)
+	serviceLevelProp, err := expandNetappstoragePoolServiceLevel(d.Get("service_level"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("service_level"); !tpgresource.IsEmptyValue(reflect.ValueOf(serviceLevelProp)) && (ok || !reflect.DeepEqual(v, serviceLevelProp)) {
 		obj["serviceLevel"] = serviceLevelProp
 	}
-	capacityGibProp, err := expandNetappStoragePoolCapacityGib(d.Get("capacity_gib"), d, config)
+	capacityGibProp, err := expandNetappstoragePoolCapacityGib(d.Get("capacity_gib"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("capacity_gib"); !tpgresource.IsEmptyValue(reflect.ValueOf(capacityGibProp)) && (ok || !reflect.DeepEqual(v, capacityGibProp)) {
 		obj["capacityGib"] = capacityGibProp
 	}
-	descriptionProp, err := expandNetappStoragePoolDescription(d.Get("description"), d, config)
+	descriptionProp, err := expandNetappstoragePoolDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(descriptionProp)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	networkProp, err := expandNetappStoragePoolNetwork(d.Get("network"), d, config)
+	networkProp, err := expandNetappstoragePoolNetwork(d.Get("network"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("network"); !tpgresource.IsEmptyValue(reflect.ValueOf(networkProp)) && (ok || !reflect.DeepEqual(v, networkProp)) {
 		obj["network"] = networkProp
 	}
-	activeDirectoryProp, err := expandNetappStoragePoolActiveDirectory(d.Get("active_directory"), d, config)
+	activeDirectoryProp, err := expandNetappstoragePoolActiveDirectory(d.Get("active_directory"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("active_directory"); !tpgresource.IsEmptyValue(reflect.ValueOf(activeDirectoryProp)) && (ok || !reflect.DeepEqual(v, activeDirectoryProp)) {
 		obj["activeDirectory"] = activeDirectoryProp
 	}
-	kmsConfigProp, err := expandNetappStoragePoolKmsConfig(d.Get("kms_config"), d, config)
+	kmsConfigProp, err := expandNetappstoragePoolKmsConfig(d.Get("kms_config"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("kms_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(kmsConfigProp)) && (ok || !reflect.DeepEqual(v, kmsConfigProp)) {
 		obj["kmsConfig"] = kmsConfigProp
 	}
-	ldapEnabledProp, err := expandNetappStoragePoolLdapEnabled(d.Get("ldap_enabled"), d, config)
+	ldapEnabledProp, err := expandNetappstoragePoolLdapEnabled(d.Get("ldap_enabled"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("ldap_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(ldapEnabledProp)) && (ok || !reflect.DeepEqual(v, ldapEnabledProp)) {
 		obj["ldapEnabled"] = ldapEnabledProp
 	}
-	labelsProp, err := expandNetappStoragePoolEffectiveLabels(d.Get("effective_labels"), d, config)
+	labelsProp, err := expandNetappstoragePoolEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
@@ -223,12 +223,12 @@ func resourceNetappStoragePoolCreate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	log.Printf("[DEBUG] Creating new StoragePool: %#v", obj)
+	log.Printf("[DEBUG] Creating new storagePool: %#v", obj)
 	billingProject := ""
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for StoragePool: %s", err)
+		return fmt.Errorf("Error fetching project for storagePool: %s", err)
 	}
 	billingProject = project
 
@@ -249,7 +249,7 @@ func resourceNetappStoragePoolCreate(d *schema.ResourceData, meta interface{}) e
 		Headers:   headers,
 	})
 	if err != nil {
-		return fmt.Errorf("Error creating StoragePool: %s", err)
+		return fmt.Errorf("Error creating storagePool: %s", err)
 	}
 
 	// Store the ID now
@@ -260,21 +260,21 @@ func resourceNetappStoragePoolCreate(d *schema.ResourceData, meta interface{}) e
 	d.SetId(id)
 
 	err = NetappOperationWaitTime(
-		config, res, project, "Creating StoragePool", userAgent,
+		config, res, project, "Creating storagePool", userAgent,
 		d.Timeout(schema.TimeoutCreate))
 
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-		return fmt.Errorf("Error waiting to create StoragePool: %s", err)
+		return fmt.Errorf("Error waiting to create storagePool: %s", err)
 	}
 
-	log.Printf("[DEBUG] Finished creating StoragePool %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished creating storagePool %q: %#v", d.Id(), res)
 
-	return resourceNetappStoragePoolRead(d, meta)
+	return resourceNetappstoragePoolRead(d, meta)
 }
 
-func resourceNetappStoragePoolRead(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappstoragePoolRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -290,7 +290,7 @@ func resourceNetappStoragePoolRead(d *schema.ResourceData, meta interface{}) err
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for StoragePool: %s", err)
+		return fmt.Errorf("Error fetching project for storagePool: %s", err)
 	}
 	billingProject = project
 
@@ -309,57 +309,57 @@ func resourceNetappStoragePoolRead(d *schema.ResourceData, meta interface{}) err
 		Headers:   headers,
 	})
 	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("NetappStoragePool %q", d.Id()))
+		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("NetappstoragePool %q", d.Id()))
 	}
 
 	if err := d.Set("project", project); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
 
-	if err := d.Set("service_level", flattenNetappStoragePoolServiceLevel(res["serviceLevel"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("service_level", flattenNetappstoragePoolServiceLevel(res["serviceLevel"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("capacity_gib", flattenNetappStoragePoolCapacityGib(res["capacityGib"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("capacity_gib", flattenNetappstoragePoolCapacityGib(res["capacityGib"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("volume_capacity_gib", flattenNetappStoragePoolVolumeCapacityGib(res["volumeCapacityGib"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("volume_capacity_gib", flattenNetappstoragePoolVolumeCapacityGib(res["volumeCapacityGib"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("volume_count", flattenNetappStoragePoolVolumeCount(res["volumeCount"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("volume_count", flattenNetappstoragePoolVolumeCount(res["volumeCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("description", flattenNetappStoragePoolDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("description", flattenNetappstoragePoolDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("labels", flattenNetappStoragePoolLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("labels", flattenNetappstoragePoolLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("network", flattenNetappStoragePoolNetwork(res["network"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("network", flattenNetappstoragePoolNetwork(res["network"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("active_directory", flattenNetappStoragePoolActiveDirectory(res["activeDirectory"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("active_directory", flattenNetappstoragePoolActiveDirectory(res["activeDirectory"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("kms_config", flattenNetappStoragePoolKmsConfig(res["kmsConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("kms_config", flattenNetappstoragePoolKmsConfig(res["kmsConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("ldap_enabled", flattenNetappStoragePoolLdapEnabled(res["ldapEnabled"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("ldap_enabled", flattenNetappstoragePoolLdapEnabled(res["ldapEnabled"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("encryption_type", flattenNetappStoragePoolEncryptionType(res["encryptionType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("encryption_type", flattenNetappstoragePoolEncryptionType(res["encryptionType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("terraform_labels", flattenNetappStoragePoolTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("terraform_labels", flattenNetappstoragePoolTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
-	if err := d.Set("effective_labels", flattenNetappStoragePoolEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading StoragePool: %s", err)
+	if err := d.Set("effective_labels", flattenNetappstoragePoolEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading storagePool: %s", err)
 	}
 
 	return nil
 }
 
-func resourceNetappStoragePoolUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappstoragePoolUpdate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -370,30 +370,30 @@ func resourceNetappStoragePoolUpdate(d *schema.ResourceData, meta interface{}) e
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for StoragePool: %s", err)
+		return fmt.Errorf("Error fetching project for storagePool: %s", err)
 	}
 	billingProject = project
 
 	obj := make(map[string]interface{})
-	capacityGibProp, err := expandNetappStoragePoolCapacityGib(d.Get("capacity_gib"), d, config)
+	capacityGibProp, err := expandNetappstoragePoolCapacityGib(d.Get("capacity_gib"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("capacity_gib"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, capacityGibProp)) {
 		obj["capacityGib"] = capacityGibProp
 	}
-	descriptionProp, err := expandNetappStoragePoolDescription(d.Get("description"), d, config)
+	descriptionProp, err := expandNetappstoragePoolDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	activeDirectoryProp, err := expandNetappStoragePoolActiveDirectory(d.Get("active_directory"), d, config)
+	activeDirectoryProp, err := expandNetappstoragePoolActiveDirectory(d.Get("active_directory"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("active_directory"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, activeDirectoryProp)) {
 		obj["activeDirectory"] = activeDirectoryProp
 	}
-	labelsProp, err := expandNetappStoragePoolEffectiveLabels(d.Get("effective_labels"), d, config)
+	labelsProp, err := expandNetappstoragePoolEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
@@ -405,7 +405,7 @@ func resourceNetappStoragePoolUpdate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	log.Printf("[DEBUG] Updating StoragePool %q: %#v", d.Id(), obj)
+	log.Printf("[DEBUG] Updating storagePool %q: %#v", d.Id(), obj)
 	headers := make(http.Header)
 	updateMask := []string{}
 
@@ -515,13 +515,13 @@ func resourceNetappStoragePoolUpdate(d *schema.ResourceData, meta interface{}) e
 		})
 
 		if err != nil {
-			return fmt.Errorf("Error updating StoragePool %q: %s", d.Id(), err)
+			return fmt.Errorf("Error updating storagePool %q: %s", d.Id(), err)
 		} else {
-			log.Printf("[DEBUG] Finished updating StoragePool %q: %#v", d.Id(), res)
+			log.Printf("[DEBUG] Finished updating storagePool %q: %#v", d.Id(), res)
 		}
 
 		err = NetappOperationWaitTime(
-			config, res, project, "Updating StoragePool", userAgent,
+			config, res, project, "Updating storagePool", userAgent,
 			d.Timeout(schema.TimeoutUpdate))
 
 		if err != nil {
@@ -529,10 +529,10 @@ func resourceNetappStoragePoolUpdate(d *schema.ResourceData, meta interface{}) e
 		}
 	}
 
-	return resourceNetappStoragePoolRead(d, meta)
+	return resourceNetappstoragePoolRead(d, meta)
 }
 
-func resourceNetappStoragePoolDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappstoragePoolDelete(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -543,7 +543,7 @@ func resourceNetappStoragePoolDelete(d *schema.ResourceData, meta interface{}) e
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for StoragePool: %s", err)
+		return fmt.Errorf("Error fetching project for storagePool: %s", err)
 	}
 	billingProject = project
 
@@ -561,7 +561,7 @@ func resourceNetappStoragePoolDelete(d *schema.ResourceData, meta interface{}) e
 
 	headers := make(http.Header)
 
-	log.Printf("[DEBUG] Deleting StoragePool %q", d.Id())
+	log.Printf("[DEBUG] Deleting storagePool %q", d.Id())
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "DELETE",
@@ -573,22 +573,22 @@ func resourceNetappStoragePoolDelete(d *schema.ResourceData, meta interface{}) e
 		Headers:   headers,
 	})
 	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, "StoragePool")
+		return transport_tpg.HandleNotFoundError(err, d, "storagePool")
 	}
 
 	err = NetappOperationWaitTime(
-		config, res, project, "Deleting StoragePool", userAgent,
+		config, res, project, "Deleting storagePool", userAgent,
 		d.Timeout(schema.TimeoutDelete))
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] Finished deleting StoragePool %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished deleting storagePool %q: %#v", d.Id(), res)
 	return nil
 }
 
-func resourceNetappStoragePoolImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceNetappstoragePoolImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	config := meta.(*transport_tpg.Config)
 	if err := tpgresource.ParseImportId([]string{
 		"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/storagePools/(?P<name>[^/]+)$",
@@ -608,19 +608,19 @@ func resourceNetappStoragePoolImport(d *schema.ResourceData, meta interface{}) (
 	return []*schema.ResourceData{d}, nil
 }
 
-func flattenNetappStoragePoolServiceLevel(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolServiceLevel(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolCapacityGib(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolCapacityGib(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolVolumeCapacityGib(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolVolumeCapacityGib(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolVolumeCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolVolumeCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
 		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
@@ -637,11 +637,11 @@ func flattenNetappStoragePoolVolumeCount(v interface{}, d *schema.ResourceData, 
 	return v // let terraform core handle it otherwise
 }
 
-func flattenNetappStoragePoolDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
 	}
@@ -656,27 +656,27 @@ func flattenNetappStoragePoolLabels(v interface{}, d *schema.ResourceData, confi
 	return transformed
 }
 
-func flattenNetappStoragePoolNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolActiveDirectory(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolActiveDirectory(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolKmsConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolKmsConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolLdapEnabled(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolLdapEnabled(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolEncryptionType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolEncryptionType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappStoragePoolTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
 	}
@@ -691,39 +691,39 @@ func flattenNetappStoragePoolTerraformLabels(v interface{}, d *schema.ResourceDa
 	return transformed
 }
 
-func flattenNetappStoragePoolEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappstoragePoolEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func expandNetappStoragePoolServiceLevel(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolServiceLevel(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolCapacityGib(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolCapacityGib(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolActiveDirectory(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolActiveDirectory(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolKmsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolKmsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolLdapEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappstoragePoolLdapEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappStoragePoolEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
+func expandNetappstoragePoolEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
 	if v == nil {
 		return map[string]string{}, nil
 	}

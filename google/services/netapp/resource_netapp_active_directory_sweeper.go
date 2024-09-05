@@ -15,12 +15,12 @@ import (
 )
 
 func init() {
-	sweeper.AddTestSweepers("NetappActiveDirectory", testSweepNetappActiveDirectory)
+	sweeper.AddTestSweepers("NetappactiveDirectory", testSweepNetappactiveDirectory)
 }
 
 // At the time of writing, the CI only passes us-central1 as the region
-func testSweepNetappActiveDirectory(region string) error {
-	resourceName := "NetappActiveDirectory"
+func testSweepNetappactiveDirectory(region string) error {
+	resourceName := "NetappactiveDirectory"
 	log.Printf("[INFO][SWEEPER_LOG] Starting sweeper for %s", resourceName)
 
 	config, err := sweeper.SharedConfigForRegion(region)

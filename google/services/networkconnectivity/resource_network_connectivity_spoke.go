@@ -181,15 +181,6 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 								Type: schema.TypeString,
 							},
 						},
-						"include_export_ranges": {
-							Type:        schema.TypeList,
-							Optional:    true,
-							ForceNew:    true,
-							Description: `IP ranges allowed to be included from peering.`,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
 					},
 				},
 				ConflictsWith: []string{"linked_interconnect_attachments", "linked_router_appliance_instances", "linked_vpn_tunnels"},
@@ -774,8 +765,6 @@ func flattenNetworkConnectivitySpokeLinkedVpcNetwork(v interface{}, d *schema.Re
 		flattenNetworkConnectivitySpokeLinkedVpcNetworkUri(original["uri"], d, config)
 	transformed["exclude_export_ranges"] =
 		flattenNetworkConnectivitySpokeLinkedVpcNetworkExcludeExportRanges(original["excludeExportRanges"], d, config)
-	transformed["include_export_ranges"] =
-		flattenNetworkConnectivitySpokeLinkedVpcNetworkIncludeExportRanges(original["includeExportRanges"], d, config)
 	return []interface{}{transformed}
 }
 func flattenNetworkConnectivitySpokeLinkedVpcNetworkUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -783,10 +772,6 @@ func flattenNetworkConnectivitySpokeLinkedVpcNetworkUri(v interface{}, d *schema
 }
 
 func flattenNetworkConnectivitySpokeLinkedVpcNetworkExcludeExportRanges(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	return v
-}
-
-func flattenNetworkConnectivitySpokeLinkedVpcNetworkIncludeExportRanges(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -987,13 +972,6 @@ func expandNetworkConnectivitySpokeLinkedVpcNetwork(v interface{}, d tpgresource
 		transformed["excludeExportRanges"] = transformedExcludeExportRanges
 	}
 
-	transformedIncludeExportRanges, err := expandNetworkConnectivitySpokeLinkedVpcNetworkIncludeExportRanges(original["include_export_ranges"], d, config)
-	if err != nil {
-		return nil, err
-	} else if val := reflect.ValueOf(transformedIncludeExportRanges); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-		transformed["includeExportRanges"] = transformedIncludeExportRanges
-	}
-
 	return transformed, nil
 }
 
@@ -1002,10 +980,6 @@ func expandNetworkConnectivitySpokeLinkedVpcNetworkUri(v interface{}, d tpgresou
 }
 
 func expandNetworkConnectivitySpokeLinkedVpcNetworkExcludeExportRanges(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	return v, nil
-}
-
-func expandNetworkConnectivitySpokeLinkedVpcNetworkIncludeExportRanges(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

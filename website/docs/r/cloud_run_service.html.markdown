@@ -811,14 +811,15 @@ The following arguments are supported:
   Structure is [documented below](#nested_empty_dir).
 
 * `csi` -
-  (Optional)
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
   A filesystem specified by the Container Storage Interface (CSI).
   Structure is [documented below](#nested_csi).
 
 * `nfs` -
-  (Optional)
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
   A filesystem backed by a Network File System share. This filesystem requires the
-  run.googleapis.com/execution-environment annotation to be unset or set to "gen2"
+  run.googleapis.com/execution-environment annotation to be set to "gen2" and
+  run.googleapis.com/launch-stage set to "BETA" or "ALPHA".
   Structure is [documented below](#nested_nfs).
 
 
@@ -890,7 +891,8 @@ The following arguments are supported:
   (Required)
   Unique name representing the type of file system to be created. Cloud Run supports the following values:
     * gcsfuse.run.googleapis.com: Mount a Google Cloud Storage bucket using GCSFuse. This driver requires the
-      run.googleapis.com/execution-environment annotation to be unset or set to "gen2"
+      run.googleapis.com/execution-environment annotation to be set to "gen2" and
+      run.googleapis.com/launch-stage set to "BETA" or "ALPHA".
 
 * `read_only` -
   (Optional)

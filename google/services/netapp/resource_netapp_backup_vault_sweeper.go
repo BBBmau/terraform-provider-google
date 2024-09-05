@@ -15,12 +15,12 @@ import (
 )
 
 func init() {
-	sweeper.AddTestSweepers("NetappBackupVault", testSweepNetappBackupVault)
+	sweeper.AddTestSweepers("NetappbackupVault", testSweepNetappbackupVault)
 }
 
 // At the time of writing, the CI only passes us-central1 as the region
-func testSweepNetappBackupVault(region string) error {
-	resourceName := "NetappBackupVault"
+func testSweepNetappbackupVault(region string) error {
+	resourceName := "NetappbackupVault"
 	log.Printf("[INFO][SWEEPER_LOG] Starting sweeper for %s", resourceName)
 
 	config, err := sweeper.SharedConfigForRegion(region)

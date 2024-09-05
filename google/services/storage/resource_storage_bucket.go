@@ -709,8 +709,7 @@ func resourceStorageBucketCreate(d *schema.ResourceData, meta interface{}) error
 			res, err = insertCall.Do()
 			return err
 		},
-		Timeout:              d.Timeout(schema.TimeoutCreate),
-		ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.Is429RetryableQuotaError},
+		Timeout: d.Timeout(schema.TimeoutCreate),
 	})
 
 	if err != nil {

@@ -32,15 +32,15 @@ import (
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 )
 
-func ResourceNetappBackup() *schema.Resource {
+func ResourceNetappbackup() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceNetappBackupCreate,
-		Read:   resourceNetappBackupRead,
-		Update: resourceNetappBackupUpdate,
-		Delete: resourceNetappBackupDelete,
+		Create: resourceNetappbackupCreate,
+		Read:   resourceNetappbackupRead,
+		Update: resourceNetappbackupUpdate,
+		Delete: resourceNetappbackupDelete,
 
 		Importer: &schema.ResourceImporter{
-			State: resourceNetappBackupImport,
+			State: resourceNetappbackupImport,
 		},
 
 		Timeouts: &schema.ResourceTimeout{
@@ -153,7 +153,7 @@ Total size of all backups in a chain in bytes = baseline backup size + sum(incre
 	}
 }
 
-func resourceNetappBackupCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupCreate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -161,25 +161,25 @@ func resourceNetappBackupCreate(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	obj := make(map[string]interface{})
-	descriptionProp, err := expandNetappBackupDescription(d.Get("description"), d, config)
+	descriptionProp, err := expandNetappbackupDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(descriptionProp)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	sourceVolumeProp, err := expandNetappBackupSourceVolume(d.Get("source_volume"), d, config)
+	sourceVolumeProp, err := expandNetappbackupSourceVolume(d.Get("source_volume"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("source_volume"); !tpgresource.IsEmptyValue(reflect.ValueOf(sourceVolumeProp)) && (ok || !reflect.DeepEqual(v, sourceVolumeProp)) {
 		obj["sourceVolume"] = sourceVolumeProp
 	}
-	sourceSnapshotProp, err := expandNetappBackupSourceSnapshot(d.Get("source_snapshot"), d, config)
+	sourceSnapshotProp, err := expandNetappbackupSourceSnapshot(d.Get("source_snapshot"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("source_snapshot"); !tpgresource.IsEmptyValue(reflect.ValueOf(sourceSnapshotProp)) && (ok || !reflect.DeepEqual(v, sourceSnapshotProp)) {
 		obj["sourceSnapshot"] = sourceSnapshotProp
 	}
-	labelsProp, err := expandNetappBackupEffectiveLabels(d.Get("effective_labels"), d, config)
+	labelsProp, err := expandNetappbackupEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
@@ -191,12 +191,12 @@ func resourceNetappBackupCreate(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	log.Printf("[DEBUG] Creating new Backup: %#v", obj)
+	log.Printf("[DEBUG] Creating new backup: %#v", obj)
 	billingProject := ""
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for Backup: %s", err)
+		return fmt.Errorf("Error fetching project for backup: %s", err)
 	}
 	billingProject = project
 
@@ -217,7 +217,7 @@ func resourceNetappBackupCreate(d *schema.ResourceData, meta interface{}) error 
 		Headers:   headers,
 	})
 	if err != nil {
-		return fmt.Errorf("Error creating Backup: %s", err)
+		return fmt.Errorf("Error creating backup: %s", err)
 	}
 
 	// Store the ID now
@@ -228,21 +228,21 @@ func resourceNetappBackupCreate(d *schema.ResourceData, meta interface{}) error 
 	d.SetId(id)
 
 	err = NetappOperationWaitTime(
-		config, res, project, "Creating Backup", userAgent,
+		config, res, project, "Creating backup", userAgent,
 		d.Timeout(schema.TimeoutCreate))
 
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-		return fmt.Errorf("Error waiting to create Backup: %s", err)
+		return fmt.Errorf("Error waiting to create backup: %s", err)
 	}
 
-	log.Printf("[DEBUG] Finished creating Backup %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished creating backup %q: %#v", d.Id(), res)
 
-	return resourceNetappBackupRead(d, meta)
+	return resourceNetappbackupRead(d, meta)
 }
 
-func resourceNetappBackupRead(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -258,7 +258,7 @@ func resourceNetappBackupRead(d *schema.ResourceData, meta interface{}) error {
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for Backup: %s", err)
+		return fmt.Errorf("Error fetching project for backup: %s", err)
 	}
 	billingProject = project
 
@@ -277,51 +277,51 @@ func resourceNetappBackupRead(d *schema.ResourceData, meta interface{}) error {
 		Headers:   headers,
 	})
 	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("NetappBackup %q", d.Id()))
+		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("Netappbackup %q", d.Id()))
 	}
 
 	if err := d.Set("project", project); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
 
-	if err := d.Set("state", flattenNetappBackupState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("state", flattenNetappbackupState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("description", flattenNetappBackupDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("description", flattenNetappbackupDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("volume_usage_bytes", flattenNetappBackupVolumeUsageBytes(res["volumeUsageBytes"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("volume_usage_bytes", flattenNetappbackupVolumeUsageBytes(res["volumeUsageBytes"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("backup_type", flattenNetappBackupBackupType(res["backupType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("backup_type", flattenNetappbackupBackupType(res["backupType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("source_volume", flattenNetappBackupSourceVolume(res["sourceVolume"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("source_volume", flattenNetappbackupSourceVolume(res["sourceVolume"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("create_time", flattenNetappBackupCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("create_time", flattenNetappbackupCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("labels", flattenNetappBackupLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("labels", flattenNetappbackupLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("chain_storage_bytes", flattenNetappBackupChainStorageBytes(res["chainStorageBytes"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("chain_storage_bytes", flattenNetappbackupChainStorageBytes(res["chainStorageBytes"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("source_snapshot", flattenNetappBackupSourceSnapshot(res["sourceSnapshot"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("source_snapshot", flattenNetappbackupSourceSnapshot(res["sourceSnapshot"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("terraform_labels", flattenNetappBackupTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("terraform_labels", flattenNetappbackupTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
-	if err := d.Set("effective_labels", flattenNetappBackupEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Backup: %s", err)
+	if err := d.Set("effective_labels", flattenNetappbackupEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading backup: %s", err)
 	}
 
 	return nil
 }
 
-func resourceNetappBackupUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupUpdate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -332,24 +332,24 @@ func resourceNetappBackupUpdate(d *schema.ResourceData, meta interface{}) error 
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for Backup: %s", err)
+		return fmt.Errorf("Error fetching project for backup: %s", err)
 	}
 	billingProject = project
 
 	obj := make(map[string]interface{})
-	descriptionProp, err := expandNetappBackupDescription(d.Get("description"), d, config)
+	descriptionProp, err := expandNetappbackupDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	sourceSnapshotProp, err := expandNetappBackupSourceSnapshot(d.Get("source_snapshot"), d, config)
+	sourceSnapshotProp, err := expandNetappbackupSourceSnapshot(d.Get("source_snapshot"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("source_snapshot"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, sourceSnapshotProp)) {
 		obj["sourceSnapshot"] = sourceSnapshotProp
 	}
-	labelsProp, err := expandNetappBackupEffectiveLabels(d.Get("effective_labels"), d, config)
+	labelsProp, err := expandNetappbackupEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
@@ -361,7 +361,7 @@ func resourceNetappBackupUpdate(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	log.Printf("[DEBUG] Updating Backup %q: %#v", d.Id(), obj)
+	log.Printf("[DEBUG] Updating backup %q: %#v", d.Id(), obj)
 	headers := make(http.Header)
 	updateMask := []string{}
 
@@ -402,13 +402,13 @@ func resourceNetappBackupUpdate(d *schema.ResourceData, meta interface{}) error 
 		})
 
 		if err != nil {
-			return fmt.Errorf("Error updating Backup %q: %s", d.Id(), err)
+			return fmt.Errorf("Error updating backup %q: %s", d.Id(), err)
 		} else {
-			log.Printf("[DEBUG] Finished updating Backup %q: %#v", d.Id(), res)
+			log.Printf("[DEBUG] Finished updating backup %q: %#v", d.Id(), res)
 		}
 
 		err = NetappOperationWaitTime(
-			config, res, project, "Updating Backup", userAgent,
+			config, res, project, "Updating backup", userAgent,
 			d.Timeout(schema.TimeoutUpdate))
 
 		if err != nil {
@@ -416,10 +416,10 @@ func resourceNetappBackupUpdate(d *schema.ResourceData, meta interface{}) error 
 		}
 	}
 
-	return resourceNetappBackupRead(d, meta)
+	return resourceNetappbackupRead(d, meta)
 }
 
-func resourceNetappBackupDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceNetappbackupDelete(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
@@ -430,7 +430,7 @@ func resourceNetappBackupDelete(d *schema.ResourceData, meta interface{}) error 
 
 	project, err := tpgresource.GetProject(d, config)
 	if err != nil {
-		return fmt.Errorf("Error fetching project for Backup: %s", err)
+		return fmt.Errorf("Error fetching project for backup: %s", err)
 	}
 	billingProject = project
 
@@ -448,7 +448,7 @@ func resourceNetappBackupDelete(d *schema.ResourceData, meta interface{}) error 
 
 	headers := make(http.Header)
 
-	log.Printf("[DEBUG] Deleting Backup %q", d.Id())
+	log.Printf("[DEBUG] Deleting backup %q", d.Id())
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "DELETE",
@@ -460,22 +460,22 @@ func resourceNetappBackupDelete(d *schema.ResourceData, meta interface{}) error 
 		Headers:   headers,
 	})
 	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, "Backup")
+		return transport_tpg.HandleNotFoundError(err, d, "backup")
 	}
 
 	err = NetappOperationWaitTime(
-		config, res, project, "Deleting Backup", userAgent,
+		config, res, project, "Deleting backup", userAgent,
 		d.Timeout(schema.TimeoutDelete))
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[DEBUG] Finished deleting Backup %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished deleting backup %q: %#v", d.Id(), res)
 	return nil
 }
 
-func resourceNetappBackupImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceNetappbackupImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	config := meta.(*transport_tpg.Config)
 	if err := tpgresource.ParseImportId([]string{
 		"^projects/(?P<project>[^/]+)/locations/(?P<location>[^/]+)/backupVaults/(?P<vault_name>[^/]+)/backups/(?P<name>[^/]+)$",
@@ -495,31 +495,31 @@ func resourceNetappBackupImport(d *schema.ResourceData, meta interface{}) ([]*sc
 	return []*schema.ResourceData{d}, nil
 }
 
-func flattenNetappBackupState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupVolumeUsageBytes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupVolumeUsageBytes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupBackupType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupBackupType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupSourceVolume(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupSourceVolume(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
 	}
@@ -534,15 +534,15 @@ func flattenNetappBackupLabels(v interface{}, d *schema.ResourceData, config *tr
 	return transformed
 }
 
-func flattenNetappBackupChainStorageBytes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupChainStorageBytes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupSourceSnapshot(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupSourceSnapshot(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func flattenNetappBackupTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
 	}
@@ -557,23 +557,23 @@ func flattenNetappBackupTerraformLabels(v interface{}, d *schema.ResourceData, c
 	return transformed
 }
 
-func flattenNetappBackupEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenNetappbackupEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
-func expandNetappBackupDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappbackupDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappBackupSourceVolume(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappbackupSourceVolume(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappBackupSourceSnapshot(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandNetappbackupSourceSnapshot(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandNetappBackupEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
+func expandNetappbackupEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
 	if v == nil {
 		return map[string]string{}, nil
 	}

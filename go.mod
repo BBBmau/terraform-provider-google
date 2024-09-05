@@ -1,6 +1,8 @@
 module github.com/hashicorp/terraform-provider-google
 
-go 1.21
+go 1.22
+
+toolchain go1.22.0
 
 require (
 	cloud.google.com/go/bigtable v1.30.0
@@ -19,7 +21,7 @@ require (
 	github.com/hashicorp/terraform-json v0.22.1
 	github.com/hashicorp/terraform-plugin-framework v1.7.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.9.0
-	github.com/hashicorp/terraform-plugin-go v0.23.0
+	github.com/hashicorp/terraform-plugin-go v0.23.1-0.20240904211550-7ea64adab752
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-mux v0.15.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.33.0
@@ -37,6 +39,8 @@ require (
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 )
+
+replace github.com/hashicorp/terraform-plugin-framework v1.7.0 => /Users/mau/Dev/terraform-plugin-framework
 
 require (
 	bitbucket.org/creachadair/stringset v0.0.8 // indirect
@@ -73,7 +77,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
 	github.com/hashicorp/go-checkpoint v0.5.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
-	github.com/hashicorp/go-plugin v1.6.0 // indirect
+	github.com/hashicorp/go-plugin v1.6.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hc-install v0.6.4 // indirect
 	github.com/hashicorp/hcl/v2 v2.20.1 // indirect

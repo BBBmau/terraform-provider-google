@@ -30,7 +30,7 @@ import (
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 )
 
-func TestAccNetappActiveDirectory_netappActiveDirectoryFullExample(t *testing.T) {
+func TestAccNetappactiveDirectory_netappActiveDirectoryFullExample(t *testing.T) {
 	t.Parallel()
 
 	context := map[string]interface{}{
@@ -40,10 +40,10 @@ func TestAccNetappActiveDirectory_netappActiveDirectoryFullExample(t *testing.T)
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
-		CheckDestroy:             testAccCheckNetappActiveDirectoryDestroyProducer(t),
+		CheckDestroy:             testAccCheckNetappactiveDirectoryDestroyProducer(t),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccNetappActiveDirectory_netappActiveDirectoryFullExample(context),
+				Config: testAccNetappactiveDirectory_netappActiveDirectoryFullExample(context),
 			},
 			{
 				ResourceName:            "google_netapp_active_directory.test_active_directory_full",
@@ -55,7 +55,7 @@ func TestAccNetappActiveDirectory_netappActiveDirectoryFullExample(t *testing.T)
 	})
 }
 
-func testAccNetappActiveDirectory_netappActiveDirectoryFullExample(context map[string]interface{}) string {
+func testAccNetappactiveDirectory_netappActiveDirectoryFullExample(context map[string]interface{}) string {
 	return acctest.Nprintf(`
 resource "google_netapp_active_directory" "test_active_directory_full" {
     name = "tf-test-test-active-directory-full%{random_suffix}"
@@ -84,7 +84,7 @@ resource "google_netapp_active_directory" "test_active_directory_full" {
 `, context)
 }
 
-func testAccCheckNetappActiveDirectoryDestroyProducer(t *testing.T) func(s *terraform.State) error {
+func testAccCheckNetappactiveDirectoryDestroyProducer(t *testing.T) func(s *terraform.State) error {
 	return func(s *terraform.State) error {
 		for name, rs := range s.RootModule().Resources {
 			if rs.Type != "google_netapp_active_directory" {
@@ -115,7 +115,7 @@ func testAccCheckNetappActiveDirectoryDestroyProducer(t *testing.T) func(s *terr
 				UserAgent: config.UserAgent,
 			})
 			if err == nil {
-				return fmt.Errorf("NetappActiveDirectory still exists at %s", url)
+				return fmt.Errorf("NetappactiveDirectory still exists at %s", url)
 			}
 		}
 
