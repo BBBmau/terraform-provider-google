@@ -1,6 +1,8 @@
 module github.com/hashicorp/terraform-provider-google
 
-go 1.21
+go 1.22.0
+
+toolchain go1.23.2
 
 require (
 	cloud.google.com/go/bigtable v1.31.0
@@ -17,11 +19,11 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/terraform-json v0.22.1
-	github.com/hashicorp/terraform-plugin-framework v1.7.0
+	github.com/hashicorp/terraform-plugin-framework v1.11.1-0.20240813185813-fe2b7dbbdad8
 	github.com/hashicorp/terraform-plugin-framework-validators v0.9.0
-	github.com/hashicorp/terraform-plugin-go v0.23.0
+	github.com/hashicorp/terraform-plugin-go v0.24.1-0.20241003195015-94a6f8ce9ce7
 	github.com/hashicorp/terraform-plugin-log v0.9.0
-	github.com/hashicorp/terraform-plugin-mux v0.15.0
+	github.com/hashicorp/terraform-plugin-mux v0.16.1-0.20241003205859-6d925b328952
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.33.0
 	github.com/hashicorp/terraform-plugin-testing v1.5.1
 	github.com/mitchellh/go-homedir v1.1.0
@@ -34,7 +36,7 @@ require (
 	golang.org/x/oauth2 v0.23.0
 	google.golang.org/api v0.199.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1
-	google.golang.org/grpc v1.67.0
+	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.34.2
 )
 
@@ -73,7 +75,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
 	github.com/hashicorp/go-checkpoint v0.5.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
-	github.com/hashicorp/go-plugin v1.6.0 // indirect
+	github.com/hashicorp/go-plugin v1.6.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hc-install v0.6.4 // indirect
 	github.com/hashicorp/hcl/v2 v2.20.1 // indirect
@@ -119,3 +121,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/hashicorp/terraform-plugin-framework => github.com/hashicorp/terraform-plugin-framework v1.12.1-0.20241003232403-50b570f7d4eb
+
+replace github.com/hashicorp/terraform-plugin-mux => github.com/hashicorp/terraform-plugin-mux v0.16.1-0.20241003205859-6d925b328952
+
+replace github.com/hashicorp/terraform-plugin-go => github.com/hashicorp/terraform-plugin-go v0.24.1-0.20241003195015-94a6f8ce9ce7
