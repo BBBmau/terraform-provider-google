@@ -27,10 +27,6 @@ const val EphemeralWriteOnlyTfCoreVersion = "1.10.0"
 
 fun featureBranchEphemeralWriteOnlySubProject(allConfig: AllContextParameters): Project {
 
-    val projectId = replaceCharsId(featureBranchEphemeralWriteOnly)
-
-    val packageName = "compute" 
-    val vcrConfig = getVcrAcceptanceTestConfig(allConfig) // Reused below for both MM testing build configs
     val trigger  = NightlyTriggerConfiguration(
         branch = "refs/heads/$featureBranchEphemeralWriteOnly" // triggered builds must test the feature branch
     )
@@ -38,40 +34,64 @@ fun featureBranchEphemeralWriteOnlySubProject(allConfig: AllContextParameters): 
 
     // GA
     val gaConfig = getGaAcceptanceTestConfig(allConfig)
-    // How to make only build configuration to the relevant package(s)
-    val resourceManagerPackageGa = ServicesListGa.getValue(packageName)
+    // These are the packages that have resources that will use write-only attributes
+    var ServicesListWriteOnlyGa = mapOf(
+        "compute" to mapOf(
+            "name" to "compute",
+            "displayName" to "Compute",
+            "path" to "./google/services/compute"
+        ),
+        "secretmanager" to mapOf(
+            "name" to "secretmanager",
+            "displayName" to "Secretmanager",
+            "path" to "./google/services/secretmanager"
+        ),
+        "sql" to mapOf(
+            "name" to "sql",
+            "displayName" to "Sql",
+            "path" to "./google/services/sql"
+        ),
+        "bigquery_datatransfer" to mapOf(
+            "name" to "bigquery_datatransfer",
+            "displayName" to "Bigquery Datatransfer",
+            "path" to "./google/services/bigquery_datatransfer"
+        )
+    )
 
-    // Enable testing using hashicorp/terraform-provider-google
-    var parentId = "${projectId}_HC_GA"
-    val buildConfigHashiCorpGa = BuildConfigurationForSinglePackage(packageName, resourceManagerPackageGa.getValue("path"), "Ephemeral Write Only in $packageName (GA provider, HashiCorp downstream)", ProviderNameGa, parentId, HashiCorpVCSRootGa, listOf(SharedResourceNameGa), gaConfig)
-    buildConfigHashiCorpGa.addTrigger(trigger)
-
-    // Enable testing using modular-magician/terraform-provider-google
-    parentId = "${projectId}_MM_GA"
-    val buildConfigModularMagicianGa = BuildConfigurationForSinglePackage(packageName, resourceManagerPackageGa.getValue("path"), "Ephemeral Write Only in $packageName (GA provider, MM upstream)", ProviderNameGa, parentId, ModularMagicianVCSRootGa, listOf(SharedResourceNameVcr), vcrConfig)
-    // No trigger added here (MM upstream is manual only)
+    val projectId = replaceCharsId(featureBranchEphemeralWriteOnly)
+    val buildConfigsGa = BuildConfigurationsForPackages(ServicesListWriteOnlyGa, ProviderNameGa, projectId, HashiCorpVCSRootGa, listOf(SharedResourceNameGa), gaConfig)
 
     // Beta
     val betaConfig = getBetaAcceptanceTestConfig(allConfig)
-    val resourceManagerPackageBeta = ServicesListBeta.getValue(packageName)
-
-    // Enable testing using hashicorp/terraform-provider-google-beta
-    parentId = "${projectId}_HC_BETA"
-    val buildConfigHashiCorpBeta = BuildConfigurationForSinglePackage(packageName, resourceManagerPackageBeta.getValue("path"), "Ephemeral Write Only in $packageName (Beta provider, HashiCorp downstream)", ProviderNameBeta, parentId, HashiCorpVCSRootBeta, listOf(SharedResourceNameBeta), betaConfig)
-    buildConfigHashiCorpBeta.addTrigger(trigger)
-
-    // Enable testing using modular-magician/terraform-provider-google-beta
-    parentId = "${projectId}_MM_BETA"
-    val buildConfigModularMagicianBeta = BuildConfigurationForSinglePackage(packageName, resourceManagerPackageBeta.getValue("path"), "Ephemeral Write Only in $packageName (Beta provider, MM upstream)", ProviderNameBeta, parentId, ModularMagicianVCSRootBeta, listOf(SharedResourceNameVcr), vcrConfig)
-    // No trigger added here (MM upstream is manual only)
-
-
-    // ------
+    var ServicesListWriteOnlyBeta = mapOf(
+        "compute" to mapOf(
+            "name" to "compute",
+            "displayName" to "Compute - Beta",
+            "path" to "./google-beta/services/compute"
+        ),
+        "secretmanager" to mapOf(
+            "name" to "secretmanager",
+            "displayName" to "Secretmanager - Beta",
+            "path" to "./google-beta/services/secretmanager"
+        ),
+        "sql" to mapOf(
+            "name" to "sql",
+            "displayName" to "Sql - Beta",
+            "path" to "./google-beta/services/sql"
+        ),
+        "bigquery_datatransfer" to mapOf(
+            "name" to "bigquery_datatransfer",
+            "displayName" to "Bigquery Datatransfer - Beta",
+            "path" to "./google-beta/services/bigquery_datatransfer"
+        )
+    )
+    val projectIdBeta = replaceCharsId(featureBranchEphemeralWriteOnly + "-beta")
+    val buildConfigsBeta = BuildConfigurationsForPackages(ServicesListWriteOnlyBeta, ProviderNameBeta, projectIdBeta, HashiCorpVCSRootBeta, listOf(SharedResourceNameBeta), betaConfig)
 
     // Make all builds use a 1.10.0-ish version of TF core
-    val allBuildConfigs = listOf(buildConfigHashiCorpGa, buildConfigModularMagicianGa, buildConfigHashiCorpBeta, buildConfigModularMagicianBeta)
-    allBuildConfigs.forEach{ b ->
-        b.overrideTerraformCoreVersion(EphemeralWriteOnlyTfCoreVersion)
+    val allBuildConfigs = buildConfigsGa + buildConfigsBeta
+    allBuildConfigs.forEach{ builds ->
+        builds.overrideTerraformCoreVersion(EphemeralWriteOnlyTfCoreVersion)
     }
 
     // ------
@@ -82,8 +102,8 @@ fun featureBranchEphemeralWriteOnlySubProject(allConfig: AllContextParameters): 
         description = "Subproject for testing feature branch $featureBranchEphemeralWriteOnly"
 
         // Register all build configs in the project
-        allBuildConfigs.forEach{ b ->
-            buildType(b)
+        allBuildConfigs.forEach{ builds ->
+            buildType(builds)
         }
 
         params {
