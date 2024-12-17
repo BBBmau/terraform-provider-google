@@ -24,32 +24,30 @@ fun getServicesList(Services: Array<String>, version: String): Map<String,Map<St
     }
 
     when (version) {
-        "GA" -> return servicesList
+        "GA" -> servicesList
         "Beta" -> {
-            servicesList = servicesList.mapValues { (_, value) ->
+            servicesList.mapValues { (_, value) ->
                 value + mapOf(
-                    "displayName" to "${value["displayName"]} - Beta",
-                    "path" to (value["path"]?.replace("./google/", "./google-beta/") ?: "")
+                        "displayName" to "${value["displayName"]} - Beta"
                 )
             }.toMutableMap()
         }
         "GA-MM" -> {
-            servicesList = servicesList.mapValues { (_, value) ->
+            servicesList.mapValues { (_, value) ->
                 value + mapOf(
-                    "displayName" to "${value["displayName"]} - MM"
+                        "displayName" to "${value["displayName"]} - MM"
                 )
             }.toMutableMap()
         }
         "Beta-MM" -> {
-            servicesList = servicesList.mapValues { (_, value) ->
+            servicesList.mapValues { (_, value) ->
                 value + mapOf(
-                    "displayName" to "${value["displayName"]} - Beta - MM",
-                    "path" to (value["path"]?.replace("./google-beta/", "./google-beta/services/") ?: "")
+                        "displayName" to "${value["displayName"]} - Beta - MM"
                 )
             }.toMutableMap()
         }
         else -> throw Exception("Invalid version $version")
-    }
-    
+    }.also { servicesList = it as MutableMap<String, Map<String, String>> }
+
     return servicesList
 }
