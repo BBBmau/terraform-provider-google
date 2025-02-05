@@ -271,10 +271,18 @@ to a different credential configuration in the config will require an apply to u
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"secret_access_key": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: `The Secret Access Key of the AWS account transferring data from.`,
-							Sensitive:   true,
+							Type:         schema.TypeString,
+							Optional:     true,
+							Description:  `The Secret Access Key of the AWS account transferring data from.`,
+							Sensitive:    true,
+							ExactlyOneOf: []string{"sensitive_params.0.secret_access_key_wo"},
+						},
+						"secret_access_key_wo": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Description:  `The Secret Access Key of the AWS account transferring data from.`,
+							WriteOnly:    true,
+							ExactlyOneOf: []string{"sensitive_params.0.secret_access_key"},
 						},
 					},
 				},
