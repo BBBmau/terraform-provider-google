@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"google.golang.org/api/googleapi"
@@ -2151,7 +2152,7 @@ func expandComputeDiskDiskEncryptionKey(v interface{}, d tpgresource.TerraformRe
 		transformed["rawKey"] = transformedRawKey
 	}
 
-	transformedRawKeyWo, err := expandComputeDiskDiskEncryptionKeyRawKeyWo(original["raw_key_wo"], d, config)
+	transformedRawKeyWo, err := expandComputeDiskDiskEncryptionKeyRawKeyWo(original["raw_key_wo"], d.(*schema.ResourceData), config)
 	if err != nil {
 		return nil, err
 	} else if val := reflect.ValueOf(transformedRawKeyWo); val.IsValid() && !tpgresource.IsEmptyValue(val) {
@@ -2165,7 +2166,7 @@ func expandComputeDiskDiskEncryptionKey(v interface{}, d tpgresource.TerraformRe
 		transformed["rsaEncryptedKey"] = transformedRsaEncryptedKey
 	}
 
-	transformedRsaEncryptedKeyWo, err := expandComputeDiskDiskEncryptionKeyRsaEncryptedKeyWo(original["rsa_encrypted_key_wo"], d, config)
+	transformedRsaEncryptedKeyWo, err := expandComputeDiskDiskEncryptionKeyRsaEncryptedKeyWo(original["rsa_encrypted_key_wo"], d.(*schema.ResourceData), config)
 	if err != nil {
 		return nil, err
 	} else if val := reflect.ValueOf(transformedRsaEncryptedKeyWo); val.IsValid() && !tpgresource.IsEmptyValue(val) {
@@ -2200,16 +2201,22 @@ func expandComputeDiskDiskEncryptionKeyRawKey(v interface{}, d tpgresource.Terra
 	return v, nil
 }
 
-func expandComputeDiskDiskEncryptionKeyRawKeyWo(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	return v, nil
+func expandComputeDiskDiskEncryptionKeyRawKeyWo(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if rawConfig, _ := d.GetRawConfigAt(cty.GetAttrPath("disk_encryption_key").IndexInt(0).GetAttr("raw_key_wo")); !rawConfig.IsNull() {
+		return rawConfig.AsString(), nil
+	}
+	return nil, nil
 }
 
 func expandComputeDiskDiskEncryptionKeyRsaEncryptedKey(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
-func expandComputeDiskDiskEncryptionKeyRsaEncryptedKeyWo(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	return v, nil
+func expandComputeDiskDiskEncryptionKeyRsaEncryptedKeyWo(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if rawConfig, _ := d.GetRawConfigAt(cty.GetAttrPath("disk_encryption_key").IndexInt(0).GetAttr("rsa_encrypted_key_wo")); !rawConfig.IsNull() {
+		return rawConfig.AsString(), nil
+	}
+	return nil, nil
 }
 
 func expandComputeDiskDiskEncryptionKeySha256(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
