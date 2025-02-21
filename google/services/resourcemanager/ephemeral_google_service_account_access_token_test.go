@@ -15,7 +15,7 @@ func TestAccEphemeralServiceAccountToken_basic(t *testing.T) {
 	t.Parallel()
 
 	serviceAccount := envvar.GetTestServiceAccountFromEnv(t)
-	targetServiceAccountEmail := acctest.BootstrapServiceAccount(t, "basic", serviceAccount)
+	targetServiceAccountEmail := acctest.BootstrapServiceAccount(t, "token-basic", serviceAccount)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() { acctest.AccTestPreCheck(t) },
