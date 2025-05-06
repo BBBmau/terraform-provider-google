@@ -131,6 +131,20 @@ func resourceGoogleServiceAccountCreate(d *schema.ResourceData, meta interface{}
 	displayName := d.Get("display_name").(string)
 	description := d.Get("description").(string)
 
+	// identity schema implementation
+	identity, err := d.Identity()
+	if err != nil {
+		return fmt.Errorf("Error getting identity: %s", err)
+	}
+	err = identity.Set("account_id", aid)
+	if err != nil {
+		return fmt.Errorf("Error setting account_id: %s", err)
+	}
+	err = identity.Set("project", project)
+	if err != nil {
+		return fmt.Errorf("Error setting project: %s", err)
+	}
+
 	sa := &iam.ServiceAccount{
 		DisplayName: displayName,
 		Description: description,
