@@ -14,4 +14,3 @@ fields:
   - api_field: 'name'
   - api_field: 'profile'
   - api_field: 'region'
-  - api_field: 'selfLink'

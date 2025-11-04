@@ -13,7 +13,7 @@ fields:
   - api_field: 'name'
   - api_field: 'parentPrefix'
   - api_field: 'publicDelegatedSubPrefixs.allocatablePrefixLength'
-  - api_field: 'publicDelegatedSubPrefixs.delegateeProject'
+  - api_field: 'publicDelegatedSubPrefixs.delegatee_project'
   - api_field: 'publicDelegatedSubPrefixs.description'
   - api_field: 'publicDelegatedSubPrefixs.ipCidrRange'
   - api_field: 'publicDelegatedSubPrefixs.isAddress'
@@ -23,4 +23,3 @@ fields:
   - api_field: 'publicDelegatedSubPrefixs.status'
   - field: 'region'
     provider_only: true
-  - api_field: 'selfLink'

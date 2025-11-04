@@ -46,4 +46,3 @@ fields:
     provider_only: true
   - api_field: 'type'
   - api_field: 'users'
-  - api_field: 'selfLink'

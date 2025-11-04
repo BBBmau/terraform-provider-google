@@ -42,7 +42,6 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/services/binaryauthorization"
 	"github.com/hashicorp/terraform-provider-google/google/services/blockchainnodeengine"
 	"github.com/hashicorp/terraform-provider-google/google/services/certificatemanager"
-	"github.com/hashicorp/terraform-provider-google/google/services/ces"
 	"github.com/hashicorp/terraform-provider-google/google/services/chronicle"
 	"github.com/hashicorp/terraform-provider-google/google/services/cloudasset"
 	"github.com/hashicorp/terraform-provider-google/google/services/cloudbuild"
@@ -57,6 +56,7 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/services/cloudrun"
 	"github.com/hashicorp/terraform-provider-google/google/services/cloudrunv2"
 	"github.com/hashicorp/terraform-provider-google/google/services/cloudscheduler"
+	"github.com/hashicorp/terraform-provider-google/google/services/cloudsecuritycompliance"
 	"github.com/hashicorp/terraform-provider-google/google/services/cloudtasks"
 	"github.com/hashicorp/terraform-provider-google/google/services/colab"
 	"github.com/hashicorp/terraform-provider-google/google/services/composer"
@@ -729,7 +729,6 @@ var generatedResources = map[string]*schema.Resource{
 	"google_certificate_manager_certificate_map_entry":                           certificatemanager.ResourceCertificateManagerCertificateMapEntry(),
 	"google_certificate_manager_dns_authorization":                               certificatemanager.ResourceCertificateManagerDnsAuthorization(),
 	"google_certificate_manager_trust_config":                                    certificatemanager.ResourceCertificateManagerTrustConfig(),
-	"google_ces_app":                                                             ces.ResourceCESApp(),
 	"google_chronicle_data_access_label":                                         chronicle.ResourceChronicleDataAccessLabel(),
 	"google_chronicle_data_access_scope":                                         chronicle.ResourceChronicleDataAccessScope(),
 	"google_chronicle_reference_list":                                            chronicle.ResourceChronicleReferenceList(),
@@ -789,6 +788,8 @@ var generatedResources = map[string]*schema.Resource{
 	"google_cloud_run_v2_worker_pool_iam_member":                                 tpgiamresource.ResourceIamMember(cloudrunv2.CloudRunV2WorkerPoolIamSchema, cloudrunv2.CloudRunV2WorkerPoolIamUpdaterProducer, cloudrunv2.CloudRunV2WorkerPoolIdParseFunc),
 	"google_cloud_run_v2_worker_pool_iam_policy":                                 tpgiamresource.ResourceIamPolicy(cloudrunv2.CloudRunV2WorkerPoolIamSchema, cloudrunv2.CloudRunV2WorkerPoolIamUpdaterProducer, cloudrunv2.CloudRunV2WorkerPoolIdParseFunc),
 	"google_cloud_scheduler_job":                                                 cloudscheduler.ResourceCloudSchedulerJob(),
+	"google_cloud_security_compliance_cloud_control":                             cloudsecuritycompliance.ResourceCloudSecurityComplianceCloudControl(),
+	"google_cloud_security_compliance_framework":                                 cloudsecuritycompliance.ResourceCloudSecurityComplianceFramework(),
 	"google_cloud_tasks_queue":                                                   cloudtasks.ResourceCloudTasksQueue(),
 	"google_cloud_tasks_queue_iam_binding":                                       tpgiamresource.ResourceIamBinding(cloudtasks.CloudTasksQueueIamSchema, cloudtasks.CloudTasksQueueIamUpdaterProducer, cloudtasks.CloudTasksQueueIdParseFunc),
 	"google_cloud_tasks_queue_iam_member":                                        tpgiamresource.ResourceIamMember(cloudtasks.CloudTasksQueueIamSchema, cloudtasks.CloudTasksQueueIamUpdaterProducer, cloudtasks.CloudTasksQueueIdParseFunc),
@@ -1341,7 +1342,6 @@ var generatedResources = map[string]*schema.Resource{
 	"google_network_services_lb_route_extension":                                 networkservices.ResourceNetworkServicesLbRouteExtension(),
 	"google_network_services_lb_traffic_extension":                               networkservices.ResourceNetworkServicesLbTrafficExtension(),
 	"google_network_services_mesh":                                               networkservices.ResourceNetworkServicesMesh(),
-	"google_network_services_multicast_domain":                                   networkservices.ResourceNetworkServicesMulticastDomain(),
 	"google_network_services_service_binding":                                    networkservices.ResourceNetworkServicesServiceBinding(),
 	"google_network_services_tcp_route":                                          networkservices.ResourceNetworkServicesTcpRoute(),
 	"google_network_services_tls_route":                                          networkservices.ResourceNetworkServicesTlsRoute(),
@@ -1723,7 +1723,6 @@ func UseGeneratedProducts() {
 	var _ = binaryauthorization.ProductName
 	var _ = blockchainnodeengine.ProductName
 	var _ = certificatemanager.ProductName
-	var _ = ces.ProductName
 	var _ = chronicle.ProductName
 	var _ = cloudasset.ProductName
 	var _ = cloudbuild.ProductName
@@ -1738,6 +1737,7 @@ func UseGeneratedProducts() {
 	var _ = cloudrun.ProductName
 	var _ = cloudrunv2.ProductName
 	var _ = cloudscheduler.ProductName
+	var _ = cloudsecuritycompliance.ProductName
 	var _ = cloudtasks.ProductName
 	var _ = colab.ProductName
 	var _ = composer.ProductName

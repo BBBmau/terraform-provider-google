@@ -15,4 +15,3 @@ fields:
   - api_field: 'requestPath'
   - api_field: 'timeoutSec'
   - api_field: 'unhealthyThreshold'
-  - api_field: 'selfLink'

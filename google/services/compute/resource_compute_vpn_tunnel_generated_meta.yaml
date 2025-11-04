@@ -42,4 +42,3 @@ fields:
     field: 'tunnel_id'
   - api_field: 'vpnGateway'
   - api_field: 'vpnGatewayInterface'
-  - api_field: 'selfLink'

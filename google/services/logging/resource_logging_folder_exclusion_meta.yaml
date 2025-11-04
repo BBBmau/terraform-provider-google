@@ -6,8 +6,8 @@ api_resource_type_kind: 'LogExclusion'
 api_variant_patterns:
   - 'folders/{folder}/exclusions/{exclusion}'
 fields:
-  - api_field: 'description'
-  - api_field: 'disabled'
-  - api_field: 'filter'
+  - field: 'description'
+  - field: 'disabled'
+  - field: 'filter'
   - field: 'folder'
-  - api_field: 'name'
+  - field: 'name'

@@ -14,4 +14,3 @@ fields:
   - api_field: 'name'
   - api_field: 'subjectAlternativeNames'
   - api_field: 'type'
-  - api_field: 'selfLink'

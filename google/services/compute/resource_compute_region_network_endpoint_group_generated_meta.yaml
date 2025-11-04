@@ -21,4 +21,3 @@ fields:
   - api_field: 'pscTargetService'
   - api_field: 'region'
   - api_field: 'subnetwork'
-  - api_field: 'selfLink'

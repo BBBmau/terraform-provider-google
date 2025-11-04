@@ -115,4 +115,3 @@ fields:
   - api_field: 'strongSessionAffinityCookie.ttl.nanos'
   - api_field: 'strongSessionAffinityCookie.ttl.seconds'
   - api_field: 'timeoutSec'
-  - api_field: 'selfLink'
