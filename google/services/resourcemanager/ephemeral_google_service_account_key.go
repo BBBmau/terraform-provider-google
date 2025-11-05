@@ -20,6 +20,7 @@ package resourcemanager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 
@@ -145,6 +146,10 @@ func (p *googleEphemeralServiceAccountKey) Configure(ctx context.Context, req ep
 	p.providerConfig = pd
 }
 
+type ServiceAccountKeyPrivateData struct {
+	Name string `json:"name"`
+}
+
 func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemeral.OpenRequest, resp *ephemeral.OpenResponse) {
 	var data ephemeralServiceAccountKeyModel
 	var err error
@@ -211,6 +216,10 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 		)
 		return
 	}
+	fmt.Printf("[DEBUG] Setting Service Account Key name %q\n", getSak.Name)
+	marshalledName, _ := json.Marshal(ServiceAccountKeyPrivateData{Name: data.Name.ValueString()})
+
+	resp.Private.SetKey(ctx, "name", marshalledName)
 
 	data.Name = types.StringValue(getSak.Name)
 	data.KeyAlgorithm = types.StringValue(getSak.KeyAlgorithm)
@@ -225,20 +234,22 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 }
 
 func (p *googleEphemeralServiceAccountKey) Close(ctx context.Context, req ephemeral.CloseRequest, resp *ephemeral.CloseResponse) {
-	serviceAccountKeyName, err := req.Private.GetKey(ctx, "name")
-	fmt.Printf("[DEBUG] Deleting Service Account Key %q\n", serviceAccountKeyName)
-	if err != nil {
+	serviceAccountKeyName, diags := req.Private.GetKey(ctx, "name")
+	if diags.HasError() {
 		resp.Diagnostics.AddError(
 			"Error getting private key",
-			fmt.Sprintf("Error getting private key: %s", err),
+			fmt.Sprintf("Error getting private key: %s", diags.Errors()),
 		)
 		return
 	}
-	deletion, _ := p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Delete(string(serviceAccountKeyName)).Do()
-	if deletion != nil {
+	var nameData ServiceAccountKeyPrivateData
+	json.Unmarshal(serviceAccountKeyName, &nameData)
+	fmt.Printf("[DEBUG] Deleting Service Account Key %q\n", nameData.Name)
+	_, err := p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Delete(nameData.Name).Do()
+	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting Service Account Key",
-			fmt.Sprintf("Error deleting Service Account Key %q: %s", string(serviceAccountKeyName), err),
+			fmt.Sprintf("Error deleting Service Account Key %q: %s", nameData.Name, err),
 		)
 		return
 	}
