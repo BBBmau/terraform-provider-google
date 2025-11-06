@@ -50,6 +50,25 @@ func ResourceCloudSecurityComplianceFramework() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"organization": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"framework_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"framework_id": {
 				Type:     schema.TypeString,
@@ -355,6 +374,29 @@ func resourceCloudSecurityComplianceFrameworkRead(d *schema.ResourceData, meta i
 		return fmt.Errorf("Error reading Framework: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err != nil && identity != nil {
+		if v, ok := identity.GetOk("organization"); ok && v != "" {
+			err = identity.Set("organization", d.Get("organization").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting organization: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); ok && v != "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("framework_id"); ok && v != "" {
+			err = identity.Set("framework_id", d.Get("framework_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting framework_id: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] identity not set: %s", err)
+	}
 	return nil
 }
 

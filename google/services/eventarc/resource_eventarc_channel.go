@@ -52,9 +52,29 @@ func ResourceEventarcChannel() *schema.Resource {
 		},
 
 		CustomizeDiff: customdiff.All(
+			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
@@ -75,6 +95,15 @@ func ResourceEventarcChannel() *schema.Resource {
 				DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
 				Description:      `Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt their event data. It must match the pattern 'projects/*/locations/*/keyRings/*/cryptoKeys/*'.`,
 			},
+			"labels": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Description: `User-defined labels for the channel.
+
+**Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+Please refer to the field 'effective_labels' for all of the labels present on the resource.`,
+				Elem: &schema.Schema{Type: schema.TypeString},
+			},
 			"third_party_provider": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -91,6 +120,12 @@ func ResourceEventarcChannel() *schema.Resource {
 				Computed:    true,
 				Description: `The creation time.`,
 			},
+			"effective_labels": {
+				Type:        schema.TypeMap,
+				Computed:    true,
+				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
 			"pubsub_topic": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -100,6 +135,13 @@ func ResourceEventarcChannel() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: `The state of a Channel.`,
+			},
+			"terraform_labels": {
+				Type:     schema.TypeMap,
+				Computed: true,
+				Description: `The combination of labels configured directly on the resource
+ and default labels configured on the provider.`,
+				Elem: &schema.Schema{Type: schema.TypeString},
 			},
 			"uid": {
 				Type:        schema.TypeString,
@@ -147,6 +189,12 @@ func resourceEventarcChannelCreate(d *schema.ResourceData, meta interface{}) err
 		return err
 	} else if v, ok := d.GetOkExists("crypto_key_name"); !tpgresource.IsEmptyValue(reflect.ValueOf(cryptoKeyNameProp)) && (ok || !reflect.DeepEqual(v, cryptoKeyNameProp)) {
 		obj["cryptoKeyName"] = cryptoKeyNameProp
+	}
+	effectiveLabelsProp, err := expandEventarcChannelEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVarsForId(d, config, "{{EventarcBasePath}}projects/{{project}}/locations/{{location}}/channels?channelId={{name}}")
@@ -252,6 +300,9 @@ func resourceEventarcChannelRead(d *schema.ResourceData, meta interface{}) error
 	if err := d.Set("name", flattenEventarcChannelName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Channel: %s", err)
 	}
+	if err := d.Set("labels", flattenEventarcChannelLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Channel: %s", err)
+	}
 	if err := d.Set("uid", flattenEventarcChannelUid(res["uid"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Channel: %s", err)
 	}
@@ -276,7 +327,36 @@ func resourceEventarcChannelRead(d *schema.ResourceData, meta interface{}) error
 	if err := d.Set("crypto_key_name", flattenEventarcChannelCryptoKeyName(res["cryptoKeyName"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Channel: %s", err)
 	}
+	if err := d.Set("terraform_labels", flattenEventarcChannelTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Channel: %s", err)
+	}
+	if err := d.Set("effective_labels", flattenEventarcChannelEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Channel: %s", err)
+	}
 
+	identity, err := d.Identity()
+	if err != nil && identity != nil {
+		if v, ok := identity.GetOk("name"); ok && v != "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); ok && v != "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); ok && v != "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] identity not set: %s", err)
+	}
 	return nil
 }
 
@@ -302,6 +382,12 @@ func resourceEventarcChannelUpdate(d *schema.ResourceData, meta interface{}) err
 	} else if v, ok := d.GetOkExists("crypto_key_name"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, cryptoKeyNameProp)) {
 		obj["cryptoKeyName"] = cryptoKeyNameProp
 	}
+	effectiveLabelsProp, err := expandEventarcChannelEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
+	}
 
 	url, err := tpgresource.ReplaceVarsForId(d, config, "{{EventarcBasePath}}projects/{{project}}/locations/{{location}}/channels/{{name}}")
 	if err != nil {
@@ -314,6 +400,10 @@ func resourceEventarcChannelUpdate(d *schema.ResourceData, meta interface{}) err
 
 	if d.HasChange("crypto_key_name") {
 		updateMask = append(updateMask, "cryptoKeyName")
+	}
+
+	if d.HasChange("effective_labels") {
+		updateMask = append(updateMask, "labels")
 	}
 	// updateMask is a URL parameter but not present in the schema, so ReplaceVars
 	// won't set it
@@ -440,6 +530,21 @@ func flattenEventarcChannelName(v interface{}, d *schema.ResourceData, config *t
 	return d.Get("name")
 }
 
+func flattenEventarcChannelLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+
+	transformed := make(map[string]interface{})
+	if l, ok := d.GetOkExists("labels"); ok {
+		for k := range l.(map[string]interface{}) {
+			transformed[k] = v.(map[string]interface{})[k]
+		}
+	}
+
+	return transformed
+}
+
 func flattenEventarcChannelUid(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -472,6 +577,25 @@ func flattenEventarcChannelCryptoKeyName(v interface{}, d *schema.ResourceData, 
 	return v
 }
 
+func flattenEventarcChannelTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+
+	transformed := make(map[string]interface{})
+	if l, ok := d.GetOkExists("terraform_labels"); ok {
+		for k := range l.(map[string]interface{}) {
+			transformed[k] = v.(map[string]interface{})[k]
+		}
+	}
+
+	return transformed
+}
+
+func flattenEventarcChannelEffectiveLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func expandEventarcChannelName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return expandToRegionalLongForm("projects/%s/locations/%s/channels/%s", v, d, config)
 }
@@ -482,4 +606,15 @@ func expandEventarcChannelThirdPartyProvider(v interface{}, d tpgresource.Terraf
 
 func expandEventarcChannelCryptoKeyName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func expandEventarcChannelEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
+	if v == nil {
+		return map[string]string{}, nil
+	}
+	m := make(map[string]string)
+	for k, val := range v.(map[string]interface{}) {
+		m[k] = val.(string)
+	}
+	return m, nil
 }
