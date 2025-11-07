@@ -23,8 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-
-	sdkSchema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/ephemeralvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -60,7 +59,7 @@ type ephemeralServiceAccountKeyModel struct {
 	Name             types.String `tfsdk:"name"`
 	PublicKeyType    types.String `tfsdk:"public_key_type"`
 	KeyAlgorithm     types.String `tfsdk:"key_algorithm"`
-	PublicKey        types.String `tfsdk:"public_key"`
+	PublicKeyData    types.String `tfsdk:"public_key_data"`
 	PrivateKey       types.String `tfsdk:"private_key"`
 	PrivateKeyType   types.String `tfsdk:"private_key_type"`
 }
@@ -68,11 +67,11 @@ type ephemeralServiceAccountKeyModel struct {
 func (p *googleEphemeralServiceAccountKey) ConfigValidators(ctx context.Context) []ephemeral.ConfigValidator {
 	return []ephemeral.ConfigValidator{
 		ephemeralvalidator.Conflicting(
-			path.MatchRoot("public_key"),
+			path.MatchRoot("public_key_data"),
 			path.MatchRoot("private_key_type"),
 		),
 		ephemeralvalidator.Conflicting(
-			path.MatchRoot("public_key"),
+			path.MatchRoot("public_key_data"),
 			path.MatchRoot("key_algorithm"),
 		),
 		ephemeralvalidator.AtLeastOneOf(
@@ -93,6 +92,7 @@ func (p *googleEphemeralServiceAccountKey) Schema(ctx context.Context, req ephem
 			"name": schema.StringAttribute{
 				Description: "The name of the service account key. This must have format `projects/{PROJECT_ID}/serviceAccounts/{ACCOUNT}/keys/{KEYID}`, where `{ACCOUNT}` is the email address or unique id of the service account.",
 				Optional:    true,
+				Computed:    true,
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(
 						regexp.MustCompile(verify.ServiceAccountKeyNameRegex),
@@ -114,10 +114,9 @@ func (p *googleEphemeralServiceAccountKey) Schema(ctx context.Context, req ephem
 				Optional:    true,
 				Computed:    true,
 			},
-			"public_key": schema.StringAttribute{
+			"public_key_data": schema.StringAttribute{
 				Description: "The public key, base64 encoded.",
 				Optional:    true,
-				Computed:    true,
 			},
 			"private_key": schema.StringAttribute{
 				Description: "The private key, base64 encoded.",
@@ -170,21 +169,21 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 	}
 
 	var serviceAccountName string
-	if data.ServiceAccountId.ValueString() != "" {
-		d := &sdkSchema.ResourceData{}
-		serviceAccountName, err = tpgresource.ServiceAccountFQN(
-			data.ServiceAccountId.ValueString(),
-			d,
-			p.providerConfig,
+	serviceAccountName, err = tpgresource.ServiceAccountFQN(data.ServiceAccountId.ValueString(), nil, p.providerConfig)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting service account name",
+			fmt.Sprintf("Error getting service account name: %s", err),
 		)
-	} else {
-		serviceAccountName = data.Name.ValueString()
+		return
 	}
+	fmt.Printf("[DEBUG] Service Account Name %q\n", serviceAccountName)
+
 	var serviceAccountKey *iam.ServiceAccountKey
 	createdServiceAccountKey = false
-	if data.PublicKey.ValueString() != "" && data.PublicKeyType.ValueString() != "" && !data.FetchKey.ValueBool() {
+	if data.PublicKeyData.ValueString() != "" {
 		ru := &iam.UploadServiceAccountKeyRequest{
-			PublicKeyData: data.PublicKey.ValueString(),
+			PublicKeyData: data.PublicKeyData.ValueString(),
 		}
 		serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Upload(serviceAccountName, ru).Do()
 		if err != nil {
@@ -195,17 +194,21 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 			return
 		}
 		createdServiceAccountKey = true
-	} else if data.KeyAlgorithm.ValueString() != "" && data.PrivateKeyType.ValueString() != "" && data.PublicKeyType.ValueString() != "" {
-		rc := &iam.CreateServiceAccountKeyRequest{
-			KeyAlgorithm:   data.KeyAlgorithm.ValueString(),
-			PrivateKeyType: data.PrivateKeyType.ValueString(),
+	} else if !data.FetchKey.ValueBool() {
+		var keyAlgorithm, privateKeyType string
+		if data.PrivateKeyType.ValueString() == "" {
+			privateKeyType = "TYPE_GOOGLE_CREDENTIALS_FILE"
+		} else {
+			privateKeyType = data.PrivateKeyType.ValueString()
 		}
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error getting service account name",
-				fmt.Sprintf("Error getting service account name: %s", err),
-			)
-			return
+		if data.KeyAlgorithm.ValueString() == "" {
+			keyAlgorithm = "KEY_ALG_RSA_2048"
+		} else {
+			keyAlgorithm = data.KeyAlgorithm.ValueString()
+		}
+		rc := &iam.CreateServiceAccountKeyRequest{
+			KeyAlgorithm:   keyAlgorithm,
+			PrivateKeyType: privateKeyType,
 		}
 		serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Create(serviceAccountName, rc).Do()
 		if err != nil {
@@ -226,11 +229,12 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 			publicKeyType = data.PublicKeyType.ValueString()
 		}
 		data.PublicKeyType = types.StringValue(publicKeyType)
-		serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Get(serviceAccountName).PublicKeyType(publicKeyType).Do()
+		fmt.Printf("[DEBUG] Retrieving Service Account Key %q\n", serviceAccountKey.Name)
+		err = ServiceAccountKeyWaitTime(p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys, serviceAccountKey.Name, publicKeyType, "Retrieving Service account key", 4*time.Minute)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error retrieving Service Account Key",
-				fmt.Sprintf("Error retrieving Service Account Key %q: %s", serviceAccountName, err),
+				fmt.Sprintf("Error retrieving Service Account Key %q: %s", serviceAccountKey.Name, err),
 			)
 			return
 		}
@@ -243,7 +247,6 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 
 		data.Name = types.StringValue(serviceAccountKey.Name)
 		data.KeyAlgorithm = types.StringValue(serviceAccountKey.KeyAlgorithm)
-		data.PublicKey = types.StringValue(serviceAccountKey.PublicKeyData)
 		data.PrivateKey = types.StringValue(serviceAccountKey.PrivateKeyData)
 		data.PrivateKeyType = types.StringValue(serviceAccountKey.PrivateKeyType)
 	}
