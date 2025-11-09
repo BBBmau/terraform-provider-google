@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"time"
 
@@ -102,6 +103,7 @@ func (p *googleEphemeralServiceAccountKey) Schema(ctx context.Context, req ephem
 			"public_key_type": schema.StringAttribute{
 				Description: "The output format of the public key requested. TYPE_X509_PEM_FILE is the default output format.",
 				Optional:    true,
+				Computed:    true,
 				Validators: []validator.String{
 					stringvalidator.OneOf(
 						"TYPE_X509_PEM_FILE",
@@ -167,58 +169,59 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	var serviceAccountName string
-	serviceAccountName, err = tpgresource.ServiceAccountFQN(data.ServiceAccountId.ValueString(), nil, p.providerConfig)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting service account name",
-			fmt.Sprintf("Error getting service account name: %s", err),
-		)
-		return
-	}
-	fmt.Printf("[DEBUG] Service Account Name %q\n", serviceAccountName)
-
 	var serviceAccountKey *iam.ServiceAccountKey
-	createdServiceAccountKey = false
-	if data.PublicKeyData.ValueString() != "" {
-		ru := &iam.UploadServiceAccountKeyRequest{
-			PublicKeyData: data.PublicKeyData.ValueString(),
-		}
-		serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Upload(serviceAccountName, ru).Do()
+
+	if !data.FetchKey.ValueBool() {
+		var serviceAccountName string
+		serviceAccountName, err = tpgresource.ServiceAccountFQN(data.ServiceAccountId.ValueString(), nil, p.providerConfig)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error creating service account key",
-				fmt.Sprintf("Error creating service account key: %s", err),
+				"Error getting service account name",
+				fmt.Sprintf("Error getting service account name: %s", err),
 			)
 			return
 		}
-		createdServiceAccountKey = true
-	} else if !data.FetchKey.ValueBool() {
-		var keyAlgorithm, privateKeyType string
-		if data.PrivateKeyType.ValueString() == "" {
-			privateKeyType = "TYPE_GOOGLE_CREDENTIALS_FILE"
+
+		createdServiceAccountKey = false
+		if data.PublicKeyData.ValueString() != "" {
+			ru := &iam.UploadServiceAccountKeyRequest{
+				PublicKeyData: data.PublicKeyData.ValueString(),
+			}
+			serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Upload(serviceAccountName, ru).Do()
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error creating service account key",
+					fmt.Sprintf("Error creating service account key: %s", err),
+				)
+				return
+			}
+			createdServiceAccountKey = true
 		} else {
-			privateKeyType = data.PrivateKeyType.ValueString()
+			var keyAlgorithm, privateKeyType string
+			if data.PrivateKeyType.ValueString() == "" {
+				privateKeyType = "TYPE_GOOGLE_CREDENTIALS_FILE"
+			} else {
+				privateKeyType = data.PrivateKeyType.ValueString()
+			}
+			if data.KeyAlgorithm.ValueString() == "" {
+				keyAlgorithm = "KEY_ALG_RSA_2048"
+			} else {
+				keyAlgorithm = data.KeyAlgorithm.ValueString()
+			}
+			rc := &iam.CreateServiceAccountKeyRequest{
+				KeyAlgorithm:   keyAlgorithm,
+				PrivateKeyType: privateKeyType,
+			}
+			serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Create(serviceAccountName, rc).Do()
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error creating service account key",
+					fmt.Sprintf("Error creating service account key: %s", err),
+				)
+				return
+			}
+			createdServiceAccountKey = true
 		}
-		if data.KeyAlgorithm.ValueString() == "" {
-			keyAlgorithm = "KEY_ALG_RSA_2048"
-		} else {
-			keyAlgorithm = data.KeyAlgorithm.ValueString()
-		}
-		rc := &iam.CreateServiceAccountKeyRequest{
-			KeyAlgorithm:   keyAlgorithm,
-			PrivateKeyType: privateKeyType,
-		}
-		serviceAccountKey, err = p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Create(serviceAccountName, rc).Do()
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error creating service account key",
-				fmt.Sprintf("Error creating service account key: %s", err),
-			)
-			return
-		}
-		createdServiceAccountKey = true
 	}
 	var publicKeyType string
 	if !createdServiceAccountKey && !retrievedServiceAccountKey {
@@ -229,18 +232,28 @@ func (p *googleEphemeralServiceAccountKey) Open(ctx context.Context, req ephemer
 			publicKeyType = data.PublicKeyType.ValueString()
 		}
 		data.PublicKeyType = types.StringValue(publicKeyType)
-		fmt.Printf("[DEBUG] Retrieving Service Account Key %q\n", serviceAccountKey.Name)
-		err = ServiceAccountKeyWaitTime(p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys, serviceAccountKey.Name, publicKeyType, "Retrieving Service account key", 4*time.Minute)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error retrieving Service Account Key",
-				fmt.Sprintf("Error retrieving Service Account Key %q: %s", serviceAccountKey.Name, err),
-			)
-			return
+		if serviceAccountKey != nil {
+			log.Printf("[DEBUG] Retrieving Service Account Key %q\n", serviceAccountKey.Name)
+			err = ServiceAccountKeyWaitTime(p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys, serviceAccountKey.Name, publicKeyType, "Retrieving Service account key", 4*time.Minute)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error retrieving Service Account Key",
+					fmt.Sprintf("Error retrieving Service Account Key %q: %s", serviceAccountKey.Name, err),
+				)
+				return
+			}
+		} else {
+			err = ServiceAccountKeyWaitTime(p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys, data.Name.ValueString(), publicKeyType, "Retrieving Service account key", 4*time.Minute)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error retrieving Service Account Key",
+					fmt.Sprintf("Error retrieving Service Account Key %q: %s", serviceAccountKey.Name, err),
+				)
+				return
+			}
 		}
 	}
 	if serviceAccountKey != nil {
-		fmt.Printf("[DEBUG] Setting Service Account Key name %q\n", serviceAccountKey.Name)
 		marshalledName, _ := json.Marshal(ServiceAccountKeyPrivateData{Name: serviceAccountKey.Name})
 
 		resp.Private.SetKey(ctx, "name", marshalledName)
@@ -268,7 +281,7 @@ func (p *googleEphemeralServiceAccountKey) Close(ctx context.Context, req epheme
 	}
 	var nameData ServiceAccountKeyPrivateData
 	json.Unmarshal(serviceAccountKeyName, &nameData)
-	fmt.Printf("[DEBUG] Deleting Service Account Key %q\n", nameData.Name)
+	log.Printf("[DEBUG] Deleting Service Account Key %q\n", nameData.Name)
 	_, err := p.providerConfig.NewIamClient(p.providerConfig.UserAgent).Projects.ServiceAccounts.Keys.Delete(nameData.Name).Do()
 	if err != nil && err.(*googleapi.Error).Code != 404 {
 		resp.Diagnostics.AddError(
