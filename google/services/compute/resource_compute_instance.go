@@ -24,15 +24,21 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/terraform-plugin-framework/list"
+	listschema "github.com/hashicorp/terraform-plugin-framework/list/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	"github.com/mitchellh/hashstructure"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
@@ -225,6 +231,203 @@ func ValidateInstanceMetadata(i interface{}, k string) ([]string, []error) {
 	return warnings, nil
 }
 
+var _ tpgresource.ListResourceWithRawV5Schemas = &ComputeInstanceListResource{}
+
+type ComputeInstanceListResource struct {
+	tpgresource.ListResourceMetadata
+}
+
+func NewComputeInstanceListResource() list.ListResource {
+	return &ComputeInstanceListResource{}
+}
+
+func (r *ComputeInstanceListResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "google_compute_instance"
+}
+
+func (r *ComputeInstanceListResource) RawV5Schemas(ctx context.Context, _ list.RawV5SchemaRequest, resp *list.RawV5SchemaResponse) {
+	computeInstance := ResourceComputeInstance()
+	resp.ProtoV5Schema = computeInstance.ProtoSchema(ctx)()
+	resp.ProtoV5IdentitySchema = computeInstance.ProtoIdentitySchema(ctx)()
+}
+
+func (r *ComputeInstanceListResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	r.Defaults(req, resp)
+}
+
+func (r *ComputeInstanceListResource) ListResourceConfigSchema(ctx context.Context, _ list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
+	resp.Schema = listschema.Schema{
+		Attributes: map[string]listschema.Attribute{
+			"project": listschema.StringAttribute{
+				Optional: true,
+			},
+			"zone": listschema.StringAttribute{
+				Optional: true,
+			},
+		},
+	}
+}
+
+type ComputeInstanceListModel struct {
+	Project types.String `tfsdk:"project"`
+	Zone    types.String `tfsdk:"zone"`
+}
+
+func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {
+	var data ComputeInstanceListModel
+	diags := req.Config.Get(ctx, &data)
+	if diags.HasError() {
+		stream.Results = list.ListResultsStreamDiagnostics(diags)
+		return
+	}
+	var project string
+	if !data.Project.IsNull() && !data.Project.IsUnknown() {
+		project = data.Project.ValueString()
+	}
+	if project == "" {
+		project = r.Client.Project
+	}
+	r.Client.Project = project
+
+	var zone string
+	if !data.Zone.IsNull() && !data.Zone.IsUnknown() {
+		zone = data.Zone.ValueString()
+	}
+	if zone == "" {
+		zone = r.Client.Zone
+	}
+
+	stream.Results = func(push func(list.ListResult) bool) {
+		computeInstanceResource := ResourceComputeInstance()
+		rd := computeInstanceResource.Data(&terraform.InstanceState{})
+		rd.Set("project", project)
+		rd.Set("zone", zone)
+		err := ListInstances(ctx, rd, r.Client, func(item interface{}) error {
+			result := req.NewListResult(ctx)
+			result.DisplayName = item.(map[string]interface{})["name"].(string)
+			rd.SetId(result.DisplayName)
+			rd.Set("name", result.DisplayName)
+
+			identity, err := rd.Identity()
+			if err != nil {
+				return fmt.Errorf("Error getting identity: %s", err)
+			}
+			err = identity.Set("name", result.DisplayName)
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+			err = identity.Set("zone", zone)
+			if err != nil {
+				return fmt.Errorf("Error setting zone: %s", err)
+			}
+			err = identity.Set("project", r.Client.Project)
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+			tfTypeIdentity, err := rd.TfTypeIdentityState()
+			if err != nil {
+				return err
+			}
+			if err := result.Identity.Set(ctx, *tfTypeIdentity); err != nil {
+				return errors.New("error setting identity")
+			}
+			tfTypeResource, err := rd.TfTypeResourceState()
+			if err != nil {
+				return err
+			}
+			if err := result.Resource.Set(ctx, *tfTypeResource); err != nil {
+				return errors.New("error setting resource")
+			}
+			if !push(result) {
+				return errors.New("stream closed")
+			}
+			return nil
+		})
+		if err != nil {
+			diags.AddError("API Error", err.Error())
+		}
+		stream.Results = list.ListResultsStreamDiagnostics(diags)
+	}
+}
+
+func ListInstances(ctx context.Context, rd *schema.ResourceData, config *transport_tpg.Config, callback func(interface{}) error) error {
+	url, err := tpgresource.ReplaceVars(rd, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
+	if err != nil {
+		return err
+	}
+
+	billingProject := ""
+
+	if parts := regexp.MustCompile(`projects\/([^\/]+)\/`).FindStringSubmatch(url); parts != nil {
+		billingProject = parts[1]
+	}
+
+	// err == nil indicates that the billing_project value was found
+	if bp, err := tpgresource.GetBillingProject(rd, config); err == nil {
+		billingProject = bp
+	}
+
+	userAgent, err := tpgresource.GenerateUserAgentString(rd, config.UserAgent)
+	if err != nil {
+		return err
+	}
+
+	params := make(map[string]string)
+	if v, ok := rd.GetOk("filter"); ok {
+		params["filter"] = v.(string)
+	}
+
+	for {
+		// Depending on previous iterations, params might contain a pageToken param
+		url, err = transport_tpg.AddQueryParams(url, params)
+		if err != nil {
+			return err
+		}
+		log.Printf("url: %s\n", url)
+
+		headers := make(http.Header)
+		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+			Config:    config,
+			Method:    "GET",
+			Project:   billingProject,
+			RawURL:    url,
+			UserAgent: userAgent,
+			Headers:   headers,
+			// ErrorRetryPredicates used to allow retrying if rate limits are hit when requesting multiple pages in a row
+			ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.Is429RetryableQuotaError},
+		})
+		if err != nil {
+			return transport_tpg.HandleNotFoundError(err, rd, fmt.Sprintf("Instances %q", rd.Id()))
+		}
+
+		// we need to figure out what to do here since this is where we get the response from the LIST API
+		// Store info from this page
+
+		// this currently works because we use the callback for every
+		if v, ok := res["items"].([]interface{}); ok {
+			for _, item := range v {
+				// We'll need to flatten this
+				// no point in adding the flatten as part of the callback function
+				err = callback(item)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		// ------------------------------------------------------------------------------------------------
+
+		// Handle pagination for next loop, or break loop
+		v, ok := res["nextPageToken"]
+		if ok {
+			params["pageToken"] = v.(string)
+		}
+		if !ok {
+			break
+		}
+	}
+	return nil
+}
+
 func ResourceComputeInstance() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceComputeInstanceCreate,
@@ -244,6 +447,25 @@ func ResourceComputeInstance() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"zone": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		// A compute instance is more or less a superset of a compute instance
 		// template. Please attempt to maintain consistency with the
 		// resource_compute_instance_template schema when updating this one.
@@ -1833,6 +2055,25 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 		}
 	}
 
+	identity, err := d.Identity()
+	if err != nil {
+		return fmt.Errorf("Error getting identity: %s", err)
+	}
+	if identity != nil {
+		err = identity.Set("name", d.Get("name").(string))
+		if err != nil {
+			return fmt.Errorf("Error setting name: %s", err)
+		}
+		err = identity.Set("zone", zone.Name)
+		if err != nil {
+			return fmt.Errorf("Error setting zone: %s", err)
+		}
+		err = identity.Set("project", project)
+		if err != nil {
+			return fmt.Errorf("Error setting project: %s", err)
+		}
+	}
+
 	return resourceComputeInstanceRead(d, meta)
 }
 
@@ -2122,7 +2363,24 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 	}
 
 	d.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance.Name))
-
+	identity, err := d.Identity()
+	if err != nil {
+		return fmt.Errorf("Error getting identity: %s", err)
+	}
+	if identity != nil {
+		err = identity.Set("name", d.Get("name").(string))
+		if err != nil {
+			return fmt.Errorf("Error setting name: %s", err)
+		}
+		err = identity.Set("zone", zone)
+		if err != nil {
+			return fmt.Errorf("Error setting zone: %s", err)
+		}
+		err = identity.Set("project", project)
+		if err != nil {
+			return fmt.Errorf("Error setting project: %s", err)
+		}
+	}
 	return nil
 }
 
@@ -2966,6 +3224,25 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 	// We made it, disable partial mode
 	d.Partial(false)
+
+	identity, err := d.Identity()
+	if err != nil {
+		return fmt.Errorf("Error getting identity: %s", err)
+	}
+	if identity != nil {
+		err = identity.Set("name", d.Get("name").(string))
+		if err != nil {
+			return fmt.Errorf("Error setting name: %s", err)
+		}
+		err = identity.Set("zone", zone)
+		if err != nil {
+			return fmt.Errorf("Error setting zone: %s", err)
+		}
+		err = identity.Set("project", project)
+		if err != nil {
+			return fmt.Errorf("Error setting project: %s", err)
+		}
+	}
 
 	return resourceComputeInstanceRead(d, meta)
 }

@@ -103,6 +103,17 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"org": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"org": {
 				Type:        schema.TypeString,
@@ -311,6 +322,17 @@ func resourceApigeeAddonsConfigRead(d *schema.ResourceData, meta interface{}) er
 		return fmt.Errorf("Error reading AddonsConfig: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err != nil && identity != nil {
+		if v, ok := identity.GetOk("org"); ok && v != "" {
+			err = identity.Set("org", d.Get("org").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting org: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] identity not set: %s", err)
+	}
 	return nil
 }
 

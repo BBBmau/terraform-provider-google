@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/metaschema"
@@ -51,6 +52,7 @@ var (
 	_ provider.ProviderWithMetaSchema         = &FrameworkProvider{}
 	_ provider.ProviderWithFunctions          = &FrameworkProvider{}
 	_ provider.ProviderWithEphemeralResources = &FrameworkProvider{}
+	_ provider.ProviderWithListResources      = &FrameworkProvider{}
 )
 
 // New is a helper function to simplify provider server and testing implementation.
@@ -1249,6 +1251,7 @@ func (p *FrameworkProvider) Configure(ctx context.Context, req provider.Configur
 	resp.DataSourceData = meta
 	resp.ResourceData = meta
 	resp.EphemeralResourceData = meta
+	resp.ListResourceData = meta
 }
 
 // DataSources defines the data sources implemented in the provider.
@@ -1289,4 +1292,15 @@ func (p *FrameworkProvider) EphemeralResources(_ context.Context) []func() ephem
 		resourcemanager.GoogleEphemeralServiceAccountKey,
 		secretmanager.GoogleEphemeralSecretManagerSecretVersion,
 	}
+}
+
+func (p *FrameworkProvider) ListResources(_ context.Context) []func() list.ListResource {
+	var listResources []func() list.ListResource
+	for _, lr := range generatedListResources {
+		listResources = append(listResources, func() list.ListResource { return lr })
+	}
+	for _, lr := range handwrittenListResources {
+		listResources = append(listResources, func() list.ListResource { return lr })
+	}
+	return listResources
 }
