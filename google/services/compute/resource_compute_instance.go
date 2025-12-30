@@ -1879,7 +1879,6 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config) error {
 	instance, err := getInstance(config, d)
 	if err != nil || instance == nil {
-		log.Printf("line 1882: %s", err)
 		return err
 	}
 
@@ -1887,6 +1886,8 @@ func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config
 	if err != nil {
 		return err
 	}
+
+	zone := tpgresource.GetResourceNameFromSelfLink(instance.Zone)
 
 	md := flattenMetadataBeta(instance.Metadata)
 
@@ -1901,7 +1902,7 @@ func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config
 		delete(md, "startup-script")
 	}
 
-	if err = d.Set("metadata", md); err != nil {
+	if err := d.Set("metadata", md); err != nil {
 		return fmt.Errorf("Error setting metadata: %s", err)
 	}
 
@@ -2077,8 +2078,6 @@ func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config
 			ads = append(ads, d)
 		}
 	}
-
-	zone := tpgresource.GetResourceNameFromSelfLink(instance.Zone)
 
 	if err := d.Set("service_account", flattenServiceAccounts(instance.ServiceAccounts)); err != nil {
 		return fmt.Errorf("Error setting service_account: %s", err)

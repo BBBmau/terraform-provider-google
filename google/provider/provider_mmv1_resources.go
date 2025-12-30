@@ -178,6 +178,7 @@ import (
 
 // Datasources
 var handwrittenDatasources = map[string]*schema.Resource{
+	"google_compute_instances": compute.DataSourceGoogleComputeInstances(),
 	// ####### START handwritten datasources ###########
 	"google_access_approval_folder_service_account":              accessapproval.DataSourceAccessApprovalFolderServiceAccount(),
 	"google_access_approval_organization_service_account":        accessapproval.DataSourceAccessApprovalOrganizationServiceAccount(),
