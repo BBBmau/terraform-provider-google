@@ -2,6 +2,7 @@ package compute
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"google.golang.org/api/compute/v1"
 )
 
 var _ tpgresource.ListResourceWithRawV5Schemas = &ComputeInstanceListResource{}
@@ -98,10 +100,24 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 		// })
 		err := ListInstances(ctx, rd, r.Client, func(item interface{}) error {
 			result := req.NewListResult(ctx)
-			result.DisplayName = item.(map[string]interface{})["name"].(string)
+			// Convert the map item to compute.Instance struct
+			itemMap := item.(map[string]interface{})
+			itemJSON, err := json.Marshal(itemMap)
+			if err != nil {
+				result.Diagnostics.AddError("Error marshaling instance item", err.Error())
+				return err
+			}
+
+			var instance compute.Instance
+			if err := json.Unmarshal(itemJSON, &instance); err != nil {
+				result.Diagnostics.AddError("Error unmarshaling instance", err.Error())
+				return err
+			}
+
+			result.DisplayName = instance.Name
 			rd.Set("name", result.DisplayName)
-			// flatten
-			if err := flattenComputeInstance(rd, r.Client); err != nil {
+			// flatten using the instance from the LIST call
+			if err := flattenComputeInstanceData(rd, r.Client, &instance); err != nil {
 				result.Diagnostics.AddError("Error flattening instance: %s", err.Error())
 				return err
 			}

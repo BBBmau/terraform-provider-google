@@ -1874,12 +1874,11 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 	return resourceComputeInstanceRead(d, meta)
 }
 
-// flattenComputeInstance flattens the entire compute instance resource into the ResourceData.
-// This function is designed to be reusable across resource read, list resources, and data sources.
-func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config) error {
-	instance, err := getInstance(config, d)
-	if err != nil || instance == nil {
-		return err
+// flattenComputeInstanceData flattens the instance data into the ResourceData.
+// This is the core flattening logic that works with an already-fetched instance.
+func flattenComputeInstanceData(d *schema.ResourceData, config *transport_tpg.Config, instance *compute.Instance) error {
+	if instance == nil {
+		return fmt.Errorf("instance is nil")
 	}
 
 	project, err := tpgresource.GetProject(d, config)
@@ -2162,6 +2161,17 @@ func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config
 	d.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance.Name))
 
 	return nil
+}
+
+// flattenComputeInstance flattens the entire compute instance resource into the ResourceData.
+// This function is designed to be reusable across resource read, list resources, and data sources.
+func flattenComputeInstance(d *schema.ResourceData, config *transport_tpg.Config) error {
+	instance, err := getInstance(config, d)
+	if err != nil || instance == nil {
+		return err
+	}
+
+	return flattenComputeInstanceData(d, config, instance)
 }
 
 func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error {

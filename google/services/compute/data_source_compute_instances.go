@@ -43,19 +43,35 @@ func DataSourceGoogleComputeInstances() *schema.Resource {
 func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 
-	project, err := tpgresource.GetProject(d, config)
-	if err != nil {
-		return err
+	project := d.Get("project").(string)
+	if project == "" {
+		project, err := tpgresource.GetProject(d, config)
+		if err != nil {
+			return fmt.Errorf("Error getting project: %s", err)
+		}
+		if err := d.Set("project", project); err != nil {
+			return fmt.Errorf("Error setting project: %s", err)
+		}
 	}
+
 	zone := d.Get("zone").(string)
+	if zone == "" {
+		zone, err := tpgresource.GetZone(d, config)
+		if err != nil {
+			return fmt.Errorf("Error getting zone: %s", err)
+		}
+		if err := d.Set("zone", zone); err != nil {
+			return fmt.Errorf("Error setting zone: %s", err)
+		}
+	}
 
 	instances := make([]map[string]interface{}, 0)
-	err = ListInstances(context.Background(), d, config, func(item interface{}) error {
-		// Convert raw API response to compute.Instance
+	err := ListInstances(context.Background(), d, config, func(item interface{}) error {
+		// Convert the map item to compute.Instance struct
 		itemMap := item.(map[string]interface{})
 		itemJSON, err := json.Marshal(itemMap)
 		if err != nil {
-			return fmt.Errorf("Error marshaling instance: %s", err)
+			return fmt.Errorf("Error marshaling instance item: %s", err)
 		}
 
 		var instance compute.Instance
@@ -63,6 +79,7 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 			return fmt.Errorf("Error unmarshaling instance: %s", err)
 		}
 
+		name := instance.Name
 		// Create a temporary ResourceData for this instance
 		instanceResource := ResourceComputeInstance()
 		// Create an empty state to initialize the ResourceData
@@ -70,13 +87,16 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 			Attributes: make(map[string]string),
 		}
 		tempData := instanceResource.Data(emptyState)
-		tempData.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance.Name))
+		tempData.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, name))
 		tempData.Set("project", project)
 		tempData.Set("zone", zone)
-		tempData.Set("name", instance.Name)
+		tempData.Set("name", name)
 
-		// Flatten the instance into the temporary ResourceData
-		if err := flattenComputeInstance(tempData, config); err != nil {
+		// Flatten the instance into the temporary ResourceData using the instance from the LIST call
+		// compute instance is a very niche case, so normally we would handle it with the following definition:
+		// flattenComputeInstance(item.(map[string]interface{}), tempData, config)
+		// worth noting that res is already a map[string]interface{} type
+		if err := flattenComputeInstanceData(tempData, config, &instance); err != nil {
 			return fmt.Errorf("Error flattening instance: %s", err)
 		}
 
@@ -103,15 +123,6 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 	if err := d.Set("instances", instances); err != nil {
 		return fmt.Errorf("Error setting instances: %s", err)
 	}
-
-	// Set the top-level fields
-	if err := d.Set("project", project); err != nil {
-		return fmt.Errorf("Error setting project: %s", err)
-	}
-	if err := d.Set("zone", zone); err != nil {
-		return fmt.Errorf("Error setting zone: %s", err)
-	}
-
 	// Set the data source ID
 	d.SetId(fmt.Sprintf("projects/%s/zones/%s/instances", project, zone))
 
