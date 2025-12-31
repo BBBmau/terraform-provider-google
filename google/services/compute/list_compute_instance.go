@@ -236,7 +236,7 @@ func ListInstances(ctx context.Context, rd *schema.ResourceData, config *transpo
 				// rd.Set("items", result.DisplayName)
 
 				// flatten
-				err = callback(item)
+				err = callback(item.(map[string]interface{}))
 				if err != nil {
 					return err
 				}
