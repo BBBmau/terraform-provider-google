@@ -89,43 +89,15 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 
 	stream.Results = func(push func(list.ListResult) bool) {
-		computeInstanceResource := ResourceComputeInstance()
-		rd := computeInstanceResource.Data(&terraform.InstanceState{})
-		rd.Set("project", project)
-		rd.Set("zone", zone)
-		// This is how it would be called in a plural datasource
-		// err := ListInstances(ctx, rd, r.Client, func(item interface{}) error {
-		// 	instances = append(instances, flattenComputeInstance(item))
-		// return nil
-		// })
-		err := ListInstances(ctx, rd, r.Client, func(item interface{}) error {
+		err := ListInstances(ctx, r.Client, func(rd *schema.ResourceData) error {
 			result := req.NewListResult(ctx)
-			// Convert the map item to compute.Instance struct
-			itemMap := item.(map[string]interface{})
-			itemJSON, err := json.Marshal(itemMap)
-			if err != nil {
-				result.Diagnostics.AddError("Error marshaling instance item", err.Error())
-				return err
-			}
 
-			var instance compute.Instance
-			if err := json.Unmarshal(itemJSON, &instance); err != nil {
-				result.Diagnostics.AddError("Error unmarshaling instance", err.Error())
-				return err
-			}
-
-			result.DisplayName = instance.Name
-			rd.Set("name", result.DisplayName)
 			// flatten using the instance from the LIST call
-			if err := flattenComputeInstanceData(rd, r.Client, &instance); err != nil {
-				result.Diagnostics.AddError("Error flattening instance: %s", err.Error())
-				return err
-			}
 			identity, err := rd.Identity()
 			if err != nil {
 				return fmt.Errorf("Error getting identity: %s", err)
 			}
-			err = identity.Set("name", result.DisplayName)
+			err = identity.Set("name", rd.Get("name").(string))
 			if err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
 			}
@@ -168,7 +140,9 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 }
 
-func ListInstances(ctx context.Context, rd *schema.ResourceData, config *transport_tpg.Config, callback func(interface{}) error) error {
+func ListInstances(ctx context.Context, config *transport_tpg.Config, callback func(rd *schema.ResourceData) error) error {
+	computeInstanceResource := ResourceComputeInstance()
+	rd := computeInstanceResource.Data(&terraform.InstanceState{})
 	url, err := tpgresource.ReplaceVars(rd, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
 	if err != nil {
 		return err
@@ -236,7 +210,22 @@ func ListInstances(ctx context.Context, rd *schema.ResourceData, config *transpo
 				// rd.Set("items", result.DisplayName)
 
 				// flatten
-				err = callback(item.(map[string]interface{}))
+				itemJSON, err := json.Marshal(item.(map[string]interface{}))
+				if err != nil {
+					return fmt.Errorf("Error marshaling instance item: %s", err)
+				}
+
+				var instance compute.Instance
+				if err := json.Unmarshal(itemJSON, &instance); err != nil {
+					return fmt.Errorf("Error unmarshaling instance: %s", err)
+				}
+				tempData := ResourceComputeInstance().Data(&terraform.InstanceState{})
+				tempData.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", rd.Get("project"), rd.Get("zone"), instance.Name))
+				tempData.Set("project", rd.Get("project"))
+				tempData.Set("zone", rd.Get("zone"))
+				tempData.Set("name", instance.Name)
+				flattenComputeInstanceData(tempData, config, &instance)
+				err = callback(tempData)
 				if err != nil {
 					return err
 				}

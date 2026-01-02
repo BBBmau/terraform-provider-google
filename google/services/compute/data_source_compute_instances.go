@@ -2,13 +2,12 @@ package compute
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
-	"google.golang.org/api/compute/v1"
 )
 
 func DataSourceGoogleComputeInstances() *schema.Resource {
@@ -65,47 +64,20 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 	}
 
 	instances := make([]map[string]interface{}, 0)
-	err := ListInstances(context.Background(), d, config, func(item interface{}) error {
-		// Convert the map item to compute.Instance struct
-		itemMap := item.(map[string]interface{})
-		itemJSON, err := json.Marshal(itemMap)
-		if err != nil {
-			return fmt.Errorf("Error marshaling instance item: %s", err)
-		}
-
-		var instance compute.Instance
-		if err := json.Unmarshal(itemJSON, &instance); err != nil {
-			return fmt.Errorf("Error unmarshaling instance: %s", err)
-		}
-
-		name := instance.Name
-
-		tempData := ResourceComputeInstance().Data(nil)
-		tempData.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, name))
-		tempData.Set("project", project)
-		tempData.Set("zone", zone)
-		tempData.Set("name", name)
-
-		// Flatten the instance into the temporary ResourceData using the instance from the LIST call
-		// compute instance is a very niche case, so normally we would handle it with the following definition:
-		// flattenComputeInstance(item.(map[string]interface{}), tempData, config)
-		// worth noting that res is already a map[string]interface{} type
-		if err := flattenComputeInstanceData(tempData, config, &instance); err != nil {
-			return fmt.Errorf("Error flattening instance: %s", err)
-		}
-
+	err := ListInstances(context.Background(), config, func(rd *schema.ResourceData) error {
 		// Extract all values from the temporary ResourceData into a map
 		// Use the data source schema to determine which fields to extract
 		dsSchema := tpgresource.DatasourceSchemaFromResourceSchema(ResourceComputeInstance().Schema)
 		instanceMap := make(map[string]interface{})
 		for key := range dsSchema {
-			if val, ok := tempData.GetOk(key); ok {
+			if val, ok := rd.GetOk(key); ok {
 				// Only include non-nil values
 				if val != nil {
 					instanceMap[key] = val
 				}
 			}
 		}
+		log.Printf("rd.State().Attributes: %+v", rd.State().Attributes)
 		instances = append(instances, instanceMap)
 		return nil
 	})
@@ -159,7 +131,18 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 //		if err := flattenComputeInstance(item,tempData, config); err != nil {
 //			return fmt.Errorf("Error flattening instance: %s", err)
 //		}
-// 		instances = append(instances, tempData.State().Attributes)
+
+//	dsSchema := tpgresource.DatasourceSchemaFromResourceSchema(ResourceComputeInstance().Schema)
+//	instanceMap := make(map[string]interface{})
+//	for key := range dsSchema {
+//		if val, ok := tempData.GetOk(key); ok {
+//			// Only include non-nil values
+//			if val != nil {
+//				instanceMap[key] = val
+//			}
+//		}
+//	}
+// 		instances = append(instances, instanceMap)
 // 		return nil
 // 	})
 // 	if err != nil {
