@@ -40,10 +40,10 @@ func DataSourceGoogleComputeInstances() *schema.Resource {
 
 func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
-
+	var err error
 	project := d.Get("project").(string)
 	if project == "" {
-		project, err := tpgresource.GetProject(d, config)
+		project, err = tpgresource.GetProject(d, config)
 		if err != nil {
 			return fmt.Errorf("Error getting project: %s", err)
 		}
@@ -51,10 +51,11 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 			return fmt.Errorf("Error setting project: %s", err)
 		}
 	}
+	log.Printf("project: %s", project)
 
 	zone := d.Get("zone").(string)
 	if zone == "" {
-		zone, err := tpgresource.GetZone(d, config)
+		zone, err = tpgresource.GetZone(d, config)
 		if err != nil {
 			return fmt.Errorf("Error getting zone: %s", err)
 		}
@@ -64,7 +65,7 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 	}
 
 	instances := make([]map[string]interface{}, 0)
-	err := ListInstances(context.Background(), config, func(rd *schema.ResourceData) error {
+	err = ListInstances(context.Background(), config, "", func(rd *schema.ResourceData) error {
 		// Extract all values from the temporary ResourceData into a map
 		// Use the data source schema to determine which fields to extract
 		dsSchema := tpgresource.DatasourceSchemaFromResourceSchema(ResourceComputeInstance().Schema)
@@ -77,7 +78,6 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 				}
 			}
 		}
-		log.Printf("rd.State().Attributes: %+v", rd.State().Attributes)
 		instances = append(instances, instanceMap)
 		return nil
 	})
@@ -121,17 +121,7 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 // 	}
 
 // 	instances := make([]map[string]interface{}, 0)
-// 	err := ListInstances(context.Background(), d, config, func(item map[string]interface{}) error {
-// 		// item is already a map[string]interface{} type
-//		tempData := ResourceComputeInstance().Data(nil)
-//		tempData.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, item["name"].(string)))
-//		tempData.Set("project", project)
-//		tempData.Set("zone", zone)
-//		tempData.Set("name", item["name"].(string))
-//		if err := flattenComputeInstance(item,tempData, config); err != nil {
-//			return fmt.Errorf("Error flattening instance: %s", err)
-//		}
-
+// 	err := ListInstances(context.Background(), config, func(rd *schema.ResourceData) error {
 //	dsSchema := tpgresource.DatasourceSchemaFromResourceSchema(ResourceComputeInstance().Schema)
 //	instanceMap := make(map[string]interface{})
 //	for key := range dsSchema {

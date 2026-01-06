@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 
@@ -75,10 +74,10 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	if !data.Project.IsNull() && !data.Project.IsUnknown() {
 		project = data.Project.ValueString()
 	}
+
 	if project == "" {
 		project = r.Client.Project
 	}
-	r.Client.Project = project
 
 	var zone string
 	if !data.Zone.IsNull() && !data.Zone.IsUnknown() {
@@ -89,7 +88,7 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 
 	stream.Results = func(push func(list.ListResult) bool) {
-		err := ListInstances(ctx, r.Client, func(rd *schema.ResourceData) error {
+		err := ListInstances(ctx, r.Client, "", func(rd *schema.ResourceData) error {
 			result := req.NewListResult(ctx)
 
 			// flatten using the instance from the LIST call
@@ -105,7 +104,7 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 			if err != nil {
 				return fmt.Errorf("Error setting zone: %s", err)
 			}
-			err = identity.Set("project", r.Client.Project)
+			err = identity.Set("project", project)
 			if err != nil {
 				return fmt.Errorf("Error setting project: %s", err)
 			}
@@ -140,46 +139,73 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 }
 
-func ListInstances(ctx context.Context, config *transport_tpg.Config, callback func(rd *schema.ResourceData) error) error {
+func ListInstances(ctx context.Context, config *transport_tpg.Config, filter string, callback func(rd *schema.ResourceData) error) error {
 	computeInstanceResource := ResourceComputeInstance()
-	rd := computeInstanceResource.Data(&terraform.InstanceState{})
-	url, err := tpgresource.ReplaceVars(rd, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
+	tempData := computeInstanceResource.Data(&terraform.InstanceState{})
+	url, err := tpgresource.ReplaceVars(tempData, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
 	if err != nil {
 		return err
 	}
 
+	opts := ListCallOptions{
+		Config:    config,
+		TempData:  tempData,
+		Url:       url,
+		Filter:    filter,
+		Flattener: flattenComputeInstanceData,
+		Callback:  callback,
+	}
+	ListCall(opts)
+	return nil
+}
+
+type ListCallOptions struct {
+	Config    *transport_tpg.Config
+	TempData  *schema.ResourceData
+	Url       string
+	ItemName  string
+	Filter    string
+	Flattener func(d *schema.ResourceData, config *transport_tpg.Config, instance *compute.Instance) error
+	Callback  func(rd *schema.ResourceData) error
+}
+
+func ListCall(opts ListCallOptions) error {
+	// Set default ItemName if not provided
+	if opts.ItemName == "" {
+		opts.ItemName = "items"
+	}
+
 	billingProject := ""
 
-	if parts := regexp.MustCompile(`projects\/([^\/]+)\/`).FindStringSubmatch(url); parts != nil {
+	if parts := regexp.MustCompile(`projects\/([^\/]+)\/`).FindStringSubmatch(opts.Url); parts != nil {
 		billingProject = parts[1]
 	}
 
 	// err == nil indicates that the billing_project value was found
-	if bp, err := tpgresource.GetBillingProject(rd, config); err == nil {
+	if bp, err := tpgresource.GetBillingProject(opts.TempData, opts.Config); err == nil {
 		billingProject = bp
 	}
 
-	userAgent, err := tpgresource.GenerateUserAgentString(rd, config.UserAgent)
+	userAgent, err := tpgresource.GenerateUserAgentString(opts.TempData, opts.Config.UserAgent)
 	if err != nil {
 		return err
 	}
 
 	params := make(map[string]string)
-	if v, ok := rd.GetOk("filter"); ok {
-		params["filter"] = v.(string)
+	if opts.Filter != "" {
+		params["filter"] = opts.Filter
 	}
 
 	for {
 		// Depending on previous iterations, params might contain a pageToken param
-		url, err = transport_tpg.AddQueryParams(url, params)
+		url, err := transport_tpg.AddQueryParams(opts.Url, params)
 		if err != nil {
 			return err
 		}
-		log.Printf("url: %s\n", url)
 
 		headers := make(http.Header)
 		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-			Config:    config,
+			Config:    opts.Config,
 			Method:    "GET",
 			Project:   billingProject,
 			RawURL:    url,
@@ -189,27 +215,15 @@ func ListInstances(ctx context.Context, config *transport_tpg.Config, callback f
 			ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.Is429RetryableQuotaError},
 		})
 		if err != nil {
-			return transport_tpg.HandleNotFoundError(err, rd, fmt.Sprintf("Instances %q", rd.Id()))
+			return transport_tpg.HandleNotFoundError(err, opts.TempData, fmt.Sprintf("%s %q", opts.ItemName, opts.TempData.Id()))
 		}
 
 		// we need to figure out what to do here since this is where we get the response from the LIST API
 		// Store info from this page
 
 		// this currently works because we use the callback for every
-		if v, ok := res["items"].([]interface{}); ok {
+		if v, ok := res[opts.ItemName].([]interface{}); ok {
 			for _, item := range v {
-				// TODO: add a flattener function here
-				// no point in adding the flatten as part of the callback function
-				// flattener that sets the values by rd.Set
-
-				// NOTE: for our case we need a flattener that flattens the ENTIRE resource, there currently is no existing
-				// flattener that puts all the existing flatteners together.
-
-				// to prevent overlap we can work on refactoring it later so we can just focus on the
-				// root flattener to being used only by list and plural datasources.
-				// rd.Set("items", result.DisplayName)
-
-				// flatten
 				itemJSON, err := json.Marshal(item.(map[string]interface{}))
 				if err != nil {
 					return fmt.Errorf("Error marshaling instance item: %s", err)
@@ -219,13 +233,11 @@ func ListInstances(ctx context.Context, config *transport_tpg.Config, callback f
 				if err := json.Unmarshal(itemJSON, &instance); err != nil {
 					return fmt.Errorf("Error unmarshaling instance: %s", err)
 				}
-				tempData := ResourceComputeInstance().Data(&terraform.InstanceState{})
-				tempData.SetId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", rd.Get("project"), rd.Get("zone"), instance.Name))
-				tempData.Set("project", rd.Get("project"))
-				tempData.Set("zone", rd.Get("zone"))
-				tempData.Set("name", instance.Name)
-				flattenComputeInstanceData(tempData, config, &instance)
-				err = callback(tempData)
+				err = opts.Flattener(opts.TempData, opts.Config, &instance)
+				if err != nil {
+					return fmt.Errorf("Error flattening instance: %s", err)
+				}
+				err = opts.Callback(opts.TempData)
 				if err != nil {
 					return err
 				}
