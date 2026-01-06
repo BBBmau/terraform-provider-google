@@ -2,7 +2,6 @@ package compute
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
-	"google.golang.org/api/compute/v1"
 )
 
 var _ tpgresource.ListResourceWithRawV5Schemas = &ComputeInstanceListResource{}
@@ -115,11 +113,11 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 			if err := result.Identity.Set(ctx, *tfTypeIdentity); err != nil {
 				return errors.New("error setting identity")
 			}
-			tfTypeResource, err := rd.TfTypeResourceState()
-			if err != nil {
-				return err
-			}
 			if req.IncludeResource {
+				tfTypeResource, err := rd.TfTypeResourceState()
+				if err != nil {
+					return err
+				}
 				if err := result.Resource.Set(ctx, *tfTypeResource); err != nil {
 					return errors.New("error setting resource")
 				}
@@ -150,7 +148,7 @@ func ListInstances(config *transport_tpg.Config, filter string, callback func(rd
 		TempData:  ResourceComputeInstance().Data(&terraform.InstanceState{}),
 		Url:       url,
 		Filter:    filter,
-		Flattener: flattenComputeInstanceData,
+		Flattener: flattenComputeInstance,
 		Callback:  callback,
 	}
 	ListCall(opts)
@@ -163,7 +161,7 @@ type ListCallOptions struct {
 	Url       string
 	ItemName  string
 	Filter    string
-	Flattener func(d *schema.ResourceData, config *transport_tpg.Config, instance *compute.Instance) error
+	Flattener func(item interface{}, d *schema.ResourceData, config *transport_tpg.Config) error
 	Callback  func(rd *schema.ResourceData) error
 }
 
@@ -216,22 +214,10 @@ func ListCall(opts ListCallOptions) error {
 			return transport_tpg.HandleNotFoundError(err, opts.TempData, fmt.Sprintf("%s %q", opts.ItemName, opts.TempData.Id()))
 		}
 
-		// we need to figure out what to do here since this is where we get the response from the LIST API
-		// Store info from this page
-
-		// this currently works because we use the callback for every
 		if v, ok := res[opts.ItemName].([]interface{}); ok {
 			for _, item := range v {
-				itemJSON, err := json.Marshal(item.(map[string]interface{}))
-				if err != nil {
-					return fmt.Errorf("Error marshaling instance item: %s", err)
-				}
 
-				var instance compute.Instance
-				if err := json.Unmarshal(itemJSON, &instance); err != nil {
-					return fmt.Errorf("Error unmarshaling instance: %s", err)
-				}
-				err = opts.Flattener(opts.TempData, opts.Config, &instance)
+				err = opts.Flattener(item, opts.TempData, opts.Config)
 				if err != nil {
 					return fmt.Errorf("Error flattening instance: %s", err)
 				}
@@ -241,7 +227,6 @@ func ListCall(opts ListCallOptions) error {
 				}
 			}
 		}
-		// ------------------------------------------------------------------------------------------------
 
 		// Handle pagination for next loop, or break loop
 		v, ok := res["nextPageToken"]
