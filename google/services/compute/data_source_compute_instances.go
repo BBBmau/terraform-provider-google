@@ -1,9 +1,7 @@
 package compute
 
 import (
-	"context"
 	"fmt"
-	"log"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
@@ -51,7 +49,6 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 			return fmt.Errorf("Error setting project: %s", err)
 		}
 	}
-	log.Printf("project: %s", project)
 
 	zone := d.Get("zone").(string)
 	if zone == "" {
@@ -64,11 +61,11 @@ func dataSourceGoogleComputeInstancesRead(d *schema.ResourceData, meta interface
 		}
 	}
 
+	dsSchema := tpgresource.DatasourceSchemaFromResourceSchema(ResourceComputeInstance().Schema)
 	instances := make([]map[string]interface{}, 0)
-	err = ListInstances(context.Background(), config, "", func(rd *schema.ResourceData) error {
+	err = ListInstances(config, "", func(rd *schema.ResourceData) error {
 		// Extract all values from the temporary ResourceData into a map
 		// Use the data source schema to determine which fields to extract
-		dsSchema := tpgresource.DatasourceSchemaFromResourceSchema(ResourceComputeInstance().Schema)
 		instanceMap := make(map[string]interface{})
 		for key := range dsSchema {
 			if val, ok := rd.GetOk(key); ok {

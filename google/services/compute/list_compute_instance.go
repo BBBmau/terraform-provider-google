@@ -88,7 +88,7 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 
 	stream.Results = func(push func(list.ListResult) bool) {
-		err := ListInstances(ctx, r.Client, "", func(rd *schema.ResourceData) error {
+		err := ListInstances(r.Client, "", func(rd *schema.ResourceData) error {
 			result := req.NewListResult(ctx)
 
 			// flatten using the instance from the LIST call
@@ -139,17 +139,15 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 }
 
-func ListInstances(ctx context.Context, config *transport_tpg.Config, filter string, callback func(rd *schema.ResourceData) error) error {
-	computeInstanceResource := ResourceComputeInstance()
-	tempData := computeInstanceResource.Data(&terraform.InstanceState{})
-	url, err := tpgresource.ReplaceVars(tempData, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
+func ListInstances(config *transport_tpg.Config, filter string, callback func(rd *schema.ResourceData) error) error {
+	url, err := tpgresource.ReplaceVars(ResourceComputeInstance().Data(&terraform.InstanceState{}), config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
 	if err != nil {
 		return err
 	}
 
 	opts := ListCallOptions{
 		Config:    config,
-		TempData:  tempData,
+		TempData:  ResourceComputeInstance().Data(&terraform.InstanceState{}),
 		Url:       url,
 		Filter:    filter,
 		Flattener: flattenComputeInstanceData,
