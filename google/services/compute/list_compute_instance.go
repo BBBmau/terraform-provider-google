@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/list"
 	listschema "github.com/hashicorp/terraform-plugin-framework/list/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -53,12 +54,37 @@ func (r *ComputeInstanceListResource) ListResourceConfigSchema(ctx context.Conte
 				Optional: true,
 			},
 		},
+		Blocks: map[string]listschema.Block{
+			"filter": customListFiltersBlock(ctx),
+		},
 	}
 }
 
 type ComputeInstanceListModel struct {
-	Project types.String `tfsdk:"project"`
-	Zone    types.String `tfsdk:"zone"`
+	Project types.String            `tfsdk:"project"`
+	Zone    types.String            `tfsdk:"zone"`
+	Filter  []customListFilterModel `tfsdk:"filter"`
+}
+
+func customListFiltersBlock(ctx context.Context) listschema.ListNestedBlock {
+	return listschema.ListNestedBlock{
+		NestedObject: listschema.NestedBlockObject{
+			Attributes: map[string]listschema.Attribute{
+				"name": listschema.StringAttribute{
+					Required: true,
+				},
+				"values": listschema.ListAttribute{
+					Required:    true,
+					ElementType: types.StringType,
+				},
+			},
+		},
+	}
+}
+
+type customListFilterModel struct {
+	Name   types.String        `tfsdk:"name"`
+	Values basetypes.ListValue `tfsdk:"values"`
 }
 
 func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {
@@ -85,8 +111,25 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 		zone = r.Client.Zone
 	}
 
+	filterString := ""
+	if len(data.Filter) > 0 {
+		for i, filter := range data.Filter {
+			values := make([]string, 0)
+			diags := filter.Values.ElementsAs(ctx, &values, false)
+			if diags.HasError() {
+				stream.Results = list.ListResultsStreamDiagnostics(diags)
+				return
+			}
+			// values represents the operator and value used for filtering
+			filterString += fmt.Sprintf("(%s %s \"%s\")", filter.Name.ValueString(), values[0], values[1])
+			if i < len(data.Filter)-1 {
+				filterString += " AND "
+			}
+		}
+	}
+
 	stream.Results = func(push func(list.ListResult) bool) {
-		err := ListInstances(r.Client, "", func(rd *schema.ResourceData) error {
+		err := ListInstances(r.Client, filterString, func(rd *schema.ResourceData) error {
 			result := req.NewListResult(ctx)
 
 			// flatten using the instance from the LIST call
@@ -227,7 +270,6 @@ func ListCall(opts ListCallOptions) error {
 				}
 			}
 		}
-
 		// Handle pagination for next loop, or break loop
 		v, ok := res["nextPageToken"]
 		if ok {
