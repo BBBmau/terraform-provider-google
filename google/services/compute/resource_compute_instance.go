@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -1874,14 +1875,19 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 	return resourceComputeInstanceRead(d, meta)
 }
 
-func flattenComputeInstance(item interface{}, d *schema.ResourceData, config *transport_tpg.Config) error {
-	if item != nil {
-		d.Set("name", item.(map[string]interface{})["name"])
-		d.Set("zone", item.(map[string]interface{})["zone"])
-	}
-	instance, err := getInstance(config, d)
-	if err != nil || instance == nil {
-		return err
+func flattenComputeInstance(res interface{}, d *schema.ResourceData, config *transport_tpg.Config) error {
+	var instance compute.Instance
+	var err error
+	if res != nil {
+		err = json.Unmarshal(res.([]byte), &instance)
+		if err != nil {
+			return err
+		}
+	} else {
+		instance, err := getInstance(config, d)
+		if err != nil || instance == nil {
+			return err
+		}
 	}
 
 	project, err := tpgresource.GetProject(d, config)
@@ -2169,11 +2175,6 @@ func flattenComputeInstance(item interface{}, d *schema.ResourceData, config *tr
 func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
 
-	instance, err := getInstance(config, d)
-	if err != nil || instance == nil {
-		return err
-	}
-
 	if err := flattenComputeInstance(nil, d, config); err != nil {
 		return err
 	}
@@ -2182,7 +2183,6 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 	if err != nil {
 		return err
 	}
-	zone := tpgresource.GetResourceNameFromSelfLink(instance.Zone)
 
 	identity, err := d.Identity()
 	if err != nil {
@@ -2193,7 +2193,7 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 		if err != nil {
 			return fmt.Errorf("Error setting name: %s", err)
 		}
-		err = identity.Set("zone", zone)
+		err = identity.Set("zone", d.Get("zone").(string))
 		if err != nil {
 			return fmt.Errorf("Error setting zone: %s", err)
 		}

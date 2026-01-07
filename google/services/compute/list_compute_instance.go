@@ -55,7 +55,7 @@ func (r *ComputeInstanceListResource) ListResourceConfigSchema(ctx context.Conte
 			},
 		},
 		Blocks: map[string]listschema.Block{
-			"filter": customListFiltersBlock(ctx),
+			"filter": customListFiltersBlock(),
 		},
 	}
 }
@@ -66,7 +66,7 @@ type ComputeInstanceListModel struct {
 	Filter  []customListFilterModel `tfsdk:"filter"`
 }
 
-func customListFiltersBlock(ctx context.Context) listschema.ListNestedBlock {
+func customListFiltersBlock() listschema.ListNestedBlock {
 	return listschema.ListNestedBlock{
 		NestedObject: listschema.NestedBlockObject{
 			Attributes: map[string]listschema.Attribute{
