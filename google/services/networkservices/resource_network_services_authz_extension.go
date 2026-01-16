@@ -108,6 +108,25 @@ func ResourceNetworkServicesAuthzExtension() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"authority": {
 				Type:        schema.TypeString,
@@ -189,8 +208,22 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 				Type:         schema.TypeString,
 				Computed:     true,
 				Optional:     true,
-				ValidateFunc: verify.ValidateEnum([]string{"WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC", ""}),
-				Description:  `The format of communication supported by the callout extension. Will be set to EXT_PROC_GRPC by the backend if no value is set. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC"]`,
+				ValidateFunc: verify.ValidateEnum([]string{"WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC", "EXT_AUTHZ_GRPC", ""}),
+				Description: `Specifies the communication protocol used by the callout extension
+to communicate with its backend service.
+Supported values:
+- WIRE_FORMAT_UNSPECIFIED:
+    No wire format is explicitly specified. The backend automatically
+    defaults this value to EXT_PROC_GRPC.
+- EXT_PROC_GRPC:
+    Uses Envoy's External Processing (ext_proc) gRPC API over a single
+    gRPC stream. The backend service must support HTTP/2 or H2C.
+    All supported events for a client request are sent over the same
+    gRPC stream. This is the default wire format.
+- EXT_AUTHZ_GRPC:
+    Uses Envoy's external authorization (ext_authz) gRPC API.
+    The backend service must support HTTP/2 or H2C.
+    This option is only supported for regional AuthzExtension resources. Possible values: ["WIRE_FORMAT_UNSPECIFIED", "EXT_PROC_GRPC", "EXT_AUTHZ_GRPC"]`,
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -342,6 +375,27 @@ func resourceNetworkServicesAuthzExtensionCreate(d *schema.ResourceData, meta in
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = NetworkServicesOperationWaitTime(
 		config, res, project, "Creating AuthzExtension", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -445,6 +499,30 @@ func resourceNetworkServicesAuthzExtensionRead(d *schema.ResourceData, meta inte
 		return fmt.Errorf("Error reading AuthzExtension: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -453,6 +531,27 @@ func resourceNetworkServicesAuthzExtensionUpdate(d *schema.ResourceData, meta in
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""

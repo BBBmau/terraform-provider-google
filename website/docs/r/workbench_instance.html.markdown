@@ -634,10 +634,10 @@ The following arguments are supported:
   config, ONE_TO_ONE_NAT, is supported. If no accessConfigs specified, the
   instance will have an external internet access through an ephemeral
   external IP address.
-  Structure is [documented below](#nested_gce_setup_network_interfaces_network_interfaces_access_configs).
+  Structure is [documented below](#nested_gce_setup_network_interfaces_access_configs).
 
 
-<a name="nested_gce_setup_network_interfaces_network_interfaces_access_configs"></a>The `access_configs` block supports:
+<a name="nested_gce_setup_network_interfaces_access_configs"></a>The `access_configs` block supports:
 
 * `external_ip` -
   (Required)
@@ -775,6 +775,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_workbench_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

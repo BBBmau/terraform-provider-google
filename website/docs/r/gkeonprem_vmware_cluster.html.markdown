@@ -476,10 +476,10 @@ The following arguments are supported:
 * `ips` -
   (Required)
   The node's network configurations used by the VMware User Cluster.
-  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks_ip_blocks_ips).
+  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks_ips).
 
 
-<a name="nested_network_config_static_ip_config_ip_blocks_ip_blocks_ips"></a>The `ips` block supports:
+<a name="nested_network_config_static_ip_config_ip_blocks_ips"></a>The `ips` block supports:
 
 * `ip` -
   (Required)
@@ -895,6 +895,18 @@ VmwareCluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import VmwareCluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gkeonprem_vmware_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import VmwareCluster using one of the formats above. For example:
 

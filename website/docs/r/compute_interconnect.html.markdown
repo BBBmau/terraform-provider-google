@@ -346,7 +346,6 @@ In addition to the arguments listed above, the following computed attributes are
   ports and MACsec isn't supported and enabling MACsec fails).
 
 * `wire_groups` -
-  ([Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
   A list of the URLs of all CrossSiteNetwork WireGroups configured to use this Interconnect. The Interconnect cannot be deleted if this list is non-empty.
 
 * `interconnect_groups` -
@@ -443,6 +442,17 @@ Interconnect can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Interconnect using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_interconnect.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Interconnect using one of the formats above. For example:
 

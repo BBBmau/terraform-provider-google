@@ -274,7 +274,7 @@ The following arguments are supported:
 
 * `facet_field` -
   (Optional)
-  Structure is [documented below](#nested_ui_settings_data_store_ui_configs_data_store_ui_configs_facet_field).
+  Structure is [documented below](#nested_ui_settings_data_store_ui_configs_facet_field).
 
 * `fields_ui_components_map` -
   (Optional)
@@ -283,10 +283,10 @@ The following arguments are supported:
   the field along with its device visibility. The 3 custom fields are optional
   and can be added or removed.
   `title`, `thumbnail`, `url` are required UI components that cannot be removed.
-  Structure is [documented below](#nested_ui_settings_data_store_ui_configs_data_store_ui_configs_fields_ui_components_map).
+  Structure is [documented below](#nested_ui_settings_data_store_ui_configs_fields_ui_components_map).
 
 
-<a name="nested_ui_settings_data_store_ui_configs_data_store_ui_configs_facet_field"></a>The `facet_field` block supports:
+<a name="nested_ui_settings_data_store_ui_configs_facet_field"></a>The `facet_field` block supports:
 
 * `field` -
   (Required)
@@ -296,7 +296,7 @@ The following arguments are supported:
   (Optional)
   The field name that end users will see.
 
-<a name="nested_ui_settings_data_store_ui_configs_data_store_ui_configs_fields_ui_components_map"></a>The `fields_ui_components_map` block supports:
+<a name="nested_ui_settings_data_store_ui_configs_fields_ui_components_map"></a>The `fields_ui_components_map` block supports:
 
 * `ui_component` - (Required) The identifier for this object. Format specified above.
 
@@ -344,14 +344,14 @@ The following arguments are supported:
 * `icon` -
   (Optional)
   Icon URL of shortcut.
-  Structure is [documented below](#nested_homepage_setting_shortcuts_shortcuts_icon).
+  Structure is [documented below](#nested_homepage_setting_shortcuts_icon).
 
 * `destination_uri` -
   (Optional)
   Destination URL of shortcut.
 
 
-<a name="nested_homepage_setting_shortcuts_shortcuts_icon"></a>The `icon` block supports:
+<a name="nested_homepage_setting_shortcuts_icon"></a>The `icon` block supports:
 
 * `url` -
   (Optional)
@@ -386,6 +386,20 @@ WidgetConfig can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{collection_id}}/{{engine_id}}/{{widget_config_id}}`
 * `{{location}}/{{collection_id}}/{{engine_id}}/{{widget_config_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WidgetConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    collectionId = "<-optional value->"
+    engineId = "<-required value->"
+    widgetConfigId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_discovery_engine_widget_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WidgetConfig using one of the formats above. For example:
 

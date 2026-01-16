@@ -145,10 +145,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `metros` -
   (Output)
   The metros of Attachments in this group in this region.
-  Structure is [documented below](#nested_logical_structure_regions_regions_metros).
+  Structure is [documented below](#nested_logical_structure_regions_metros).
 
 
-<a name="nested_logical_structure_regions_regions_metros"></a>The `metros` block contains:
+<a name="nested_logical_structure_regions_metros"></a>The `metros` block contains:
 
 * `metro` -
   (Output)
@@ -160,10 +160,10 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The facilities used for this group's Attachments'
   Interconnects.
-  Structure is [documented below](#nested_logical_structure_regions_regions_metros_metros_facilities).
+  Structure is [documented below](#nested_logical_structure_regions_metros_facilities).
 
 
-<a name="nested_logical_structure_regions_regions_metros_metros_facilities"></a>The `facilities` block contains:
+<a name="nested_logical_structure_regions_metros_facilities"></a>The `facilities` block contains:
 
 * `facility` -
   (Output)
@@ -173,10 +173,10 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The zones that Interconnects in this facility are
   present in.
-  Structure is [documented below](#nested_logical_structure_regions_regions_metros_metros_facilities_facilities_zones).
+  Structure is [documented below](#nested_logical_structure_regions_metros_facilities_zones).
 
 
-<a name="nested_logical_structure_regions_regions_metros_metros_facilities_facilities_zones"></a>The `zones` block contains:
+<a name="nested_logical_structure_regions_metros_facilities_zones"></a>The `zones` block contains:
 
 * `zone` -
   (Output)
@@ -273,6 +273,17 @@ InterconnectAttachmentGroup can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InterconnectAttachmentGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_interconnect_attachment_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InterconnectAttachmentGroup using one of the formats above. For example:
 

@@ -186,11 +186,11 @@ The following arguments are supported:
   This can only be specified when network_endpoint_type of the NEG is INTERNET_FQDN_PORT.
 
 * `client_destination_port` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Client destination port for the `GCE_VM_IP_PORTMAP` NEG.
 
 * `instance` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   The name for a specific VM instance that the IP address belongs to.
   This is required for network endpoints of type GCE_VM_IP_PORTMAP.
 
@@ -231,6 +231,21 @@ RegionNetworkEndpoint can be imported using any of these accepted formats:
 * `{{region}}/{{region_network_endpoint_group}}/{{ip_address}}/{{fqdn}}/{{port}}`
 * `{{region_network_endpoint_group}}/{{ip_address}}/{{fqdn}}/{{port}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionNetworkEndpoint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    port = "<-required value->"
+    ipAddress = "<-optional value->"
+    fqdn = "<-optional value->"
+    region = "<-optional value->"
+    regionNetworkEndpointGroup = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_network_endpoint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionNetworkEndpoint using one of the formats above. For example:
 

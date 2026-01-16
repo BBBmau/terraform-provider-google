@@ -232,34 +232,41 @@ This must be set to true if you created a backup manually in the console.
   should be trying to achieve for the instance.
   This number is on a scale from 0 (no utilization) to 100 (full utilization).
 
+* `total_cpu_utilization_percent` -
+  (Optional)
+  The target total cpu utilization percentage that the autoscaler should be trying to achieve for the instance.
+  This number is on a scale from 0 (no utilization) to 100 (full utilization). The valid range is [10, 90] inclusive.
+  If not specified or set to 0, the autoscaler will skip scaling based on total cpu utilization.
+  The value should be higher than high_priority_cpu_utilization_percent if present.
+
 <a name="nested_autoscaling_config_asymmetric_autoscaling_options"></a>The `asymmetric_autoscaling_options` block supports:
 
 * `replica_selection` -
   (Required)
   A nested object resource.
-  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_replica_selection).
+  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_replica_selection).
 
 * `overrides` -
   (Required)
   A nested object resource.
-  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides).
+  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_overrides).
 
 
-<a name="nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_replica_selection"></a>The `replica_selection` block supports:
+<a name="nested_autoscaling_config_asymmetric_autoscaling_options_replica_selection"></a>The `replica_selection` block supports:
 
 * `location` -
   (Required)
   The location of the replica to apply asymmetric autoscaling options.
 
-<a name="nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides"></a>The `overrides` block supports:
+<a name="nested_autoscaling_config_asymmetric_autoscaling_options_overrides"></a>The `overrides` block supports:
 
 * `autoscaling_limits` -
   (Required)
   A nested object resource.
-  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides_autoscaling_limits).
+  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_overrides_autoscaling_limits).
 
 
-<a name="nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides_autoscaling_limits"></a>The `autoscaling_limits` block supports:
+<a name="nested_autoscaling_config_asymmetric_autoscaling_options_overrides_autoscaling_limits"></a>The `autoscaling_limits` block supports:
 
 * `min_nodes` -
   (Required)
@@ -304,6 +311,17 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_spanner_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

@@ -70,7 +70,13 @@ func TestAccBackupDRBackupVault_backupDrBackupVaultSimpleExample(t *testing.T) {
 				ResourceName:            "google_backup_dr_backup_vault.backup-vault-test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"allow_missing", "annotations", "backup_retention_inheritance", "backup_vault_id", "force_delete", "force_update", "ignore_backup_plan_references", "ignore_inactive_datasources", "labels", "location", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"allow_missing", "annotations", "backup_retention_inheritance", "backup_vault_id", "encryption_config", "force_delete", "force_update", "ignore_backup_plan_references", "ignore_inactive_datasources", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_backup_dr_backup_vault.backup-vault-test",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -128,7 +134,13 @@ func TestAccBackupDRBackupVault_backupDrBackupVaultCmekExample(t *testing.T) {
 				ResourceName:            "google_backup_dr_backup_vault.backup-vault-cmek",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"allow_missing", "annotations", "backup_retention_inheritance", "backup_vault_id", "force_delete", "force_update", "ignore_backup_plan_references", "ignore_inactive_datasources", "labels", "location", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"allow_missing", "annotations", "backup_retention_inheritance", "backup_vault_id", "encryption_config", "force_delete", "force_update", "ignore_backup_plan_references", "ignore_inactive_datasources", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_backup_dr_backup_vault.backup-vault-cmek",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

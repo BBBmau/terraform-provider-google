@@ -71,6 +71,12 @@ func TestAccDialogflowConversationProfile_dialogflowConversationProfileBasicExam
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "logging_config"},
 			},
+			{
+				ResourceName:       "google_dialogflow_conversation_profile.basic_profile",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -79,7 +85,7 @@ func testAccDialogflowConversationProfile_dialogflowConversationProfileBasicExam
 	return acctest.Nprintf(`
 resource "google_dialogflow_agent" "basic_agent" {
   display_name = "example_agent"
-  default_language_code = "en-us"
+  default_language_code = "en"
   time_zone = "America/New_York"
 }
 resource "google_dialogflow_conversation_profile" "basic_profile" {
@@ -118,6 +124,12 @@ func TestAccDialogflowConversationProfile_dialogflowConversationProfileRecogniti
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "logging_config"},
+			},
+			{
+				ResourceName:       "google_dialogflow_conversation_profile.recognition_result_notification_profile",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

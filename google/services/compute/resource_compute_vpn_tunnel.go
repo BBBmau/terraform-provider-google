@@ -211,6 +211,25 @@ func ResourceComputeVpnTunnel() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
@@ -241,44 +260,40 @@ except the last character, which cannot be a dash.`,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"dh": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Diffie-Hellman groups.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 									"encryption": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Encryption algorithms.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 									"integrity": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Integrity algorithms.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 									"prf": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Pseudo-random functions.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 								},
 							},
@@ -292,34 +307,31 @@ except the last character, which cannot be a dash.`,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"encryption": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Encryption algorithms.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 									"integrity": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Integrity algorithms.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 									"pfs": {
-										Type:        schema.TypeSet,
+										Type:        schema.TypeList,
 										Optional:    true,
 										ForceNew:    true,
 										Description: `Perfect forward secrecy groups.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										Set: schema.HashString,
 									},
 								},
 							},
@@ -698,6 +710,27 @@ func resourceComputeVpnTunnelCreate(d *schema.ResourceData, meta interface{}) er
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating VpnTunnel", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -891,6 +924,30 @@ func resourceComputeVpnTunnelRead(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error reading VpnTunnel: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -899,6 +956,27 @@ func resourceComputeVpnTunnelUpdate(d *schema.ResourceData, meta interface{}) er
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1227,31 +1305,19 @@ func flattenComputeVpnTunnelCipherSuitePhase1(v interface{}, d *schema.ResourceD
 	return []interface{}{transformed}
 }
 func flattenComputeVpnTunnelCipherSuitePhase1Encryption(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelCipherSuitePhase1Integrity(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelCipherSuitePhase1Prf(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelCipherSuitePhase1Dh(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelCipherSuitePhase2(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1272,24 +1338,15 @@ func flattenComputeVpnTunnelCipherSuitePhase2(v interface{}, d *schema.ResourceD
 	return []interface{}{transformed}
 }
 func flattenComputeVpnTunnelCipherSuitePhase2Encryption(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelCipherSuitePhase2Integrity(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelCipherSuitePhase2Pfs(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return v
-	}
-	return schema.NewSet(schema.HashString, v.([]interface{}))
+	return v
 }
 
 func flattenComputeVpnTunnelSharedSecretWoVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1486,22 +1543,18 @@ func expandComputeVpnTunnelCipherSuitePhase1(v interface{}, d tpgresource.Terraf
 }
 
 func expandComputeVpnTunnelCipherSuitePhase1Encryption(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 
 func expandComputeVpnTunnelCipherSuitePhase1Integrity(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 
 func expandComputeVpnTunnelCipherSuitePhase1Prf(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 
 func expandComputeVpnTunnelCipherSuitePhase1Dh(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 
@@ -1542,17 +1595,14 @@ func expandComputeVpnTunnelCipherSuitePhase2(v interface{}, d tpgresource.Terraf
 }
 
 func expandComputeVpnTunnelCipherSuitePhase2Encryption(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 
 func expandComputeVpnTunnelCipherSuitePhase2Integrity(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 
 func expandComputeVpnTunnelCipherSuitePhase2Pfs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	v = v.(*schema.Set).List()
 	return v, nil
 }
 

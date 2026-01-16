@@ -225,7 +225,7 @@ The following arguments are supported:
 * `approvers` -
   (Required)
   The potential set of approvers in this step. This list should contain at only one entry.
-  Structure is [documented below](#nested_approval_workflow_manual_approvals_steps_steps_approvers).
+  Structure is [documented below](#nested_approval_workflow_manual_approvals_steps_approvers).
 
 * `approvals_needed` -
   (Optional)
@@ -243,7 +243,7 @@ The following arguments are supported:
   Output Only. The ID of the approval step.
 
 
-<a name="nested_approval_workflow_manual_approvals_steps_steps_approvers"></a>The `approvers` block supports:
+<a name="nested_approval_workflow_manual_approvals_steps_approvers"></a>The `approvers` block supports:
 
 * `principals` -
   (Required)
@@ -300,6 +300,18 @@ Entitlement can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/entitlements/{{entitlement_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Entitlement using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    entitlementId = "<-required value->"
+    parent = "<-required value->"
+  }
+  to = google_privileged_access_manager_entitlement.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Entitlement using one of the formats above. For example:
 

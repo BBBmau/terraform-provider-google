@@ -94,14 +94,14 @@ The following arguments are supported:
 * `config` -
   (Optional)
   Configuration parameters for the tool.
-  Structure is [documented below](#nested_enabled_tool_enabled_tool_config).
+  Structure is [documented below](#nested_enabled_tool_config).
 
 * `uri_override` -
   (Optional)
   Overridden URI, if allowed by Tool.
 
 
-<a name="nested_enabled_tool_enabled_tool_config"></a>The `config` block supports:
+<a name="nested_enabled_tool_config"></a>The `config` block supports:
 
 * `key` -
   (Required)
@@ -153,6 +153,18 @@ CodeToolsSetting can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{code_tools_setting_id}}`
 * `{{location}}/{{code_tools_setting_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CodeToolsSetting using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    codeToolsSettingId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gemini_code_tools_setting.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CodeToolsSetting using one of the formats above. For example:
 

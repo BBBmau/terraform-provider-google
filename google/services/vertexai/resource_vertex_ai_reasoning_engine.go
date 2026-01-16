@@ -107,6 +107,25 @@ func ResourceVertexAIReasoningEngine() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -192,17 +211,17 @@ Engine deployment.`,
 										Type:     schema.TypeInt,
 										Computed: true,
 										Optional: true,
-										Description: `Optional. The minimum number of application instances that will be
-kept running at all times. Defaults to 1. Range: [0, 10].`,
+										Description: `Optional. The maximum number of application instances that can be
+launched to handle increased traffic. Defaults to 100.
+Range: [1, 1000]. If VPC-SC or PSC-I is enabled, the acceptable
+range is [1, 100].`,
 									},
 									"min_instances": {
 										Type:     schema.TypeInt,
 										Computed: true,
 										Optional: true,
-										Description: `Optional. The maximum number of application instances that can be
-launched to handle increased traffic. Defaults to 100.
-Range: [1, 1000]. If VPC-SC or PSC-I is enabled, the acceptable
-range is [1, 100].`,
+										Description: `Optional. The minimum number of application instances that will be
+kept running at all times. Defaults to 1. Range: [0, 10].`,
 									},
 									"resource_limits": {
 										Type:     schema.TypeMap,
@@ -513,6 +532,27 @@ func resourceVertexAIReasoningEngineCreate(d *schema.ResourceData, meta interfac
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	// Use the resource in the operation response to populate
 	// identity fields and d.Id() before read
 	var opRes map[string]interface{}
@@ -606,6 +646,30 @@ func resourceVertexAIReasoningEngineRead(d *schema.ResourceData, meta interface{
 		return fmt.Errorf("Error reading ReasoningEngine: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -614,6 +678,27 @@ func resourceVertexAIReasoningEngineUpdate(d *schema.ResourceData, meta interfac
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""

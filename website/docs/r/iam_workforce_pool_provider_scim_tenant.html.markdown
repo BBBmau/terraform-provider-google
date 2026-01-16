@@ -79,6 +79,7 @@ resource "google_iam_workforce_pool_provider_scim_tenant" "example" {
     "google.subject"  = "user.externalId",
     "google.group"    = "group.externalId"
   }
+  hard_delete         = true
   # state, base_uri, purge_time and service_agent are output only, not settable
 }
 
@@ -118,6 +119,10 @@ The following arguments are supported:
 * `claim_mapping` -
   (Optional)
   Maps BYOID claims to SCIM claims. This is a required field for new SCIM Tenants being created.
+
+* `hard_delete` -
+  (Optional)
+  Deletes the SCIM tenant immediately. This operation cannot be undone.
 
 
 
@@ -169,6 +174,19 @@ WorkforcePoolProviderScimTenant can be imported using any of these accepted form
 * `locations/{{location}}/workforcePools/{{workforce_pool_id}}/providers/{{provider_id}}/scimTenants/{{scim_tenant_id}}`
 * `{{location}}/{{workforce_pool_id}}/{{provider_id}}/{{scim_tenant_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WorkforcePoolProviderScimTenant using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    workforcePoolId = "<-required value->"
+    providerId = "<-required value->"
+    scimTenantId = "<-required value->"
+  }
+  to = google_iam_workforce_pool_provider_scim_tenant.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WorkforcePoolProviderScimTenant using one of the formats above. For example:
 

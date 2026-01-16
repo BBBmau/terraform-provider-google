@@ -105,6 +105,25 @@ func ResourceComputeRegionCommitment() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:         schema.TypeString,
@@ -236,7 +255,7 @@ Possible values are VCPU, MEMORY, LOCAL_SSD, and ACCELERATOR.`,
 				ForceNew: true,
 				Description: `The type of commitment, which affects the discount rate and the eligible resources.
 The type could be one of the following value: 'MEMORY_OPTIMIZED', 'ACCELERATOR_OPTIMIZED',
-'GENERAL_PURPOSE_N1', 'GENERAL_PURPOSE_N2', 'GENERAL_PURPOSE_N2D', 'GENERAL_PURPOSE_E2',
+'GENERAL_PURPOSE', 'GENERAL_PURPOSE_N2', 'GENERAL_PURPOSE_N2D', 'GENERAL_PURPOSE_E2',
 'GENERAL_PURPOSE_T2D', 'GENERAL_PURPOSE_C3', 'COMPUTE_OPTIMIZED_C2', 'COMPUTE_OPTIMIZED_C2D' and
 'GRAPHICS_OPTIMIZED_G2'`,
 			},
@@ -396,6 +415,27 @@ func resourceComputeRegionCommitmentCreate(d *schema.ResourceData, meta interfac
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating RegionCommitment", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -503,6 +543,30 @@ func resourceComputeRegionCommitmentRead(d *schema.ResourceData, meta interface{
 	}
 	if err := d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
 		return fmt.Errorf("Error reading RegionCommitment: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil

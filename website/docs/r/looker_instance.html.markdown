@@ -250,8 +250,24 @@ resource "google_looker_instance" "looker-instance" {
   }
   psc_config {
     allowed_vpcs = ["projects/test-project/global/networks/test"]
-    # update only
-    # service_attachments = [{local_fqdn: "www.local-fqdn.com" target_service_attachment_uri: "projects/my-project/regions/us-east1/serviceAttachments/sa"}]
+    
+    # First Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "www.example-one.com"
+    #   target_service_attachment_uri = "projects/my-project/regions/us-east1/serviceAttachments/sa-1"
+    # }
+
+    # Second Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "api.internal-partner.com"
+    #   target_service_attachment_uri = "projects/partner-project/regions/us-central1/serviceAttachments/sa-gateway"
+    # }
+
+    # Third Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "git.internal-repo.com"
+    #   target_service_attachment_uri = "projects/devops-project/regions/us-west1/serviceAttachments/gitlab-sa"
+    # }
   }
 }
 ```
@@ -338,6 +354,11 @@ The following arguments are supported:
   your instance to be restarted during updates, which will temporarily
   disrupt service.
   Structure is [documented below](#nested_maintenance_window).
+
+* `periodic_export_config` -
+  (Optional)
+  Configuration for periodic export.
+  Structure is [documented below](#nested_periodic_export_config).
 
 * `platform_edition` -
   (Optional)
@@ -561,6 +582,43 @@ nested resources will return an error. Possible values: DEFAULT, FORCE
   (Optional)
   Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
+<a name="nested_periodic_export_config"></a>The `periodic_export_config` block supports:
+
+* `kms_key` -
+  (Required)
+  Name of the CMEK key in KMS.
+  Format:
+  projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}
+
+* `gcs_uri` -
+  (Required)
+  Cloud Storage bucket URI for periodic export.
+  Format: gs://{bucket_name}
+
+* `start_time` -
+  (Required)
+  Time in UTC to start the periodic export job.
+  Structure is [documented below](#nested_periodic_export_config_start_time).
+
+
+<a name="nested_periodic_export_config_start_time"></a>The `start_time` block supports:
+
+* `hours` -
+  (Optional)
+  Hours of day in 24 hour format. Should be from 0 to 23.
+
+* `minutes` -
+  (Optional)
+  Minutes of hour of day. Must be from 0 to 59.
+
+* `seconds` -
+  (Optional)
+  Seconds of minutes of the time. Must normally be from 0 to 59.
+
+* `nanos` -
+  (Optional)
+  Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+
 <a name="nested_psc_config"></a>The `psc_config` block supports:
 
 * `allowed_vpcs` -
@@ -664,6 +722,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_looker_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

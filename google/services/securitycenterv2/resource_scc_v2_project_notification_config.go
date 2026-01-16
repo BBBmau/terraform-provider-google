@@ -107,6 +107,25 @@ func ResourceSecurityCenterV2ProjectNotificationConfig() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"config_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"config_id": {
 				Type:        schema.TypeString,
@@ -163,7 +182,7 @@ for information on how to write a filter.`,
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
-				Description: `Location ID of the parent organization. Only global is supported at the moment.`,
+				Description: `Location ID for the parent project. Defaults to 'global' if location is not provided.`,
 				Default:     "global",
 			},
 			"pubsub_topic": {
@@ -269,6 +288,27 @@ func resourceSecurityCenterV2ProjectNotificationConfigCreate(d *schema.ResourceD
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if configIdValue, ok := d.GetOk("config_id"); ok && configIdValue.(string) != "" {
+			if err = identity.Set("config_id", configIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting config_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating ProjectNotificationConfig %q: %#v", d.Id(), res)
 
 	return resourceSecurityCenterV2ProjectNotificationConfigRead(d, meta)
@@ -332,6 +372,30 @@ func resourceSecurityCenterV2ProjectNotificationConfigRead(d *schema.ResourceDat
 		return fmt.Errorf("Error reading ProjectNotificationConfig: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("config_id"); !ok && v == "" {
+			err = identity.Set("config_id", d.Get("config_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting config_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -340,6 +404,27 @@ func resourceSecurityCenterV2ProjectNotificationConfigUpdate(d *schema.ResourceD
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if configIdValue, ok := d.GetOk("config_id"); ok && configIdValue.(string) != "" {
+			if err = identity.Set("config_id", configIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting config_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -475,7 +560,6 @@ func resourceSecurityCenterV2ProjectNotificationConfigDelete(d *schema.ResourceD
 }
 
 func resourceSecurityCenterV2ProjectNotificationConfigImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-
 	config := meta.(*transport_tpg.Config)
 
 	// current import_formats can't import fields with forward slashes in their value
@@ -484,9 +568,9 @@ func resourceSecurityCenterV2ProjectNotificationConfigImport(d *schema.ResourceD
 	}
 
 	stringParts := strings.Split(d.Get("name").(string), "/")
-	if len(stringParts) < 2 {
+	if len(stringParts) != 6 {
 		return nil, fmt.Errorf(
-			"Could not split project from name: %s",
+			"Unexpected format of ID (%s), expected projects/{{project}}/locations/{{location}}/notificationConfigs/{{config_id}}",
 			d.Get("name"),
 		)
 	}
@@ -494,6 +578,15 @@ func resourceSecurityCenterV2ProjectNotificationConfigImport(d *schema.ResourceD
 	if err := d.Set("project", stringParts[1]); err != nil {
 		return nil, fmt.Errorf("Error setting project: %s", err)
 	}
+
+	if err := d.Set("location", stringParts[3]); err != nil {
+		return nil, fmt.Errorf("Error setting location: %s", err)
+	}
+
+	if err := d.Set("config_id", stringParts[5]); err != nil {
+		return nil, fmt.Errorf("Error setting config_id: %s", err)
+	}
+
 	return []*schema.ResourceData{d}, nil
 }
 

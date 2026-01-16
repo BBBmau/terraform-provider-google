@@ -112,10 +112,10 @@ The following arguments are supported:
 * `deny_rule` -
   (Optional)
   A deny rule in an IAM deny policy.
-  Structure is [documented below](#nested_rules_rules_deny_rule).
+  Structure is [documented below](#nested_rules_deny_rule).
 
 
-<a name="nested_rules_rules_deny_rule"></a>The `deny_rule` block supports:
+<a name="nested_rules_deny_rule"></a>The `deny_rule` block supports:
 
 * `denied_principals` -
   (Optional)
@@ -140,10 +140,10 @@ The following arguments are supported:
 * `denial_condition` -
   (Optional)
   User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header.
-  Structure is [documented below](#nested_rules_rules_deny_rule_denial_condition).
+  Structure is [documented below](#nested_rules_deny_rule_denial_condition).
 
 
-<a name="nested_rules_rules_deny_rule_denial_condition"></a>The `denial_condition` block supports:
+<a name="nested_rules_deny_rule_denial_condition"></a>The `denial_condition` block supports:
 
 * `expression` -
   (Required)
@@ -190,6 +190,17 @@ DenyPolicy can be imported using any of these accepted formats:
 
 * `{{parent}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DenyPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    parent = "<-required value->"
+  }
+  to = google_iam_deny_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DenyPolicy using one of the formats above. For example:
 

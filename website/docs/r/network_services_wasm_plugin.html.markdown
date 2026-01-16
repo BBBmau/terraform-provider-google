@@ -30,11 +30,6 @@ To get more information about WasmPlugin, see:
 * How-to Guides
     * [Configure a route extension](https://cloud.google.com/service-extensions/docs/create-plugin)
 
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=wasm_plugin_basic_docker_repository&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
 ## Example Usage - Wasm Plugin Basic Docker Repository
 
 
@@ -67,11 +62,6 @@ resource "google_network_services_wasm_plugin" "wasm_plugin" {
   }
 }
 ```
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=wasm_plugin_basic_generic_repository&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
 ## Example Usage - Wasm Plugin Basic Generic Repository
 
 
@@ -265,6 +255,18 @@ WasmPlugin can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WasmPlugin using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_wasm_plugin.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WasmPlugin using one of the formats above. For example:
 

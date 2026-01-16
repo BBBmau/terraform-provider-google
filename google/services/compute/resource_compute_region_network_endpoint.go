@@ -106,6 +106,37 @@ func ResourceComputeRegionNetworkEndpoint() *schema.Resource {
 			tpgresource.DefaultProviderRegion,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"port": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"ip_address": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"fqdn": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"region_network_endpoint_group": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"port": {
 				Type:         schema.TypeInt,
@@ -121,6 +152,12 @@ func ResourceComputeRegionNetworkEndpoint() *schema.Resource {
 				DiffSuppressFunc: tpgresource.CompareResourceNames,
 				Description:      `The network endpoint group this endpoint is part of.`,
 			},
+			"client_destination_port": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				ForceNew:    true,
+				Description: `Client destination port for the 'GCE_VM_IP_PORTMAP' NEG.`,
+			},
 			"fqdn": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -129,6 +166,14 @@ func ResourceComputeRegionNetworkEndpoint() *schema.Resource {
 
 This can only be specified when network_endpoint_type of the NEG is INTERNET_FQDN_PORT.`,
 				AtLeastOneOf: []string{"fqdn", "ip_address"},
+			},
+			"instance": {
+				Type:             schema.TypeString,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
+				Description: `The name for a specific VM instance that the IP address belongs to.
+This is required for network endpoints of type GCE_VM_IP_PORTMAP.`,
 			},
 			"ip_address": {
 				Type:     schema.TypeString,
@@ -188,6 +233,18 @@ func resourceComputeRegionNetworkEndpointCreate(d *schema.ResourceData, meta int
 	} else if v, ok := d.GetOkExists("fqdn"); !tpgresource.IsEmptyValue(reflect.ValueOf(fqdnProp)) && (ok || !reflect.DeepEqual(v, fqdnProp)) {
 		obj["fqdn"] = fqdnProp
 	}
+	clientDestinationPortProp, err := expandNestedComputeRegionNetworkEndpointClientDestinationPort(d.Get("client_destination_port"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("client_destination_port"); !tpgresource.IsEmptyValue(reflect.ValueOf(clientDestinationPortProp)) && (ok || !reflect.DeepEqual(v, clientDestinationPortProp)) {
+		obj["clientDestinationPort"] = clientDestinationPortProp
+	}
+	instanceProp, err := expandNestedComputeRegionNetworkEndpointInstance(d.Get("instance"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("instance"); !tpgresource.IsEmptyValue(reflect.ValueOf(instanceProp)) && (ok || !reflect.DeepEqual(v, instanceProp)) {
+		obj["instance"] = instanceProp
+	}
 
 	obj, err = resourceComputeRegionNetworkEndpointEncoder(d, meta, obj)
 	if err != nil {
@@ -241,6 +298,42 @@ func resourceComputeRegionNetworkEndpointCreate(d *schema.ResourceData, meta int
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if portValue, ok := d.GetOk("port"); ok && portValue.(string) != "" {
+			if err = identity.Set("port", portValue.(string)); err != nil {
+				return fmt.Errorf("Error setting port: %s", err)
+			}
+		}
+		if ipAddressValue, ok := d.GetOk("ip_address"); ok && ipAddressValue.(string) != "" {
+			if err = identity.Set("ip_address", ipAddressValue.(string)); err != nil {
+				return fmt.Errorf("Error setting ip_address: %s", err)
+			}
+		}
+		if fqdnValue, ok := d.GetOk("fqdn"); ok && fqdnValue.(string) != "" {
+			if err = identity.Set("fqdn", fqdnValue.(string)); err != nil {
+				return fmt.Errorf("Error setting fqdn: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if regionNetworkEndpointGroupValue, ok := d.GetOk("region_network_endpoint_group"); ok && regionNetworkEndpointGroupValue.(string) != "" {
+			if err = identity.Set("region_network_endpoint_group", regionNetworkEndpointGroupValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region_network_endpoint_group: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating RegionNetworkEndpoint", userAgent,
@@ -342,6 +435,54 @@ func resourceComputeRegionNetworkEndpointRead(d *schema.ResourceData, meta inter
 	}
 	if err := d.Set("fqdn", flattenNestedComputeRegionNetworkEndpointFqdn(res["fqdn"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err := d.Set("client_destination_port", flattenNestedComputeRegionNetworkEndpointClientDestinationPort(res["clientDestinationPort"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err := d.Set("instance", flattenNestedComputeRegionNetworkEndpointInstance(res["instance"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("port"); !ok && v == "" {
+			err = identity.Set("port", d.Get("port").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting port: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("ip_address"); !ok && v == "" {
+			err = identity.Set("ip_address", d.Get("ip_address").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting ip_address: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("fqdn"); !ok && v == "" {
+			err = identity.Set("fqdn", d.Get("fqdn").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting fqdn: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region_network_endpoint_group"); !ok && v == "" {
+			err = identity.Set("region_network_endpoint_group", d.Get("region_network_endpoint_group").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region_network_endpoint_group: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -497,6 +638,21 @@ func flattenNestedComputeRegionNetworkEndpointFqdn(v interface{}, d *schema.Reso
 	return v
 }
 
+func flattenNestedComputeRegionNetworkEndpointClientDestinationPort(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles int given in float64 format
+	if floatVal, ok := v.(float64); ok {
+		return int(floatVal)
+	}
+	return v
+}
+
+func flattenNestedComputeRegionNetworkEndpointInstance(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	return tpgresource.ConvertSelfLinkToV1(v.(string))
+}
+
 func expandNestedComputeRegionNetworkEndpointPort(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -506,6 +662,14 @@ func expandNestedComputeRegionNetworkEndpointIpAddress(v interface{}, d tpgresou
 }
 
 func expandNestedComputeRegionNetworkEndpointFqdn(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNestedComputeRegionNetworkEndpointClientDestinationPort(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNestedComputeRegionNetworkEndpointInstance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

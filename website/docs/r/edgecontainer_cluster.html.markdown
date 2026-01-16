@@ -273,14 +273,14 @@ The following arguments are supported:
 * `window` -
   (Optional)
   Represents an arbitrary window of time.
-  Structure is [documented below](#nested_maintenance_policy_maintenance_exclusions_maintenance_exclusions_window).
+  Structure is [documented below](#nested_maintenance_policy_maintenance_exclusions_window).
 
 * `id` -
   (Optional)
   A unique (per cluster) id for the window.
 
 
-<a name="nested_maintenance_policy_maintenance_exclusions_maintenance_exclusions_window"></a>The `window` block supports:
+<a name="nested_maintenance_policy_maintenance_exclusions_window"></a>The `window` block supports:
 
 * `start_time` -
   (Optional)
@@ -503,6 +503,18 @@ Cluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Cluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_edgecontainer_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Cluster using one of the formats above. For example:
 

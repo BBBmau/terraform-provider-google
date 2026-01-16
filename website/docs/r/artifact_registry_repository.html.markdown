@@ -833,16 +833,16 @@ The following arguments are supported:
 * `condition` -
   (Optional)
   Policy condition for matching versions.
-  Structure is [documented below](#nested_cleanup_policies_cleanup_policies_condition).
+  Structure is [documented below](#nested_cleanup_policies_condition).
 
 * `most_recent_versions` -
   (Optional)
   Policy condition for retaining a minimum number of versions. May only be
   specified with a Keep action.
-  Structure is [documented below](#nested_cleanup_policies_cleanup_policies_most_recent_versions).
+  Structure is [documented below](#nested_cleanup_policies_most_recent_versions).
 
 
-<a name="nested_cleanup_policies_cleanup_policies_condition"></a>The `condition` block supports:
+<a name="nested_cleanup_policies_condition"></a>The `condition` block supports:
 
 * `tag_state` -
   (Optional)
@@ -870,7 +870,7 @@ The following arguments are supported:
   (Optional)
   Match versions newer than a duration.
 
-<a name="nested_cleanup_policies_cleanup_policies_most_recent_versions"></a>The `most_recent_versions` block supports:
+<a name="nested_cleanup_policies_most_recent_versions"></a>The `most_recent_versions` block supports:
 
 * `package_name_prefixes` -
   (Optional)
@@ -1135,6 +1135,18 @@ Repository can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{repository_id}}`
 * `{{location}}/{{repository_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Repository using identity values. For example:
+
+```tf
+import {
+  identity = {
+    repository_id = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_artifact_registry_repository.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Repository using one of the formats above. For example:
 

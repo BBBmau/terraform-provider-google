@@ -329,10 +329,10 @@ The following arguments are supported:
 * `run` -
   (Optional)
   The request will be forwarded to Cloud Run.
-  Structure is [documented below](#nested_config_rewrites_rewrites_run).
+  Structure is [documented below](#nested_config_rewrites_run).
 
 
-<a name="nested_config_rewrites_rewrites_run"></a>The `run` block supports:
+<a name="nested_config_rewrites_run"></a>The `run` block supports:
 
 * `service_id` -
   (Required)
@@ -413,6 +413,17 @@ Version can be imported using any of these accepted formats:
 * `sites/{{site_id}}/versions/{{version_id}}`
 * `{{site_id}}/{{version_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Version using identity values. For example:
+
+```tf
+import {
+  identity = {
+    version_id = "<-optional value->"
+    site_id = "<-required value->"
+  }
+  to = google_firebase_hosting_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Version using one of the formats above. For example:
 

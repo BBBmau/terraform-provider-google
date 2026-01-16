@@ -120,6 +120,25 @@ func ResourceBeyondcorpSecurityGateway() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"security_gateway_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"security_gateway_id": {
 				Type:     schema.TypeString,
@@ -399,7 +418,7 @@ func resourceBeyondcorpSecurityGatewayCreate(d *schema.ResourceData, meta interf
 	serviceDiscoveryProp, err := expandBeyondcorpSecurityGatewayServiceDiscovery(d.Get("service_discovery"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("service_discovery"); !tpgresource.IsEmptyValue(reflect.ValueOf(serviceDiscoveryProp)) && (ok || !reflect.DeepEqual(v, serviceDiscoveryProp)) {
+	} else if v, ok := d.GetOkExists("service_discovery"); ok || !reflect.DeepEqual(v, serviceDiscoveryProp) {
 		obj["serviceDiscovery"] = serviceDiscoveryProp
 	}
 
@@ -443,6 +462,27 @@ func resourceBeyondcorpSecurityGatewayCreate(d *schema.ResourceData, meta interf
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if securityGatewayIdValue, ok := d.GetOk("security_gateway_id"); ok && securityGatewayIdValue.(string) != "" {
+			if err = identity.Set("security_gateway_id", securityGatewayIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting security_gateway_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = BeyondcorpOperationWaitTime(
 		config, res, project, "Creating SecurityGateway", userAgent,
@@ -532,6 +572,30 @@ func resourceBeyondcorpSecurityGatewayRead(d *schema.ResourceData, meta interfac
 		return fmt.Errorf("Error reading SecurityGateway: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("security_gateway_id"); !ok && v == "" {
+			err = identity.Set("security_gateway_id", d.Get("security_gateway_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting security_gateway_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -540,6 +604,27 @@ func resourceBeyondcorpSecurityGatewayUpdate(d *schema.ResourceData, meta interf
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if securityGatewayIdValue, ok := d.GetOk("security_gateway_id"); ok && securityGatewayIdValue.(string) != "" {
+			if err = identity.Set("security_gateway_id", securityGatewayIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting security_gateway_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -572,7 +657,7 @@ func resourceBeyondcorpSecurityGatewayUpdate(d *schema.ResourceData, meta interf
 	serviceDiscoveryProp, err := expandBeyondcorpSecurityGatewayServiceDiscovery(d.Get("service_discovery"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("service_discovery"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, serviceDiscoveryProp)) {
+	} else if v, ok := d.GetOkExists("service_discovery"); ok || !reflect.DeepEqual(v, serviceDiscoveryProp) {
 		obj["serviceDiscovery"] = serviceDiscoveryProp
 	}
 
@@ -895,9 +980,6 @@ func flattenBeyondcorpSecurityGatewayServiceDiscovery(v interface{}, d *schema.R
 		return nil
 	}
 	original := v.(map[string]interface{})
-	if len(original) == 0 {
-		return nil
-	}
 	transformed := make(map[string]interface{})
 	transformed["api_gateway"] =
 		flattenBeyondcorpSecurityGatewayServiceDiscoveryApiGateway(original["apiGateway"], d, config)
@@ -1191,8 +1273,13 @@ func expandBeyondcorpSecurityGatewayServiceDiscovery(v interface{}, d tpgresourc
 		return nil, nil
 	}
 	l := v.([]interface{})
-	if len(l) == 0 || l[0] == nil {
+	if len(l) == 0 {
 		return nil, nil
+	}
+
+	if l[0] == nil {
+		transformed := make(map[string]interface{})
+		return transformed, nil
 	}
 	raw := l[0]
 	original := raw.(map[string]interface{})

@@ -179,10 +179,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `last_backup_error` -
   (Output)
   google.rpc.Status object to store the last backup error
-  Structure is [documented below](#nested_rules_config_info_rules_config_info_last_backup_error).
+  Structure is [documented below](#nested_rules_config_info_last_backup_error).
 
 
-<a name="nested_rules_config_info_rules_config_info_last_backup_error"></a>The `last_backup_error` block contains:
+<a name="nested_rules_config_info_last_backup_error"></a>The `last_backup_error` block contains:
 
 * `code` -
   (Output)
@@ -210,6 +210,18 @@ BackupPlanAssociation can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{backup_plan_association_id}}`
 * `{{location}}/{{backup_plan_association_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupPlanAssociation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    backup_plan_association_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_backup_dr_backup_plan_association.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupPlanAssociation using one of the formats above. For example:
 

@@ -152,19 +152,19 @@ The following arguments are supported:
 * `query_terms` -
   (Optional)
   The query terms that must be present in the search request for this condition to be met.
-  Structure is [documented below](#nested_conditions_conditions_query_terms).
+  Structure is [documented below](#nested_conditions_query_terms).
 
 * `active_time_range` -
   (Optional)
   The time range when the condition is active.
-  Structure is [documented below](#nested_conditions_conditions_active_time_range).
+  Structure is [documented below](#nested_conditions_active_time_range).
 
 * `query_regex` -
   (Optional)
   The regular expression that the query must match for this condition to be met.
 
 
-<a name="nested_conditions_conditions_query_terms"></a>The `query_terms` block supports:
+<a name="nested_conditions_query_terms"></a>The `query_terms` block supports:
 
 * `value` -
   (Optional)
@@ -174,7 +174,7 @@ The following arguments are supported:
   (Optional)
   If true, the query term must be an exact match. Otherwise, the query term can be a partial match.
 
-<a name="nested_conditions_conditions_active_time_range"></a>The `active_time_range` block supports:
+<a name="nested_conditions_active_time_range"></a>The `active_time_range` block supports:
 
 * `start_time` -
   (Optional)
@@ -328,6 +328,20 @@ Control can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{collection_id}}/{{engine_id}}/{{control_id}}`
 * `{{location}}/{{collection_id}}/{{engine_id}}/{{control_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Control using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    collectionId = "<-optional value->"
+    engineId = "<-required value->"
+    controlId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_discovery_engine_control.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Control using one of the formats above. For example:
 

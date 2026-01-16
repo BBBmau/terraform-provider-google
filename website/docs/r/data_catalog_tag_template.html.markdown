@@ -136,7 +136,7 @@ The following arguments are supported:
 * `type` -
   (Required)
   The type of value this tag field can contain.
-  Structure is [documented below](#nested_fields_field_type).
+  Structure is [documented below](#nested_fields_type).
 
 * `is_required` -
   (Optional)
@@ -149,7 +149,7 @@ The following arguments are supported:
   Multiple fields can have the same order, and field orders within a tag do not have to be sequential.
 
 
-<a name="nested_fields_field_type"></a>The `type` block supports:
+<a name="nested_fields_type"></a>The `type` block supports:
 
 * `primitive_type` -
   (Optional)
@@ -161,10 +161,10 @@ The following arguments are supported:
   (Optional)
   Represents an enum type.
    Exactly one of `primitive_type` or `enum_type` must be set
-  Structure is [documented below](#nested_fields_field_type_enum_type).
+  Structure is [documented below](#nested_fields_type_enum_type).
 
 
-<a name="nested_fields_field_type_enum_type"></a>The `enum_type` block supports:
+<a name="nested_fields_type_enum_type"></a>The `enum_type` block supports:
 
 * `allowed_values` -
   (Required)
@@ -173,10 +173,10 @@ The following arguments are supported:
   enum values can only be added to the list of allowed values. Deletion
   and renaming of enum values are not supported.
   Can have up to 500 allowed values.
-  Structure is [documented below](#nested_fields_field_type_enum_type_allowed_values).
+  Structure is [documented below](#nested_fields_type_enum_type_allowed_values).
 
 
-<a name="nested_fields_field_type_enum_type_allowed_values"></a>The `allowed_values` block supports:
+<a name="nested_fields_type_enum_type_allowed_values"></a>The `allowed_values` block supports:
 
 * `display_name` -
   (Required)
@@ -208,6 +208,16 @@ TagTemplate can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TagTemplate using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_data_catalog_tag_template.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TagTemplate using one of the formats above. For example:
 

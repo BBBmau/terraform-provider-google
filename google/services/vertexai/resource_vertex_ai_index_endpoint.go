@@ -108,6 +108,25 @@ func ResourceVertexAIIndexEndpoint() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -177,6 +196,25 @@ Where '{project}' is a project number, as in '12345', and '{network}' is network
 							Description: `A list of Projects from which the forwarding rule will target the service attachment.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
+							},
+						},
+						"psc_automation_configs": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"network": {
+										Type:        schema.TypeString,
+										Required:    true,
+										Description: `The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.`,
+									},
+									"project_id": {
+										Type:        schema.TypeString,
+										Required:    true,
+										Description: `Project id used to create forwarding rule.`,
+									},
+								},
 							},
 						},
 					},
@@ -336,6 +374,27 @@ func resourceVertexAIIndexEndpointCreate(d *schema.ResourceData, meta interface{
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	// Use the resource in the operation response to populate
 	// identity fields and d.Id() before read
 	var opRes map[string]interface{}
@@ -444,6 +503,30 @@ func resourceVertexAIIndexEndpointRead(d *schema.ResourceData, meta interface{})
 		return fmt.Errorf("Error reading IndexEndpoint: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -452,6 +535,27 @@ func resourceVertexAIIndexEndpointUpdate(d *schema.ResourceData, meta interface{
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -675,6 +779,7 @@ func flattenVertexAIIndexEndpointPrivateServiceConnectConfig(v interface{}, d *s
 		flattenVertexAIIndexEndpointPrivateServiceConnectConfigEnablePrivateServiceConnect(original["enablePrivateServiceConnect"], d, config)
 	transformed["project_allowlist"] =
 		flattenVertexAIIndexEndpointPrivateServiceConnectConfigProjectAllowlist(original["projectAllowlist"], d, config)
+	transformed["psc_automation_configs"] = d.Get("private_service_connect_config.0.psc_automation_configs")
 	return []interface{}{transformed}
 }
 
@@ -764,6 +869,13 @@ func expandVertexAIIndexEndpointPrivateServiceConnectConfig(v interface{}, d tpg
 		transformed["projectAllowlist"] = transformedProjectAllowlist
 	}
 
+	transformedPscAutomationConfigs, err := expandVertexAIIndexEndpointPrivateServiceConnectConfigPscAutomationConfigs(original["psc_automation_configs"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedPscAutomationConfigs); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["pscAutomationConfigs"] = transformedPscAutomationConfigs
+	}
+
 	return transformed, nil
 }
 
@@ -772,6 +884,46 @@ func expandVertexAIIndexEndpointPrivateServiceConnectConfigEnablePrivateServiceC
 }
 
 func expandVertexAIIndexEndpointPrivateServiceConnectConfigProjectAllowlist(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandVertexAIIndexEndpointPrivateServiceConnectConfigPscAutomationConfigs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	req := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		if raw == nil {
+			continue
+		}
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedProjectId, err := expandVertexAIIndexEndpointPrivateServiceConnectConfigPscAutomationConfigsProjectId(original["project_id"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedProjectId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+			transformed["projectId"] = transformedProjectId
+		}
+
+		transformedNetwork, err := expandVertexAIIndexEndpointPrivateServiceConnectConfigPscAutomationConfigsNetwork(original["network"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedNetwork); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+			transformed["network"] = transformedNetwork
+		}
+
+		req = append(req, transformed)
+	}
+	return req, nil
+}
+
+func expandVertexAIIndexEndpointPrivateServiceConnectConfigPscAutomationConfigsProjectId(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandVertexAIIndexEndpointPrivateServiceConnectConfigPscAutomationConfigsNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

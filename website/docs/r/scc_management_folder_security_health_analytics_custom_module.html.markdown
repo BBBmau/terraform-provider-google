@@ -220,10 +220,10 @@ The following arguments are supported:
   (Optional)
   The CEL expression for the custom output. A resource property can be specified
   to return the value of the property or a text string enclosed in quotation marks.
-  Structure is [documented below](#nested_custom_config_custom_output_properties_properties_value_expression).
+  Structure is [documented below](#nested_custom_config_custom_output_properties_value_expression).
 
 
-<a name="nested_custom_config_custom_output_properties_properties_value_expression"></a>The `value_expression` block supports:
+<a name="nested_custom_config_custom_output_properties_value_expression"></a>The `value_expression` block supports:
 
 * `expression` -
   (Required)
@@ -291,6 +291,18 @@ FolderSecurityHealthAnalyticsCustomModule can be imported using any of these acc
 * `folders/{{folder}}/locations/{{location}}/securityHealthAnalyticsCustomModules/{{name}}`
 * `{{folder}}/{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FolderSecurityHealthAnalyticsCustomModule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    folder = "<-required value->"
+    location = "<-optional value->"
+  }
+  to = google_scc_management_folder_security_health_analytics_custom_module.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FolderSecurityHealthAnalyticsCustomModule using one of the formats above. For example:
 

@@ -518,10 +518,10 @@ When the field is set to false, deleting the instance is allowed.
 * `start_time` -
   (Required)
   Required. Start time of the window in UTC time.
-  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time).
+  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_start_time).
 
 
-<a name="nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_policy_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -681,6 +681,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_redis_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

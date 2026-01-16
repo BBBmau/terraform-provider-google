@@ -107,6 +107,25 @@ func ResourceBackupDRBackupPlan() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"backup_plan_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"backup_rules": {
 				Type:        schema.TypeList,
@@ -261,6 +280,11 @@ Examples include, "compute.googleapis.com/Instance", "compute.googleapis.com/Dis
 				ForceNew:    true,
 				Description: `This is only applicable for CloudSql resource. Days for which logs will be stored. This value should be greater than or equal to minimum enforced log retention duration of the backup vault.`,
 			},
+			"max_custom_on_demand_retention_days": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Description: `The maximum number of days for which an on-demand backup taken with custom retention can be retained.`,
+			},
 			"backup_vault_service_account": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -326,6 +350,12 @@ func resourceBackupDRBackupPlanCreate(d *schema.ResourceData, meta interface{}) 
 	} else if v, ok := d.GetOkExists("resource_type"); !tpgresource.IsEmptyValue(reflect.ValueOf(resourceTypeProp)) && (ok || !reflect.DeepEqual(v, resourceTypeProp)) {
 		obj["resourceType"] = resourceTypeProp
 	}
+	maxCustomOnDemandRetentionDaysProp, err := expandBackupDRBackupPlanMaxCustomOnDemandRetentionDays(d.Get("max_custom_on_demand_retention_days"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("max_custom_on_demand_retention_days"); !tpgresource.IsEmptyValue(reflect.ValueOf(maxCustomOnDemandRetentionDaysProp)) && (ok || !reflect.DeepEqual(v, maxCustomOnDemandRetentionDaysProp)) {
+		obj["maxCustomOnDemandRetentionDays"] = maxCustomOnDemandRetentionDaysProp
+	}
 	backupRulesProp, err := expandBackupDRBackupPlanBackupRules(d.Get("backup_rules"), d, config)
 	if err != nil {
 		return err
@@ -379,6 +409,27 @@ func resourceBackupDRBackupPlanCreate(d *schema.ResourceData, meta interface{}) 
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if backupPlanIdValue, ok := d.GetOk("backup_plan_id"); ok && backupPlanIdValue.(string) != "" {
+			if err = identity.Set("backup_plan_id", backupPlanIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting backup_plan_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = BackupDROperationWaitTime(
 		config, res, project, "Creating BackupPlan", userAgent,
@@ -461,11 +512,38 @@ func resourceBackupDRBackupPlanRead(d *schema.ResourceData, meta interface{}) er
 	if err := d.Set("update_time", flattenBackupDRBackupPlanUpdateTime(res["updateTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupPlan: %s", err)
 	}
+	if err := d.Set("max_custom_on_demand_retention_days", flattenBackupDRBackupPlanMaxCustomOnDemandRetentionDays(res["maxCustomOnDemandRetentionDays"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupPlan: %s", err)
+	}
 	if err := d.Set("backup_rules", flattenBackupDRBackupPlanBackupRules(res["backupRules"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupPlan: %s", err)
 	}
 	if err := d.Set("log_retention_days", flattenBackupDRBackupPlanLogRetentionDays(res["logRetentionDays"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupPlan: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("backup_plan_id"); !ok && v == "" {
+			err = identity.Set("backup_plan_id", d.Get("backup_plan_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting backup_plan_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -476,6 +554,27 @@ func resourceBackupDRBackupPlanUpdate(d *schema.ResourceData, meta interface{}) 
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if backupPlanIdValue, ok := d.GetOk("backup_plan_id"); ok && backupPlanIdValue.(string) != "" {
+			if err = identity.Set("backup_plan_id", backupPlanIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting backup_plan_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -499,6 +598,12 @@ func resourceBackupDRBackupPlanUpdate(d *schema.ResourceData, meta interface{}) 
 	} else if v, ok := d.GetOkExists("resource_type"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, resourceTypeProp)) {
 		obj["resourceType"] = resourceTypeProp
 	}
+	maxCustomOnDemandRetentionDaysProp, err := expandBackupDRBackupPlanMaxCustomOnDemandRetentionDays(d.Get("max_custom_on_demand_retention_days"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("max_custom_on_demand_retention_days"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, maxCustomOnDemandRetentionDaysProp)) {
+		obj["maxCustomOnDemandRetentionDays"] = maxCustomOnDemandRetentionDaysProp
+	}
 	backupRulesProp, err := expandBackupDRBackupPlanBackupRules(d.Get("backup_rules"), d, config)
 	if err != nil {
 		return err
@@ -521,6 +626,10 @@ func resourceBackupDRBackupPlanUpdate(d *schema.ResourceData, meta interface{}) 
 
 	if d.HasChange("resource_type") {
 		updateMask = append(updateMask, "resourceType")
+	}
+
+	if d.HasChange("max_custom_on_demand_retention_days") {
+		updateMask = append(updateMask, "maxCustomOnDemandRetentionDays")
 	}
 
 	if d.HasChange("backup_rules") {
@@ -675,6 +784,23 @@ func flattenBackupDRBackupPlanCreateTime(v interface{}, d *schema.ResourceData, 
 
 func flattenBackupDRBackupPlanUpdateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
+}
+
+func flattenBackupDRBackupPlanMaxCustomOnDemandRetentionDays(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
 }
 
 func flattenBackupDRBackupPlanBackupRules(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -880,6 +1006,10 @@ func expandBackupDRBackupPlanBackupVault(v interface{}, d tpgresource.TerraformR
 }
 
 func expandBackupDRBackupPlanResourceType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandBackupDRBackupPlanMaxCustomOnDemandRetentionDays(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

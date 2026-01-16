@@ -832,17 +832,17 @@ The following arguments are supported:
   Represents a time of day. The date and time zone are either not significant
   or are specified elsewhere. An API may choose to allow leap seconds. Related
   types are google.type.Date and `google.protobuf.Timestamp`.
-  Structure is [documented below](#nested_properties_scheduled_operation_details_scheduled_operation_details_start_time).
+  Structure is [documented below](#nested_properties_scheduled_operation_details_start_time).
 
 * `stop_time` -
   (Output)
   Represents a time of day. The date and time zone are either not significant
   or are specified elsewhere. An API may choose to allow leap seconds. Related
   types are google.type.Date and `google.protobuf.Timestamp`.
-  Structure is [documented below](#nested_properties_scheduled_operation_details_scheduled_operation_details_stop_time).
+  Structure is [documented below](#nested_properties_scheduled_operation_details_stop_time).
 
 
-<a name="nested_properties_scheduled_operation_details_scheduled_operation_details_start_time"></a>The `start_time` block contains:
+<a name="nested_properties_scheduled_operation_details_start_time"></a>The `start_time` block contains:
 
 * `hours` -
   (Output)
@@ -862,7 +862,7 @@ The following arguments are supported:
   (Output)
   Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-<a name="nested_properties_scheduled_operation_details_scheduled_operation_details_stop_time"></a>The `stop_time` block contains:
+<a name="nested_properties_scheduled_operation_details_stop_time"></a>The `stop_time` block contains:
 
 * `hours` -
   (Output)
@@ -925,6 +925,18 @@ AutonomousDatabase can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{autonomous_database_id}}`
 * `{{location}}/{{autonomous_database_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AutonomousDatabase using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    autonomousDatabaseId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_oracle_database_autonomous_database.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AutonomousDatabase using one of the formats above. For example:
 

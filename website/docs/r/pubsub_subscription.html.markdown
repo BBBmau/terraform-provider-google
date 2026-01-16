@@ -963,7 +963,7 @@ The following arguments are supported:
   (Optional)
   Javascript User Defined Function. If multiple Javascript UDFs are specified on a resource,
   each one must have a unique `function_name`.
-  Structure is [documented below](#nested_message_transforms_message_transforms_javascript_udf).
+  Structure is [documented below](#nested_message_transforms_javascript_udf).
 
 * `disabled` -
   (Optional)
@@ -971,7 +971,7 @@ The following arguments are supported:
   the transform will be applied to messages. Default: `true`.
 
 
-<a name="nested_message_transforms_message_transforms_javascript_udf"></a>The `javascript_udf` block supports:
+<a name="nested_message_transforms_javascript_udf"></a>The `javascript_udf` block supports:
 
 * `function_name` -
   (Required)
@@ -1040,6 +1040,17 @@ Subscription can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Subscription using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_pubsub_subscription.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Subscription using one of the formats above. For example:
 

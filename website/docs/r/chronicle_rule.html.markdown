@@ -228,7 +228,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Optional)
   CompilationPosition represents the location of a compilation diagnostic in
   rule text.
-  Structure is [documented below](#nested_compilation_diagnostics_compilation_diagnostics_position).
+  Structure is [documented below](#nested_compilation_diagnostics_position).
 
 * `severity` -
   (Output)
@@ -243,7 +243,7 @@ In addition to the arguments listed above, the following computed attributes are
   Output only. Link to documentation that describes a diagnostic in more detail.
 
 
-<a name="nested_compilation_diagnostics_compilation_diagnostics_position"></a>The `position` block supports:
+<a name="nested_compilation_diagnostics_position"></a>The `position` block supports:
 
 * `start_line` -
   (Output)
@@ -279,6 +279,19 @@ Rule can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance}}/{{rule_id}}`
 * `{{location}}/{{instance}}/{{rule_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Rule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    ruleId = "<-optional value->"
+    location = "<-required value->"
+    instance = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_chronicle_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Rule using one of the formats above. For example:
 

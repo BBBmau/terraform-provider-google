@@ -193,23 +193,23 @@ The following arguments are supported:
 * `match_condition` -
   (Required)
   Conditions under which this chain is invoked for a request.
-  Structure is [documented below](#nested_extension_chains_extension_chains_match_condition).
+  Structure is [documented below](#nested_extension_chains_match_condition).
 
 * `extensions` -
   (Required)
   A set of extensions to execute for the matching request.
   At least one extension is required. Up to 3 extensions can be defined for each extension chain for
   LbTrafficExtension resource. LbRouteExtension chains are limited to 1 extension per extension chain.
-  Structure is [documented below](#nested_extension_chains_extension_chains_extensions).
+  Structure is [documented below](#nested_extension_chains_extensions).
 
 
-<a name="nested_extension_chains_extension_chains_match_condition"></a>The `match_condition` block supports:
+<a name="nested_extension_chains_match_condition"></a>The `match_condition` block supports:
 
 * `cel_expression` -
   (Required)
   A Common Expression Language (CEL) expression that is used to match requests for which the extension chain is executed.
 
-<a name="nested_extension_chains_extension_chains_extensions"></a>The `extensions` block supports:
+<a name="nested_extension_chains_extensions"></a>The `extensions` block supports:
 
 * `name` -
   (Required)
@@ -275,6 +275,18 @@ LbEdgeExtension can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import LbEdgeExtension using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_lb_edge_extension.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import LbEdgeExtension using one of the formats above. For example:
 

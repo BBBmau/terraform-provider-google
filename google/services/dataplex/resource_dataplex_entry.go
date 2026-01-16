@@ -301,6 +301,29 @@ func ResourceDataplexEntry() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"entry_group_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"entry_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"entry_type": {
 				Type:         schema.TypeString,
@@ -548,7 +571,7 @@ func resourceDataplexEntryCreate(d *schema.ResourceData, meta interface{}) error
 		return err
 	}
 
-	url, err := tpgresource.ReplaceVars(d, config, "{{DataplexBasePath}}projects/{{project}}/locations/{{location}}/entryGroups/{{entry_group_id}}/entries?entryId={{entry_id}}")
+	url, err := tpgresource.ReplaceVars(d, config, "{{DataplexBasePath}}projects/{{project}}/locations/{{location}}/entryGroups/{{entry_group_id}}/entries/{{entry_id}}")
 	if err != nil {
 		return err
 	}
@@ -568,15 +591,22 @@ func resourceDataplexEntryCreate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	headers := make(http.Header)
+	if v, ok := d.GetOkExists("entry_group_id"); ok && strings.HasPrefix(v.(string), "@") {
+		url, err = transport_tpg.AddQueryParams(url, map[string]string{"allow_missing": "false",
+			"updateMask": "aspects"})
+	} else {
+		url, err = transport_tpg.AddQueryParams(url, map[string]string{"allow_missing": "true"})
+	}
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "POST",
-		Project:   billingProject,
-		RawURL:    url,
-		UserAgent: userAgent,
-		Body:      obj,
-		Timeout:   d.Timeout(schema.TimeoutCreate),
-		Headers:   headers,
+		Config:               config,
+		Method:               "PATCH",
+		Project:              billingProject,
+		RawURL:               url,
+		UserAgent:            userAgent,
+		Body:                 obj,
+		Timeout:              d.Timeout(schema.TimeoutCreate),
+		Headers:              headers,
+		ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.IsDataplex1PEntryIngestedError},
 	})
 	if err != nil {
 		return fmt.Errorf("Error creating Entry: %s", err)
@@ -588,6 +618,32 @@ func resourceDataplexEntryCreate(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if entryGroupIdValue, ok := d.GetOk("entry_group_id"); ok && entryGroupIdValue.(string) != "" {
+			if err = identity.Set("entry_group_id", entryGroupIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting entry_group_id: %s", err)
+			}
+		}
+		if entryIdValue, ok := d.GetOk("entry_id"); ok && entryIdValue.(string) != "" {
+			if err = identity.Set("entry_id", entryIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting entry_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	log.Printf("[DEBUG] Finished creating Entry %q: %#v", d.Id(), res)
 
@@ -625,12 +681,13 @@ func resourceDataplexEntryRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "GET",
-		Project:   billingProject,
-		RawURL:    url,
-		UserAgent: userAgent,
-		Headers:   headers,
+		Config:               config,
+		Method:               "GET",
+		Project:              billingProject,
+		RawURL:               url,
+		UserAgent:            userAgent,
+		Headers:              headers,
+		ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.IsDataplex1PEntryIngestedError},
 	})
 	if err != nil {
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("DataplexEntry %q", d.Id()))
@@ -677,6 +734,36 @@ func resourceDataplexEntryRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error reading Entry: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("entry_group_id"); !ok && v == "" {
+			err = identity.Set("entry_group_id", d.Get("entry_group_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting entry_group_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("entry_id"); !ok && v == "" {
+			err = identity.Set("entry_id", d.Get("entry_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting entry_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -685,6 +772,32 @@ func resourceDataplexEntryUpdate(d *schema.ResourceData, meta interface{}) error
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if entryGroupIdValue, ok := d.GetOk("entry_group_id"); ok && entryGroupIdValue.(string) != "" {
+			if err = identity.Set("entry_group_id", entryGroupIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting entry_group_id: %s", err)
+			}
+		}
+		if entryIdValue, ok := d.GetOk("entry_id"); ok && entryIdValue.(string) != "" {
+			if err = identity.Set("entry_id", entryIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting entry_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -786,6 +899,8 @@ func resourceDataplexEntryUpdate(d *schema.ResourceData, meta interface{}) error
 		}
 	}
 
+	url, err = transport_tpg.AddQueryParams(url, map[string]string{"allow_missing": "false"})
+
 	// err == nil indicates that the billing_project value was found
 	if bp, err := tpgresource.GetBillingProject(d, config); err == nil {
 		billingProject = bp
@@ -794,14 +909,15 @@ func resourceDataplexEntryUpdate(d *schema.ResourceData, meta interface{}) error
 	// if updateMask is empty we are not updating anything so skip the post
 	if len(updateMask) > 0 {
 		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-			Config:    config,
-			Method:    "PATCH",
-			Project:   billingProject,
-			RawURL:    url,
-			UserAgent: userAgent,
-			Body:      obj,
-			Timeout:   d.Timeout(schema.TimeoutUpdate),
-			Headers:   headers,
+			Config:               config,
+			Method:               "PATCH",
+			Project:              billingProject,
+			RawURL:               url,
+			UserAgent:            userAgent,
+			Body:                 obj,
+			Timeout:              d.Timeout(schema.TimeoutUpdate),
+			Headers:              headers,
+			ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.IsDataplex1PEntryIngestedError},
 		})
 
 		if err != nil {
@@ -843,17 +959,23 @@ func resourceDataplexEntryDelete(d *schema.ResourceData, meta interface{}) error
 	}
 
 	headers := make(http.Header)
+	if v, ok := d.GetOkExists("entry_group_id"); ok && strings.HasPrefix(v.(string), "@") {
+		// Ingestion based resources need to be removed from terraform state but cannot be deleted in Dataplex.
+		d.SetId("")
+		return nil
+	}
 
 	log.Printf("[DEBUG] Deleting Entry %q", d.Id())
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "DELETE",
-		Project:   billingProject,
-		RawURL:    url,
-		UserAgent: userAgent,
-		Body:      obj,
-		Timeout:   d.Timeout(schema.TimeoutDelete),
-		Headers:   headers,
+		Config:               config,
+		Method:               "DELETE",
+		Project:              billingProject,
+		RawURL:               url,
+		UserAgent:            userAgent,
+		Body:                 obj,
+		Timeout:              d.Timeout(schema.TimeoutDelete),
+		Headers:              headers,
+		ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.IsDataplex1PEntryIngestedError},
 	})
 	if err != nil {
 		return transport_tpg.HandleNotFoundError(err, d, "Entry")

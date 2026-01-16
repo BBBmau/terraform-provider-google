@@ -107,7 +107,7 @@ The following arguments are supported:
   (Optional)
   The type of commitment, which affects the discount rate and the eligible resources.
   The type could be one of the following value: `MEMORY_OPTIMIZED`, `ACCELERATOR_OPTIMIZED`,
-  `GENERAL_PURPOSE_N1`, `GENERAL_PURPOSE_N2`, `GENERAL_PURPOSE_N2D`, `GENERAL_PURPOSE_E2`,
+  `GENERAL_PURPOSE`, `GENERAL_PURPOSE_N2`, `GENERAL_PURPOSE_N2D`, `GENERAL_PURPOSE_E2`,
   `GENERAL_PURPOSE_T2D`, `GENERAL_PURPOSE_C3`, `COMPUTE_OPTIMIZED_C2`, `COMPUTE_OPTIMIZED_C2D` and
   `GRAPHICS_OPTIMIZED_G2`
 
@@ -221,6 +221,18 @@ RegionCommitment can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionCommitment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_commitment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionCommitment using one of the formats above. For example:
 

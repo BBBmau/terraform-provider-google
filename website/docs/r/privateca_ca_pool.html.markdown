@@ -272,15 +272,15 @@ The following arguments are supported:
 * `rsa` -
   (Optional)
   Describes an RSA key that may be used in a Certificate issued from a CaPool.
-  Structure is [documented below](#nested_issuance_policy_allowed_key_types_allowed_key_types_rsa).
+  Structure is [documented below](#nested_issuance_policy_allowed_key_types_rsa).
 
 * `elliptic_curve` -
   (Optional)
   Represents an allowed Elliptic Curve key type.
-  Structure is [documented below](#nested_issuance_policy_allowed_key_types_allowed_key_types_elliptic_curve).
+  Structure is [documented below](#nested_issuance_policy_allowed_key_types_elliptic_curve).
 
 
-<a name="nested_issuance_policy_allowed_key_types_allowed_key_types_rsa"></a>The `rsa` block supports:
+<a name="nested_issuance_policy_allowed_key_types_rsa"></a>The `rsa` block supports:
 
 * `min_modulus_size` -
   (Optional)
@@ -292,7 +292,7 @@ The following arguments are supported:
   The maximum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the
   service will not enforce an explicit upper bound on RSA modulus sizes.
 
-<a name="nested_issuance_policy_allowed_key_types_allowed_key_types_elliptic_curve"></a>The `elliptic_curve` block supports:
+<a name="nested_issuance_policy_allowed_key_types_elliptic_curve"></a>The `elliptic_curve` block supports:
 
 * `signature_algorithm` -
   (Required)
@@ -394,10 +394,10 @@ The following arguments are supported:
 * `object_id` -
   (Required)
   Describes values that are relevant in a CA certificate.
-  Structure is [documented below](#nested_issuance_policy_baseline_values_additional_extensions_additional_extensions_object_id).
+  Structure is [documented below](#nested_issuance_policy_baseline_values_additional_extensions_object_id).
 
 
-<a name="nested_issuance_policy_baseline_values_additional_extensions_additional_extensions_object_id"></a>The `object_id` block supports:
+<a name="nested_issuance_policy_baseline_values_additional_extensions_object_id"></a>The `object_id` block supports:
 
 * `object_id_path` -
   (Required)
@@ -642,6 +642,18 @@ CaPool can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CaPool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_privateca_ca_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CaPool using one of the formats above. For example:
 

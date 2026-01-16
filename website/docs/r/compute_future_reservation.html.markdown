@@ -364,10 +364,10 @@ The following arguments are supported:
 * `accelerator` -
   (Optional)
   Properties of accelerator resources in this reservation.
-  Structure is [documented below](#nested_aggregate_reservation_reserved_resources_reserved_resources_accelerator).
+  Structure is [documented below](#nested_aggregate_reservation_reserved_resources_accelerator).
 
 
-<a name="nested_aggregate_reservation_reserved_resources_reserved_resources_accelerator"></a>The `accelerator` block supports:
+<a name="nested_aggregate_reservation_reserved_resources_accelerator"></a>The `accelerator` block supports:
 
 * `accelerator_count` -
   (Optional)
@@ -638,6 +638,18 @@ FutureReservation can be imported using any of these accepted formats:
 * `{{zone}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FutureReservation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    zone = "<-optional value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_future_reservation.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FutureReservation using one of the formats above. For example:
 

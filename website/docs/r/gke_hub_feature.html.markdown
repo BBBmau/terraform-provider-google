@@ -443,15 +443,15 @@ The following arguments are supported:
 * `upgrade` -
   (Required)
   Which upgrade to override.
-  Structure is [documented below](#nested_spec_clusterupgrade_gke_upgrade_overrides_gke_upgrade_overrides_upgrade).
+  Structure is [documented below](#nested_spec_clusterupgrade_gke_upgrade_overrides_upgrade).
 
 * `post_conditions` -
   (Required)
   Post conditions to override for the specified upgrade.
-  Structure is [documented below](#nested_spec_clusterupgrade_gke_upgrade_overrides_gke_upgrade_overrides_post_conditions).
+  Structure is [documented below](#nested_spec_clusterupgrade_gke_upgrade_overrides_post_conditions).
 
 
-<a name="nested_spec_clusterupgrade_gke_upgrade_overrides_gke_upgrade_overrides_upgrade"></a>The `upgrade` block supports:
+<a name="nested_spec_clusterupgrade_gke_upgrade_overrides_upgrade"></a>The `upgrade` block supports:
 
 * `name` -
   (Required)
@@ -461,7 +461,7 @@ The following arguments are supported:
   (Required)
   Version of the upgrade, e.g., "1.22.1-gke.100". It should be a valid version. It must not exceet 99 characters.
 
-<a name="nested_spec_clusterupgrade_gke_upgrade_overrides_gke_upgrade_overrides_post_conditions"></a>The `post_conditions` block supports:
+<a name="nested_spec_clusterupgrade_gke_upgrade_overrides_post_conditions"></a>The `post_conditions` block supports:
 
 * `soaking` -
   (Required)
@@ -683,7 +683,7 @@ The following arguments are supported:
 * `container_resources` -
   (Optional)
   Container resource requirements.
-  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_container_resources).
+  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_container_resources).
 
 * `pod_affinity` -
   (Optional)
@@ -693,33 +693,23 @@ The following arguments are supported:
 * `pod_toleration` -
   (Optional)
   Pod tolerations of node taints.
-  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_pod_toleration).
+  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_pod_toleration).
 
 
-<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_container_resources"></a>The `container_resources` block supports:
+<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_container_resources"></a>The `container_resources` block supports:
 
 * `limits` -
   (Optional)
   Limits describes the maximum amount of compute resources allowed for use by the running container.
-  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_container_resources_limits).
+  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_container_resources_limits).
 
 * `requests` -
   (Optional)
   Requests describes the amount of compute resources reserved for the container by the kube-scheduler.
-  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_container_resources_requests).
+  Structure is [documented below](#nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_container_resources_requests).
 
 
-<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_container_resources_limits"></a>The `limits` block supports:
-
-* `memory` -
-  (Optional)
-  Memory requirement expressed in Kubernetes resource units.
-
-* `cpu` -
-  (Optional)
-  CPU requirement expressed in Kubernetes resource units.
-
-<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_container_resources_requests"></a>The `requests` block supports:
+<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_container_resources_limits"></a>The `limits` block supports:
 
 * `memory` -
   (Optional)
@@ -729,7 +719,17 @@ The following arguments are supported:
   (Optional)
   CPU requirement expressed in Kubernetes resource units.
 
-<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_deployment_config_pod_toleration"></a>The `pod_toleration` block supports:
+<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_container_resources_requests"></a>The `requests` block supports:
+
+* `memory` -
+  (Optional)
+  Memory requirement expressed in Kubernetes resource units.
+
+* `cpu` -
+  (Optional)
+  CPU requirement expressed in Kubernetes resource units.
+
+<a name="nested_fleet_default_member_config_policycontroller_policy_controller_hub_config_deployment_configs_pod_toleration"></a>The `pod_toleration` block supports:
 
 * `key` -
   (Optional)
@@ -856,6 +856,18 @@ Feature can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Feature using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gke_hub_feature.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Feature using one of the formats above. For example:
 

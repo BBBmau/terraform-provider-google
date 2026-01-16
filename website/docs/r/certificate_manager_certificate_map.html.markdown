@@ -106,7 +106,7 @@ In addition to the arguments listed above, the following computed attributes are
 * `ip_configs` -
   (Optional)
   An IP configuration where this Certificate Map is serving
-  Structure is [documented below](#nested_gclb_targets_gclb_targets_ip_configs).
+  Structure is [documented below](#nested_gclb_targets_ip_configs).
 
 * `target_https_proxy` -
   (Optional)
@@ -121,7 +121,7 @@ In addition to the arguments listed above, the following computed attributes are
   `targetSslProxy` may be set.
 
 
-<a name="nested_gclb_targets_gclb_targets_ip_configs"></a>The `ip_configs` block supports:
+<a name="nested_gclb_targets_ip_configs"></a>The `ip_configs` block supports:
 
 * `ip_address` -
   (Optional)
@@ -149,6 +149,17 @@ CertificateMap can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CertificateMap using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_certificate_manager_certificate_map.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CertificateMap using one of the formats above. For example:
 

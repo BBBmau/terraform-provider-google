@@ -387,10 +387,10 @@ The following arguments are supported:
 * `json_path_matcher` -
   (Optional)
   Information needed to perform a JSONPath content match. Used for `ContentMatcherOption::MATCHES_JSON_PATH` and `ContentMatcherOption::NOT_MATCHES_JSON_PATH`.
-  Structure is [documented below](#nested_content_matchers_content_matchers_json_path_matcher).
+  Structure is [documented below](#nested_content_matchers_json_path_matcher).
 
 
-<a name="nested_content_matchers_content_matchers_json_path_matcher"></a>The `json_path_matcher` block supports:
+<a name="nested_content_matchers_json_path_matcher"></a>The `json_path_matcher` block supports:
 
 * `json_path` -
   (Required)
@@ -576,6 +576,17 @@ UptimeCheckConfig can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import UptimeCheckConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_monitoring_uptime_check_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import UptimeCheckConfig using one of the formats above. For example:
 

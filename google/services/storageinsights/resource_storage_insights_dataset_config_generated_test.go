@@ -71,6 +71,12 @@ func TestAccStorageInsightsDatasetConfig_storageInsightsDatasetConfigIncludesExa
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"dataset_config_id", "location"},
 			},
+			{
+				ResourceName:       "google_storage_insights_dataset_config.config_includes",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -126,6 +132,12 @@ func TestAccStorageInsightsDatasetConfig_storageInsightsDatasetConfigExcludesExa
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"dataset_config_id", "location"},
 			},
+			{
+				ResourceName:       "google_storage_insights_dataset_config.config_excludes",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -136,6 +148,7 @@ resource "google_storage_insights_dataset_config" "config_excludes" {
     location = "us-central1"
     dataset_config_id = "tf_test_my_config_excludes%{random_suffix}"
     retention_period_days = 1
+    activity_data_retention_period_days = 2
     organization_scope = true
     identity {
         type = "IDENTITY_TYPE_PER_PROJECT"

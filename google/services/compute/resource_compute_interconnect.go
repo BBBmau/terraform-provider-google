@@ -112,6 +112,21 @@ func ResourceComputeInterconnect() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"interconnect_type": {
 				Type:             schema.TypeString,
@@ -506,6 +521,14 @@ This can be used only for ping tests.`,
  and default labels configured on the provider.`,
 				Elem: &schema.Schema{Type: schema.TypeString},
 			},
+			"wire_groups": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `A list of the URLs of all CrossSiteNetwork WireGroups configured to use this Interconnect. The Interconnect cannot be deleted if this list is non-empty.`,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"project": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -662,6 +685,22 @@ func resourceComputeInterconnectCreate(d *schema.ResourceData, meta interface{})
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating Interconnect", userAgent,
@@ -861,6 +900,9 @@ func resourceComputeInterconnectRead(d *schema.ResourceData, meta interface{}) e
 	if err := d.Set("available_features", flattenComputeInterconnectAvailableFeatures(res["availableFeatures"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Interconnect: %s", err)
 	}
+	if err := d.Set("wire_groups", flattenComputeInterconnectWireGroups(res["wireGroups"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Interconnect: %s", err)
+	}
 	if err := d.Set("interconnect_groups", flattenComputeInterconnectInterconnectGroups(res["interconnectGroups"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Interconnect: %s", err)
 	}
@@ -871,6 +913,24 @@ func resourceComputeInterconnectRead(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error reading Interconnect: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -879,6 +939,22 @@ func resourceComputeInterconnectUpdate(d *schema.ResourceData, meta interface{})
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1372,6 +1448,10 @@ func flattenComputeInterconnectRequestedFeatures(v interface{}, d *schema.Resour
 }
 
 func flattenComputeInterconnectAvailableFeatures(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeInterconnectWireGroups(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 

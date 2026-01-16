@@ -124,20 +124,20 @@ The following arguments are supported:
 * `prefix_list` -
   (Optional)
   Specifies objects matching a prefix set.
-  Structure is [documented below](#nested_bucket_list_buckets_buckets_prefix_list).
+  Structure is [documented below](#nested_bucket_list_buckets_prefix_list).
 
 * `manifest` -
   (Optional)
   contain the manifest source file that is a CSV file in a Google Cloud Storage bucket.
-  Structure is [documented below](#nested_bucket_list_buckets_buckets_manifest).
+  Structure is [documented below](#nested_bucket_list_buckets_manifest).
 
 
-<a name="nested_bucket_list_buckets_buckets_prefix_list"></a>The `prefix_list` block supports:
+<a name="nested_bucket_list_buckets_prefix_list"></a>The `prefix_list` block supports:
 
 * `included_object_prefixes` -
   (Optional)
 
-<a name="nested_bucket_list_buckets_buckets_manifest"></a>The `manifest` block supports:
+<a name="nested_bucket_list_buckets_manifest"></a>The `manifest` block supports:
 
 * `manifest_location` -
   (Optional)
@@ -235,6 +235,17 @@ Job can be imported using any of these accepted formats:
 * `{{project}}/{{job_id}}`
 * `{{job_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Job using identity values. For example:
+
+```tf
+import {
+  identity = {
+    jobId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_storage_batch_operations_job.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Job using one of the formats above. For example:
 

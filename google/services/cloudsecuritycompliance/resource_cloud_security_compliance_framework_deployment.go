@@ -101,6 +101,25 @@ func ResourceCloudSecurityComplianceFrameworkDeployment() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"organization": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"framework_deployment_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"cloud_control_metadata": {
 				Type:     schema.TypeList,
@@ -167,6 +186,72 @@ specification of these parameters will be present in cloudcontrol.Eg: {
 																Optional:    true,
 																ForceNew:    true,
 																Description: `Represents a double value.`,
+															},
+															"oneof_value": {
+																Type:        schema.TypeList,
+																Optional:    true,
+																ForceNew:    true,
+																Description: `Sub-parameter values.`,
+																MaxItems:    1,
+																Elem: &schema.Resource{
+																	Schema: map[string]*schema.Schema{
+																		"name": {
+																			Type:        schema.TypeString,
+																			Optional:    true,
+																			ForceNew:    true,
+																			Description: `The name of the parameter.`,
+																		},
+																		"parameter_value": {
+																			Type:        schema.TypeList,
+																			Optional:    true,
+																			ForceNew:    true,
+																			Description: `The value of the parameter.`,
+																			MaxItems:    1,
+																			Elem: &schema.Resource{
+																				Schema: map[string]*schema.Schema{
+																					"bool_value": {
+																						Type:        schema.TypeBool,
+																						Optional:    true,
+																						ForceNew:    true,
+																						Description: `Represents a boolean value.`,
+																					},
+																					"number_value": {
+																						Type:        schema.TypeFloat,
+																						Optional:    true,
+																						ForceNew:    true,
+																						Description: `Represents a double value.`,
+																					},
+																					"string_list_value": {
+																						Type:        schema.TypeList,
+																						Optional:    true,
+																						ForceNew:    true,
+																						Description: `A list of strings.`,
+																						MaxItems:    1,
+																						Elem: &schema.Resource{
+																							Schema: map[string]*schema.Schema{
+																								"values": {
+																									Type:        schema.TypeList,
+																									Required:    true,
+																									ForceNew:    true,
+																									Description: `The strings in the list.`,
+																									Elem: &schema.Schema{
+																										Type: schema.TypeString,
+																									},
+																								},
+																							},
+																						},
+																					},
+																					"string_value": {
+																						Type:        schema.TypeString,
+																						Optional:    true,
+																						ForceNew:    true,
+																						Description: `Represents a string value.`,
+																					},
+																				},
+																			},
+																		},
+																	},
+																},
 															},
 															"string_list_value": {
 																Type:        schema.TypeList,
@@ -507,6 +592,27 @@ func resourceCloudSecurityComplianceFrameworkDeploymentCreate(d *schema.Resource
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if organizationValue, ok := d.GetOk("organization"); ok && organizationValue.(string) != "" {
+			if err = identity.Set("organization", organizationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting organization: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if frameworkDeploymentIdValue, ok := d.GetOk("framework_deployment_id"); ok && frameworkDeploymentIdValue.(string) != "" {
+			if err = identity.Set("framework_deployment_id", frameworkDeploymentIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting framework_deployment_id: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = CloudSecurityComplianceOperationWaitTime(
 		config, res, "Creating FrameworkDeployment", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -589,6 +695,30 @@ func resourceCloudSecurityComplianceFrameworkDeploymentRead(d *schema.ResourceDa
 	}
 	if err := d.Set("update_time", flattenCloudSecurityComplianceFrameworkDeploymentUpdateTime(res["updateTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading FrameworkDeployment: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("organization"); !ok && v == "" {
+			err = identity.Set("organization", d.Get("organization").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting organization: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("framework_deployment_id"); !ok && v == "" {
+			err = identity.Set("framework_deployment_id", d.Get("framework_deployment_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting framework_deployment_id: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -769,6 +899,8 @@ func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudC
 		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueStringListValue(original["stringListValue"], d, config)
 	transformed["string_value"] =
 		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueStringValue(original["stringValue"], d, config)
+	transformed["oneof_value"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValue(original["oneofValue"], d, config)
 	return []interface{}{transformed}
 }
 func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueBoolValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -797,6 +929,73 @@ func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudC
 }
 
 func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueStringValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["name"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueName(original["name"], d, config)
+	transformed["parameter_value"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValue(original["parameterValue"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["bool_value"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueBoolValue(original["boolValue"], d, config)
+	transformed["number_value"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueNumberValue(original["numberValue"], d, config)
+	transformed["string_list_value"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValue(original["stringListValue"], d, config)
+	transformed["string_value"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringValue(original["stringValue"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueBoolValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueNumberValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["values"] =
+		flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValueValues(original["values"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValueValues(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1097,6 +1296,13 @@ func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudCo
 		transformed["stringValue"] = transformedStringValue
 	}
 
+	transformedOneofValue, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValue(original["oneof_value"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedOneofValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["oneofValue"] = transformedOneofValue
+	}
+
 	return transformed, nil
 }
 
@@ -1135,6 +1341,120 @@ func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudCo
 }
 
 func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueStringValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedName, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueName(original["name"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedName); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["name"] = transformedName
+	}
+
+	transformedParameterValue, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValue(original["parameter_value"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedParameterValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["parameterValue"] = transformedParameterValue
+	}
+
+	return transformed, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedBoolValue, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueBoolValue(original["bool_value"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedBoolValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["boolValue"] = transformedBoolValue
+	}
+
+	transformedNumberValue, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueNumberValue(original["number_value"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedNumberValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["numberValue"] = transformedNumberValue
+	}
+
+	transformedStringListValue, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValue(original["string_list_value"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedStringListValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["stringListValue"] = transformedStringListValue
+	}
+
+	transformedStringValue, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringValue(original["string_value"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedStringValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["stringValue"] = transformedStringValue
+	}
+
+	return transformed, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueBoolValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueNumberValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedValues, err := expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValueValues(original["values"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedValues); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["values"] = transformedValues
+	}
+
+	return transformed, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringListValueValues(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudSecurityComplianceFrameworkDeploymentCloudControlMetadataCloudControlDetailsParametersParameterValueOneofValueParameterValueStringValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

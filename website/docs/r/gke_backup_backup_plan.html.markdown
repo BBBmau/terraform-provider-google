@@ -558,7 +558,7 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Specifies the start time of the window using time of the day in UTC.
-  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_start_time).
+  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_start_time).
 
 * `duration` -
   (Required)
@@ -575,7 +575,7 @@ The following arguments are supported:
   (Optional)
   No recurrence. The exclusion window occurs only once and on this date in UTC.
   Only one of singleOccurrenceDate, daily and daysOfWeek may be set.
-  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_single_occurrence_date).
+  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_single_occurrence_date).
 
 * `daily` -
   (Optional)
@@ -587,10 +587,10 @@ The following arguments are supported:
   (Optional)
   The exclusion window occurs on these days of each week in UTC.
   Only one of singleOccurrenceDate, daily and daysOfWeek may be set.
-  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_days_of_week).
+  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_days_of_week).
 
 
-<a name="nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_start_time"></a>The `start_time` block supports:
+<a name="nested_backup_schedule_rpo_config_exclusion_windows_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -608,7 +608,7 @@ The following arguments are supported:
   (Optional)
   Fractions of seconds in nanoseconds.
 
-<a name="nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_single_occurrence_date"></a>The `single_occurrence_date` block supports:
+<a name="nested_backup_schedule_rpo_config_exclusion_windows_single_occurrence_date"></a>The `single_occurrence_date` block supports:
 
 * `year` -
   (Optional)
@@ -622,7 +622,7 @@ The following arguments are supported:
   (Optional)
   Day of a month.
 
-<a name="nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_days_of_week"></a>The `days_of_week` block supports:
+<a name="nested_backup_schedule_rpo_config_exclusion_windows_days_of_week"></a>The `days_of_week` block supports:
 
 * `days_of_week` -
   (Optional)
@@ -773,6 +773,18 @@ BackupPlan can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupPlan using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gke_backup_backup_plan.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupPlan using one of the formats above. For example:
 

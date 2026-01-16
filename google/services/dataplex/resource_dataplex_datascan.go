@@ -108,6 +108,25 @@ func ResourceDataplexDatascan() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"data_scan_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"data": {
 				Type:        schema.TypeList,
@@ -163,7 +182,24 @@ Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKE
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{},
 										},
-										ExactlyOneOf: []string{"execution_spec.0.trigger.0.on_demand", "execution_spec.0.trigger.0.schedule"},
+										ExactlyOneOf: []string{"execution_spec.0.trigger.0.on_demand", "execution_spec.0.trigger.0.one_time", "execution_spec.0.trigger.0.schedule"},
+									},
+									"one_time": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `The scan runs once upon DataScan creation.`,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"ttl_after_scan_completion": {
+													Type:        schema.TypeString,
+													Optional:    true,
+													Description: `Time to live for the DataScan and its results after the one-time run completes. Accepts a string with a unit suffix 's' (e.g., '7200s'). Default is 24 hours. Ranges between 0 and 31536000 seconds (1 year).`,
+												},
+											},
+										},
+										ExactlyOneOf: []string{"execution_spec.0.trigger.0.on_demand", "execution_spec.0.trigger.0.one_time", "execution_spec.0.trigger.0.schedule"},
 									},
 									"schedule": {
 										Type:        schema.TypeList,
@@ -179,7 +215,7 @@ Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKE
 												},
 											},
 										},
-										ExactlyOneOf: []string{"execution_spec.0.trigger.0.on_demand", "execution_spec.0.trigger.0.schedule"},
+										ExactlyOneOf: []string{"execution_spec.0.trigger.0.on_demand", "execution_spec.0.trigger.0.one_time", "execution_spec.0.trigger.0.schedule"},
 									},
 								},
 							},
@@ -963,6 +999,27 @@ func resourceDataplexDatascanCreate(d *schema.ResourceData, meta interface{}) er
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if dataScanIdValue, ok := d.GetOk("data_scan_id"); ok && dataScanIdValue.(string) != "" {
+			if err = identity.Set("data_scan_id", dataScanIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting data_scan_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = DataplexOperationWaitTime(
 		config, res, project, "Creating Datascan", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -1075,6 +1132,30 @@ func resourceDataplexDatascanRead(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error reading Datascan: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("data_scan_id"); !ok && v == "" {
+			err = identity.Set("data_scan_id", d.Get("data_scan_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting data_scan_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1083,6 +1164,27 @@ func resourceDataplexDatascanUpdate(d *schema.ResourceData, meta interface{}) er
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if dataScanIdValue, ok := d.GetOk("data_scan_id"); ok && dataScanIdValue.(string) != "" {
+			if err = identity.Set("data_scan_id", dataScanIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting data_scan_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1397,6 +1499,8 @@ func flattenDataplexDatascanExecutionSpecTrigger(v interface{}, d *schema.Resour
 		flattenDataplexDatascanExecutionSpecTriggerOnDemand(original["onDemand"], d, config)
 	transformed["schedule"] =
 		flattenDataplexDatascanExecutionSpecTriggerSchedule(original["schedule"], d, config)
+	transformed["one_time"] =
+		flattenDataplexDatascanExecutionSpecTriggerOneTime(original["oneTime"], d, config)
 	return []interface{}{transformed}
 }
 func flattenDataplexDatascanExecutionSpecTriggerOnDemand(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1421,6 +1525,20 @@ func flattenDataplexDatascanExecutionSpecTriggerSchedule(v interface{}, d *schem
 	return []interface{}{transformed}
 }
 func flattenDataplexDatascanExecutionSpecTriggerScheduleCron(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDataplexDatascanExecutionSpecTriggerOneTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	transformed := make(map[string]interface{})
+	transformed["ttl_after_scan_completion"] =
+		flattenDataplexDatascanExecutionSpecTriggerOneTimeTtlAfterScanCompletion(original["ttlAfterScanCompletion"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDataplexDatascanExecutionSpecTriggerOneTimeTtlAfterScanCompletion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -2201,6 +2319,13 @@ func expandDataplexDatascanExecutionSpecTrigger(v interface{}, d tpgresource.Ter
 		transformed["schedule"] = transformedSchedule
 	}
 
+	transformedOneTime, err := expandDataplexDatascanExecutionSpecTriggerOneTime(original["one_time"], d, config)
+	if err != nil {
+		return nil, err
+	} else {
+		transformed["oneTime"] = transformedOneTime
+	}
+
 	return transformed, nil
 }
 
@@ -2245,6 +2370,37 @@ func expandDataplexDatascanExecutionSpecTriggerSchedule(v interface{}, d tpgreso
 }
 
 func expandDataplexDatascanExecutionSpecTriggerScheduleCron(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDataplexDatascanExecutionSpecTriggerOneTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 {
+		return nil, nil
+	}
+
+	if l[0] == nil {
+		transformed := make(map[string]interface{})
+		return transformed, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedTtlAfterScanCompletion, err := expandDataplexDatascanExecutionSpecTriggerOneTimeTtlAfterScanCompletion(original["ttl_after_scan_completion"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedTtlAfterScanCompletion); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["ttlAfterScanCompletion"] = transformedTtlAfterScanCompletion
+	}
+
+	return transformed, nil
+}
+
+func expandDataplexDatascanExecutionSpecTriggerOneTimeTtlAfterScanCompletion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

@@ -108,6 +108,25 @@ func ResourceNetworkServicesMulticastDomainGroup() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"multicast_domain_group_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
@@ -141,7 +160,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 			"create_time": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: `[Output only] The timestamp when the multicast domain group was created.`,
+				Description: `The timestamp when the multicast domain group was created.`,
 			},
 			"effective_labels": {
 				Type:        schema.TypeMap,
@@ -152,7 +171,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 			"multicast_domains": {
 				Type:     schema.TypeList,
 				Computed: true,
-				Description: `[Output only] Multicast domains associated with the group.
+				Description: `Multicast domains associated with the group.
 There can be at most 2 multicast domains in a group.`,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -173,7 +192,7 @@ Use the following format:
 					Schema: map[string]*schema.Schema{
 						"state": {
 							Type:     schema.TypeString,
-							Optional: true,
+							Computed: true,
 							Description: `The state of the multicast resource.
 Possible values:
 CREATING
@@ -197,7 +216,7 @@ INACTIVE`,
 			"unique_id": {
 				Type:     schema.TypeString,
 				Computed: true,
-				Description: `[Output only] The Google-generated UUID for the resource. This value is
+				Description: `The Google-generated UUID for the resource. This value is
 unique across all multicast domain group resources. If a domain is deleted
 and another with the same name is created, the new domain is assigned a
 different unique_id.`,
@@ -205,7 +224,7 @@ different unique_id.`,
 			"update_time": {
 				Type:     schema.TypeString,
 				Computed: true,
-				Description: `[Output only] The timestamp when the multicast domain group was most
+				Description: `The timestamp when the multicast domain group was most
 recently updated.`,
 			},
 			"project": {
@@ -280,6 +299,27 @@ func resourceNetworkServicesMulticastDomainGroupCreate(d *schema.ResourceData, m
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if multicastDomainGroupIdValue, ok := d.GetOk("multicast_domain_group_id"); ok && multicastDomainGroupIdValue.(string) != "" {
+			if err = identity.Set("multicast_domain_group_id", multicastDomainGroupIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting multicast_domain_group_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = NetworkServicesOperationWaitTime(
 		config, res, project, "Creating MulticastDomainGroup", userAgent,
@@ -369,6 +409,30 @@ func resourceNetworkServicesMulticastDomainGroupRead(d *schema.ResourceData, met
 		return fmt.Errorf("Error reading MulticastDomainGroup: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("multicast_domain_group_id"); !ok && v == "" {
+			err = identity.Set("multicast_domain_group_id", d.Get("multicast_domain_group_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting multicast_domain_group_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -377,6 +441,27 @@ func resourceNetworkServicesMulticastDomainGroupUpdate(d *schema.ResourceData, m
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if multicastDomainGroupIdValue, ok := d.GetOk("multicast_domain_group_id"); ok && multicastDomainGroupIdValue.(string) != "" {
+			if err = identity.Set("multicast_domain_group_id", multicastDomainGroupIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting multicast_domain_group_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""

@@ -278,24 +278,24 @@ The following arguments are supported:
 * `request_header` -
   (Optional)
   Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
-  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_exclusion_request_header).
+  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_request_header).
 
 * `request_cookie` -
   (Optional)
   Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
-  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_exclusion_request_cookie).
+  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_request_cookie).
 
 * `request_uri` -
   (Optional)
   Request URI from the request line to be excluded from inspection during preconfigured WAF evaluation.
   When specifying this field, the query or fragment part should be excluded.
-  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_exclusion_request_uri).
+  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_request_uri).
 
 * `request_query_param` -
   (Optional)
   Request query parameter whose value will be excluded from inspection during preconfigured WAF evaluation.
   Note that the parameter can be in the query string or in the POST body.
-  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_exclusion_request_query_param).
+  Structure is [documented below](#nested_preconfigured_waf_config_exclusion_request_query_param).
 
 * `target_rule_set` -
   (Required)
@@ -307,7 +307,7 @@ The following arguments are supported:
   If omitted, it refers to all the rule IDs under the WAF rule set.
 
 
-<a name="nested_preconfigured_waf_config_exclusion_exclusion_request_header"></a>The `request_header` block supports:
+<a name="nested_preconfigured_waf_config_exclusion_request_header"></a>The `request_header` block supports:
 
 * `operator` -
   (Required)
@@ -324,7 +324,7 @@ The following arguments are supported:
   A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
   The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-<a name="nested_preconfigured_waf_config_exclusion_exclusion_request_cookie"></a>The `request_cookie` block supports:
+<a name="nested_preconfigured_waf_config_exclusion_request_cookie"></a>The `request_cookie` block supports:
 
 * `operator` -
   (Required)
@@ -341,7 +341,7 @@ The following arguments are supported:
   A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
   The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-<a name="nested_preconfigured_waf_config_exclusion_exclusion_request_uri"></a>The `request_uri` block supports:
+<a name="nested_preconfigured_waf_config_exclusion_request_uri"></a>The `request_uri` block supports:
 
 * `operator` -
   (Required)
@@ -358,7 +358,7 @@ The following arguments are supported:
   A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
   The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
 
-<a name="nested_preconfigured_waf_config_exclusion_exclusion_request_query_param"></a>The `request_query_param` block supports:
+<a name="nested_preconfigured_waf_config_exclusion_request_query_param"></a>The `request_query_param` block supports:
 
 * `operator` -
   (Required)
@@ -545,6 +545,18 @@ SecurityPolicyRule can be imported using any of these accepted formats:
 * `{{project}}/{{security_policy}}/{{priority}}`
 * `{{security_policy}}/{{priority}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecurityPolicyRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    priority = "<-required value->"
+    security_policy = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_security_policy_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecurityPolicyRule using one of the formats above. For example:
 

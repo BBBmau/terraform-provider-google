@@ -286,10 +286,10 @@ or `terraform destroy` that would delete the secret will fail.
 * `customer_managed_encryption` -
   (Optional)
   Customer Managed Encryption for the secret.
-  Structure is [documented below](#nested_replication_user_managed_replicas_replicas_customer_managed_encryption).
+  Structure is [documented below](#nested_replication_user_managed_replicas_customer_managed_encryption).
 
 
-<a name="nested_replication_user_managed_replicas_replicas_customer_managed_encryption"></a>The `customer_managed_encryption` block supports:
+<a name="nested_replication_user_managed_replicas_customer_managed_encryption"></a>The `customer_managed_encryption` block supports:
 
 * `kms_key_name` -
   (Required)
@@ -356,6 +356,17 @@ Secret can be imported using any of these accepted formats:
 * `{{project}}/{{secret_id}}`
 * `{{secret_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Secret using identity values. For example:
+
+```tf
+import {
+  identity = {
+    secretId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_secret_manager_secret.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Secret using one of the formats above. For example:
 

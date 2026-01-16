@@ -172,6 +172,25 @@ func ResourceNetappVolume() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"capacity_gib": {
 				Type:        schema.TypeString,
@@ -466,16 +485,19 @@ It overwrites the has_root_access parameter. Use either squash_mode or has_root_
 				},
 			},
 			"hybrid_replication_parameters": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: `The Hybrid Replication parameters for the volume.`,
-				MaxItems:    1,
+				Type:     schema.TypeList,
+				Optional: true,
+				Description: `[Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+[external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.`,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cluster_location": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Description: `Optional. Name of source cluster location associated with the Hybrid replication. This is a free-form field for the display purpose only.`,
+							Type:     schema.TypeString,
+							Optional: true,
+							Description: `Optional. Name of source cluster location associated with the replication. This is a free-form field
+for display purposes only.`,
 						},
 						"description": {
 							Type:        schema.TypeString,
@@ -486,7 +508,10 @@ It overwrites the has_root_access parameter. Use either squash_mode or has_root_
 							Type:         schema.TypeString,
 							Optional:     true,
 							ValidateFunc: verify.ValidateEnum([]string{"MIGRATION", "CONTINUOUS_REPLICATION", "ONPREM_REPLICATION", "REVERSE_ONPREM_REPLICATION", ""}),
-							Description:  `Optional. Type of the volume's hybrid replication. Possible values: ["MIGRATION", "CONTINUOUS_REPLICATION", "ONPREM_REPLICATION", "REVERSE_ONPREM_REPLICATION"]`,
+							Description: `Optional. Type of the hybrid replication. Use 'MIGRATION' to create a volume migration
+and 'ONPREM_REPLICATION' to create an external replication.
+Other values are read-only. 'REVERSE_ONPREM_REPLICATION' is used to represent an external
+replication which got reversed. Default is 'MIGRATION'. Possible values: ["MIGRATION", "CONTINUOUS_REPLICATION", "ONPREM_REPLICATION", "REVERSE_ONPREM_REPLICATION"]`,
 						},
 						"labels": {
 							Type:     schema.TypeMap,
@@ -498,17 +523,17 @@ An object containing a list of "key": value pairs. Example: { "name": "wrench", 
 						"large_volume_constituent_count": {
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Description: `Optional. Constituent volume count for large volume.`,
+							Description: `Optional. If the source is a FlexGroup volume, this field needs to match the number of constituents in the FlexGroup.`,
 						},
 						"peer_cluster_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: `Required. Name of the user's local source cluster to be peered with the destination cluster.`,
+							Description: `Required. Name of the ONTAP source cluster to be peered with NetApp Volumes.`,
 						},
 						"peer_ip_addresses": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `Required. List of node ip addresses to be peered with.`,
+							Description: `Required. List of all intercluster LIF IP addresses of the ONTAP source cluster.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
@@ -516,12 +541,12 @@ An object containing a list of "key": value pairs. Example: { "name": "wrench", 
 						"peer_svm_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: `Required. Name of the user's local source vserver svm to be peered with the destination vserver svm.`,
+							Description: `Required. Name of the ONTAP source vserver SVM to be peered with NetApp Volumes.`,
 						},
 						"peer_volume_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: `Required. Name of the user's local source volume to be peered with the destination volume.`,
+							Description: `Required. Name of the ONTAP source volume to be replicated to NetApp Volumes destination volume.`,
 						},
 						"replication": {
 							Type:        schema.TypeString,
@@ -1146,6 +1171,27 @@ func resourceNetappVolumeCreate(d *schema.ResourceData, meta interface{}) error 
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = NetappOperationWaitTime(
 		config, res, project, "Creating Volume", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -1333,6 +1379,30 @@ func resourceNetappVolumeRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error reading Volume: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1341,6 +1411,27 @@ func resourceNetappVolumeUpdate(d *schema.ResourceData, meta interface{}) error 
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1608,6 +1699,9 @@ func resourceNetappVolumeUpdate(d *schema.ResourceData, meta interface{}) error 
 					}
 					if val, exists := ruleMapItemSet["nfsv3"]; exists {
 						newRuleMapItemSet["nfsv3"] = val
+					}
+					if val, exists := ruleMapItemSet["nfsv4"]; exists {
+						newRuleMapItemSet["nfsv4"] = val
 					}
 					if val, exists := ruleMapItemSet["kerberos5_read_only"]; exists {
 						newRuleMapItemSet["kerberos5ReadOnly"] = val
