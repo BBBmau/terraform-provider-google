@@ -122,6 +122,7 @@ func ResourceSecurityCenterV2FolderNotificationConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"config_id": {
 				Type:        schema.TypeString,
@@ -379,7 +380,6 @@ func resourceSecurityCenterV2FolderNotificationConfigUpdate(d *schema.ResourceDa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if folderValue, ok := d.GetOk("folder"); ok && folderValue.(string) != "" {

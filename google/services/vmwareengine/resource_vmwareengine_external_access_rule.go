@@ -118,6 +118,7 @@ func ResourceVmwareengineExternalAccessRule() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"action": {
 				Type:         schema.TypeString,
@@ -460,7 +461,6 @@ func resourceVmwareengineExternalAccessRuleUpdate(d *schema.ResourceData, meta i
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {

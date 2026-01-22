@@ -116,6 +116,7 @@ func ResourceApigeeInstanceAttachment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"environment": {
 				Type:        schema.TypeString,

@@ -118,6 +118,7 @@ func ResourceApigeeDeveloper() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"email": {
 				Type:        schema.TypeString,
@@ -373,7 +374,6 @@ func resourceApigeeDeveloperUpdate(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if emailValue, ok := d.GetOk("email"); ok && emailValue.(string) != "" {

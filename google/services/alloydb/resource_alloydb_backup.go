@@ -128,6 +128,7 @@ func ResourceAlloydbBackup() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"backup_id": {
 				Type:        schema.TypeString,
@@ -612,7 +613,6 @@ func resourceAlloydbBackupUpdate(d *schema.ResourceData, meta interface{}) error
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if backupIdValue, ok := d.GetOk("backup_id"); ok && backupIdValue.(string) != "" {

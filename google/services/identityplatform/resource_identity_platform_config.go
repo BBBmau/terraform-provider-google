@@ -118,6 +118,7 @@ func ResourceIdentityPlatformConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"authorized_domains": {
 				Type:        schema.TypeList,
@@ -705,7 +706,6 @@ func resourceIdentityPlatformConfigUpdate(d *schema.ResourceData, meta interface
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

@@ -116,6 +116,7 @@ func ResourceResourceManagerLien() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"origin": {
 				Type:     schema.TypeString,

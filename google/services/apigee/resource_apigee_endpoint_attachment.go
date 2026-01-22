@@ -116,6 +116,7 @@ func ResourceApigeeEndpointAttachment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"endpoint_attachment_id": {
 				Type:        schema.TypeString,

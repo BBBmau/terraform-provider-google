@@ -271,6 +271,7 @@ func ResourceArtifactRegistryRepository() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"format": {
 				Type:             schema.TypeString,
@@ -1194,7 +1195,6 @@ func resourceArtifactRegistryRepositoryUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if repositoryIdValue, ok := d.GetOk("repository_id"); ok && repositoryIdValue.(string) != "" {

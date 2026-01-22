@@ -127,12 +127,21 @@ func ResourceNetworkServicesMulticastDomainActivation() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: `Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.`,
+			},
+			"multicast_domain": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+				Description: `The resource name of the multicast domain to activate.
+Use the following format:
+'projects/*/locations/global/multicastDomains/*'.`,
 			},
 			"multicast_domain_activation_id": {
 				Type:     schema.TypeString,
@@ -148,6 +157,15 @@ exceed 48 characters.`,
 				Optional:    true,
 				Description: `An optional text description of the multicast domain activation.`,
 			},
+			"disable_placement_policy": {
+				Type:     schema.TypeBool,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `Option to allow disabling placement policy for multicast infrastructure.
+Only applicable if the activation is for a domain associating with a
+multicast domain group.`,
+			},
 			"labels": {
 				Type:     schema.TypeMap,
 				Optional: true,
@@ -156,14 +174,6 @@ exceed 48 characters.`,
 **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
 Please refer to the field 'effective_labels' for all of the labels present on the resource.`,
 				Elem: &schema.Schema{Type: schema.TypeString},
-			},
-			"multicast_domain": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				Description: `The resource name of the multicast domain to activate.
-Use the following format:
-'projects/*/locations/global/multicastDomains/*'.`,
 			},
 			"traffic_spec": {
 				Type:     schema.TypeList,
@@ -175,12 +185,14 @@ used to set up multicast infrastructure for a multicast domain in a zone.`,
 					Schema: map[string]*schema.Schema{
 						"aggr_egress_pps": {
 							Type:     schema.TypeString,
+							Computed: true,
 							Optional: true,
 							Description: `Aggregated egress Packet-Per-Second for all multicast groups in the domain
 in this zone.`,
 						},
 						"aggr_ingress_pps": {
 							Type:     schema.TypeString,
+							Computed: true,
 							Optional: true,
 							Description: `Aggregated ingress Packet-Per-Second for all multicast groups in the domain
 in this zone. Default to (aggregated_egress_pps /
@@ -188,17 +200,20 @@ max_per_group_subscribers) * 2.`,
 						},
 						"avg_packet_size": {
 							Type:        schema.TypeInt,
+							Computed:    true,
 							Optional:    true,
 							Description: `Average packet size (Default to 512 bytes).`,
 						},
 						"max_per_group_ingress_pps": {
 							Type:     schema.TypeString,
+							Computed: true,
 							Optional: true,
 							Description: `Maximum ingress Packet-Per-Second for a single multicast group in this
 zone. Default to aggregated_ingress_pps / 2.`,
 						},
 						"max_per_group_subscribers": {
 							Type:     schema.TypeString,
+							Computed: true,
 							Optional: true,
 							Description: `Maximum number of subscribers for a single multicast group in this zone.
 Default to max(50, aggregated_egress_pps / aggregated_ingress_pps).`,
@@ -209,12 +224,12 @@ Default to max(50, aggregated_egress_pps / aggregated_ingress_pps).`,
 			"admin_network": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: `[Output only] The URL of the admin network.`,
+				Description: `The URL of the admin network.`,
 			},
 			"create_time": {
 				Type:     schema.TypeString,
 				Computed: true,
-				Description: `[Output only] The timestamp when the multicast domain activation was
+				Description: `The timestamp when the multicast domain activation was
 created.`,
 			},
 			"effective_labels": {
@@ -230,6 +245,28 @@ created.`,
 Use the following format:
 'projects/*/locations/*/multicastDomainActivations/*'.`,
 			},
+			"state": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `The multicast resource's state.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"state": {
+							Type:     schema.TypeString,
+							Computed: true,
+							Description: `The state of the multicast resource.
+Possible values:
+CREATING
+ACTIVE
+DELETING
+DELETE_FAILED
+UPDATING
+UPDATE_FAILED
+INACTIVE`,
+						},
+					},
+				},
+			},
 			"terraform_labels": {
 				Type:     schema.TypeMap,
 				Computed: true,
@@ -240,7 +277,7 @@ Use the following format:
 			"unique_id": {
 				Type:     schema.TypeString,
 				Computed: true,
-				Description: `[Output only] The Google-generated UUID for the resource. This value is
+				Description: `The Google-generated UUID for the resource. This value is
 unique across all multicast domain activation resources. If a domain
 activation is deleted and another with the same name is created, the new
 domain activation is assigned a different unique_id.`,
@@ -248,7 +285,7 @@ domain activation is assigned a different unique_id.`,
 			"update_time": {
 				Type:     schema.TypeString,
 				Computed: true,
-				Description: `[Output only] The timestamp when the multicast domain activation was most
+				Description: `The timestamp when the multicast domain activation was most
 recently updated.`,
 			},
 			"project": {
@@ -275,6 +312,12 @@ func resourceNetworkServicesMulticastDomainActivationCreate(d *schema.ResourceDa
 		return err
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(descriptionProp)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
+	}
+	disablePlacementPolicyProp, err := expandNetworkServicesMulticastDomainActivationDisablePlacementPolicy(d.Get("disable_placement_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("disable_placement_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(disablePlacementPolicyProp)) && (ok || !reflect.DeepEqual(v, disablePlacementPolicyProp)) {
+		obj["disablePlacementPolicy"] = disablePlacementPolicyProp
 	}
 	multicastDomainProp, err := expandNetworkServicesMulticastDomainActivationMulticastDomain(d.Get("multicast_domain"), d, config)
 	if err != nil {
@@ -423,6 +466,9 @@ func resourceNetworkServicesMulticastDomainActivationRead(d *schema.ResourceData
 	if err := d.Set("description", flattenNetworkServicesMulticastDomainActivationDescription(res["description"], d, config)); err != nil {
 		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
 	}
+	if err := d.Set("disable_placement_policy", flattenNetworkServicesMulticastDomainActivationDisablePlacementPolicy(res["disablePlacementPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
+	}
 	if err := d.Set("labels", flattenNetworkServicesMulticastDomainActivationLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
 	}
@@ -430,6 +476,9 @@ func resourceNetworkServicesMulticastDomainActivationRead(d *schema.ResourceData
 		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
 	}
 	if err := d.Set("name", flattenNetworkServicesMulticastDomainActivationName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
+	}
+	if err := d.Set("state", flattenNetworkServicesMulticastDomainActivationState(res["state"], d, config)); err != nil {
 		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
 	}
 	if err := d.Set("traffic_spec", flattenNetworkServicesMulticastDomainActivationTrafficSpec(res["trafficSpec"], d, config)); err != nil {
@@ -481,7 +530,6 @@ func resourceNetworkServicesMulticastDomainActivationUpdate(d *schema.ResourceDa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
@@ -682,6 +730,10 @@ func flattenNetworkServicesMulticastDomainActivationDescription(v interface{}, d
 	return v
 }
 
+func flattenNetworkServicesMulticastDomainActivationDisablePlacementPolicy(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenNetworkServicesMulticastDomainActivationLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -702,6 +754,23 @@ func flattenNetworkServicesMulticastDomainActivationMulticastDomain(v interface{
 }
 
 func flattenNetworkServicesMulticastDomainActivationName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetworkServicesMulticastDomainActivationState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["state"] =
+		flattenNetworkServicesMulticastDomainActivationStateState(original["state"], d, config)
+	return []interface{}{transformed}
+}
+func flattenNetworkServicesMulticastDomainActivationStateState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -787,6 +856,10 @@ func flattenNetworkServicesMulticastDomainActivationEffectiveLabels(v interface{
 }
 
 func expandNetworkServicesMulticastDomainActivationDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetworkServicesMulticastDomainActivationDisablePlacementPolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

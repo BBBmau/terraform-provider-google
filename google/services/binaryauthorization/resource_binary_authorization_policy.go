@@ -133,6 +133,7 @@ func ResourceBinaryAuthorizationPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"default_admission_rule": {
 				Type:     schema.TypeList,
@@ -469,7 +470,6 @@ func resourceBinaryAuthorizationPolicyUpdate(d *schema.ResourceData, meta interf
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

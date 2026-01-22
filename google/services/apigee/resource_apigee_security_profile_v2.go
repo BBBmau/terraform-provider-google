@@ -118,6 +118,7 @@ func ResourceApigeeSecurityProfileV2() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"org_id": {
 				Type:     schema.TypeString,
@@ -329,7 +330,6 @@ func resourceApigeeSecurityProfileV2Update(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if orgIdValue, ok := d.GetOk("org_id"); ok && orgIdValue.(string) != "" {

@@ -146,6 +146,7 @@ func ResourceGKEHubMembership() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"membership_id": {
 				Type:        schema.TypeString,
@@ -450,7 +451,6 @@ func resourceGKEHubMembershipUpdate(d *schema.ResourceData, meta interface{}) er
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if membershipIdValue, ok := d.GetOk("membership_id"); ok && membershipIdValue.(string) != "" {

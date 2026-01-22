@@ -54,10 +54,19 @@ import (
 	"google.golang.org/api/googleapi"
 )
 
+var metadataDefaults = map[string]string{
+	"enable-jupyterlab4": "true",
+}
+
 var WorkbenchInstanceSettableUnmodifiableDefaultMetadata = []string{
 	"install-monitoring-agent",
 	"serial-port-logging-enable",
 	"report-notebook-metrics",
+}
+
+var WorkbenchInstanceEUCSettableUnmodifiableDefaultMetadata = []string{
+	"post-startup-script",
+	"post-startup-script-behavior",
 }
 
 var WorkbenchInstanceEUCProvidedAdditionalMetadata = []string{
@@ -65,8 +74,6 @@ var WorkbenchInstanceEUCProvidedAdditionalMetadata = []string{
 	"disable-ssh",
 	"ssh-keys",
 	"block-project-ssh-keys",
-	"post-startup-script",
-	"post-startup-script-behavior",
 	"startup-script",
 	"startup-script-url",
 	"gce-container-declaration",
@@ -131,7 +138,6 @@ var WorkbenchInstanceProvidedMetadata = []string{
 	"enable-guest-attributes",
 	"enable-oslogin",
 	"proxy-registration-url",
-	"enable-jupyterlab4",
 }
 
 func WorkbenchInstanceMetadataDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
@@ -151,10 +157,22 @@ func WorkbenchInstanceMetadataDiffSuppress(k, old, new string, d *schema.Resourc
 				return true
 			}
 		}
+
+		for _, metadata := range WorkbenchInstanceEUCSettableUnmodifiableDefaultMetadata {
+			if key == metadata && new == "" {
+				return true
+			}
+		}
 	}
 
 	for _, metadata := range WorkbenchInstanceSettableUnmodifiableDefaultMetadata {
 		if strings.Contains(k, metadata) && new == "" {
+			return true
+		}
+	}
+
+	if defaultValue, exists := metadataDefaults[key]; exists {
+		if new == "" && old == defaultValue {
 			return true
 		}
 	}
@@ -333,7 +351,12 @@ func workbenchMetadataCustomizeDiff(_ context.Context, diff *schema.ResourceDiff
 		oldMetadata := o.(map[string]interface{})
 		newMetadata := n.(map[string]interface{})
 
-		for _, key := range WorkbenchInstanceSettableUnmodifiableDefaultMetadata {
+		unmodifiableKeys := append([]string{}, WorkbenchInstanceSettableUnmodifiableDefaultMetadata...)
+		if v, ok := diff.GetOk("enable_managed_euc"); ok && v.(bool) {
+			unmodifiableKeys = append(unmodifiableKeys, WorkbenchInstanceEUCSettableUnmodifiableDefaultMetadata...)
+		}
+
+		for _, key := range unmodifiableKeys {
 			oldValue, oldOk := oldMetadata[key]
 			newValue, newOk := newMetadata[key]
 
@@ -429,6 +452,7 @@ func ResourceWorkbenchInstance() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
@@ -1281,7 +1305,6 @@ func resourceWorkbenchInstanceUpdate(d *schema.ResourceData, meta interface{}) e
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
@@ -1368,6 +1391,18 @@ func resourceWorkbenchInstanceUpdate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 	// Build custom mask since the notebooks API does not support gce_setup as a valid mask
+	restartRequiredKeys := []string{
+		"disable-mixer",
+		"notebook-disable-terminal",
+		"notebook-disable-downloads",
+		"notebook-disable-nbconvert",
+		"notebook-disable-root",
+		"enable-jupyterlab4-preview",
+		"enable-jupyterlab4",
+		"geminicli-disabled",
+		"geminicli-tc-accepted",
+	}
+
 	stopInstance := false
 	newUpdateMask := []string{}
 	if d.HasChange("gce_setup.0.machine_type") {
@@ -1392,6 +1427,17 @@ func resourceWorkbenchInstanceUpdate(d *schema.ResourceData, meta interface{}) e
 	}
 	if d.HasChange("gce_setup.0.metadata") {
 		newUpdateMask = append(newUpdateMask, "gceSetup.metadata")
+
+		oldMeta, newMeta := d.GetChange("gce_setup.0.metadata")
+		oldMap := oldMeta.(map[string]interface{})
+		newMap := newMeta.(map[string]interface{})
+
+		for _, key := range restartRequiredKeys {
+			if oldMap[key] != newMap[key] {
+				stopInstance = true
+				break
+			}
+		}
 	}
 	if d.HasChange("effective_labels") {
 		newUpdateMask = append(newUpdateMask, "labels")

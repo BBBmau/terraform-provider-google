@@ -128,6 +128,7 @@ func ResourceDataplexEntryLink() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"entry_group_id": {
 				Type:        schema.TypeString,

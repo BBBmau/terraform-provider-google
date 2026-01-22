@@ -127,6 +127,7 @@ func ResourceNetworkConnectivityRegionalEndpoint() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"access_type": {
 				Type:         schema.TypeString,

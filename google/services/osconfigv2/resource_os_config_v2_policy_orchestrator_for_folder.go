@@ -122,6 +122,7 @@ func ResourceOSConfigV2PolicyOrchestratorForFolder() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"action": {
 				Type:     schema.TypeString,
@@ -1955,7 +1956,6 @@ func resourceOSConfigV2PolicyOrchestratorForFolderUpdate(d *schema.ResourceData,
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if folderIdValue, ok := d.GetOk("folder_id"); ok && folderIdValue.(string) != "" {

@@ -136,6 +136,7 @@ func ResourceCertificateManagerCertificateIssuanceConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"certificate_authority_config": {
 				Type:        schema.TypeList,

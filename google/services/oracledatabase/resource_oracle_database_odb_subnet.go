@@ -131,6 +131,7 @@ func ResourceOracleDatabaseOdbSubnet() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cidr_range": {
 				Type:        schema.TypeString,

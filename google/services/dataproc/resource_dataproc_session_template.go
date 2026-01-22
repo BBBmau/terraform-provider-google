@@ -119,6 +119,7 @@ func ResourceDataprocSessionTemplate() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
@@ -574,7 +575,6 @@ func resourceDataprocSessionTemplateUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

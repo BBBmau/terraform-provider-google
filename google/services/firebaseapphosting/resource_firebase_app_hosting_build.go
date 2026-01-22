@@ -132,6 +132,7 @@ func ResourceFirebaseAppHostingBuild() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"backend": {
 				Type:             schema.TypeString,

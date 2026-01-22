@@ -108,6 +108,7 @@ func ResourceKMSSecretCiphertext() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"crypto_key": {
 				Type:     schema.TypeString,

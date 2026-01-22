@@ -127,6 +127,7 @@ func ResourceNetappActiveDirectory() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"dns": {
 				Type:        schema.TypeString,
@@ -627,7 +628,6 @@ func resourceNetappActiveDirectoryUpdate(d *schema.ResourceData, meta interface{
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

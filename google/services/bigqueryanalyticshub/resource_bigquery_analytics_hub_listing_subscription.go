@@ -124,6 +124,7 @@ func ResourceBigqueryAnalyticsHubListingSubscription() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"data_exchange_id": {
 				Type:        schema.TypeString,

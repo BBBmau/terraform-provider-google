@@ -114,6 +114,7 @@ func ResourceApigeeEnvironmentAddonsConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"env_id": {
 				Type:     schema.TypeString,
@@ -277,7 +278,6 @@ func resourceApigeeEnvironmentAddonsConfigUpdate(d *schema.ResourceData, meta in
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if envIdValue, ok := d.GetOk("env_id"); ok && envIdValue.(string) != "" {

@@ -199,6 +199,7 @@ func ResourceServiceNetworkingVPCServiceControls() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"enabled": {
 				Type:     schema.TypeBool,

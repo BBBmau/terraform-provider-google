@@ -122,6 +122,7 @@ func ResourceAppEngineServiceNetworkSettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"network_settings": {
 				Type:        schema.TypeList,
@@ -332,7 +333,6 @@ func resourceAppEngineServiceNetworkSettingsUpdate(d *schema.ResourceData, meta 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if serviceValue, ok := d.GetOk("service"); ok && serviceValue.(string) != "" {

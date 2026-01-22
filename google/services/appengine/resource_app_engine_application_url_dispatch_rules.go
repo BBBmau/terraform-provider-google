@@ -118,6 +118,7 @@ func ResourceAppEngineApplicationUrlDispatchRules() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"dispatch_rules": {
 				Type:        schema.TypeList,
@@ -316,7 +317,6 @@ func resourceAppEngineApplicationUrlDispatchRulesUpdate(d *schema.ResourceData, 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

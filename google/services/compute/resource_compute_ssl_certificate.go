@@ -120,6 +120,7 @@ func ResourceComputeSslCertificate() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"certificate": {
 				Type:     schema.TypeString,

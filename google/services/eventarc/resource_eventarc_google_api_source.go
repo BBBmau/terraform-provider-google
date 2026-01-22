@@ -128,6 +128,7 @@ func ResourceEventarcGoogleApiSource() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"destination": {
 				Type:     schema.TypeString,
@@ -500,7 +501,6 @@ func resourceEventarcGoogleApiSourceUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

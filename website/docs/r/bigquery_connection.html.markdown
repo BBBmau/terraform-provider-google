@@ -581,7 +581,7 @@ In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hash
 ```tf
 import {
   identity = {
-    connection_id = "<-optional value->"
+    connectionId = "<-optional value->"
     location = "<-optional value->"
     project = "<-optional value->"
   }

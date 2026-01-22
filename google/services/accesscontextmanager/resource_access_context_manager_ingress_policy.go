@@ -116,6 +116,7 @@ func ResourceAccessContextManagerIngressPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"ingress_policy_name": {
 				Type:             schema.TypeString,

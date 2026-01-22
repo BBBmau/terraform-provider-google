@@ -324,6 +324,7 @@ func ResourceDataplexEntry() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"entry_type": {
 				Type:         schema.TypeString,
@@ -773,7 +774,6 @@ func resourceDataplexEntryUpdate(d *schema.ResourceData, meta interface{}) error
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

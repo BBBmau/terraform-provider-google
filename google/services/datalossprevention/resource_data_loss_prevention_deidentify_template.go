@@ -118,6 +118,7 @@ func ResourceDataLossPreventionDeidentifyTemplate() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"deidentify_config": {
 				Type:        schema.TypeList,
@@ -4461,7 +4462,6 @@ func resourceDataLossPreventionDeidentifyTemplateUpdate(d *schema.ResourceData, 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

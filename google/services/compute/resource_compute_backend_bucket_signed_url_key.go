@@ -120,6 +120,7 @@ func ResourceComputeBackendBucketSignedUrlKey() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"backend_bucket": {
 				Type:             schema.TypeString,

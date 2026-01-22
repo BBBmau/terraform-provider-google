@@ -122,6 +122,7 @@ func ResourceIdentityPlatformTenant() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -386,7 +387,6 @@ func resourceIdentityPlatformTenantUpdate(d *schema.ResourceData, meta interface
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

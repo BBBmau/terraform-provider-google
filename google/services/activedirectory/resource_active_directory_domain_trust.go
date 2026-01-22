@@ -126,6 +126,7 @@ func ResourceActiveDirectoryDomainTrust() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"domain": {
 				Type:     schema.TypeString,
@@ -428,7 +429,6 @@ func resourceActiveDirectoryDomainTrustUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if targetDomainNameValue, ok := d.GetOk("target_domain_name"); ok && targetDomainNameValue.(string) != "" {

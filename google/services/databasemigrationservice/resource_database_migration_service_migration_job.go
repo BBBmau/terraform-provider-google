@@ -127,6 +127,7 @@ func ResourceDatabaseMigrationServiceMigrationJob() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"destination": {
 				Type:        schema.TypeString,
@@ -658,7 +659,6 @@ func resourceDatabaseMigrationServiceMigrationJobUpdate(d *schema.ResourceData, 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if migrationJobIdValue, ok := d.GetOk("migration_job_id"); ok && migrationJobIdValue.(string) != "" {

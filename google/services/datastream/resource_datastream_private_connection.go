@@ -168,6 +168,7 @@ func ResourceDatastreamPrivateConnection() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,

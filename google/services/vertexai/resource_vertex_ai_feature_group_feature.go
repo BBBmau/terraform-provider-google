@@ -131,6 +131,7 @@ func ResourceVertexAIFeatureGroupFeature() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"feature_group": {
 				Type:        schema.TypeString,
@@ -416,7 +417,6 @@ func resourceVertexAIFeatureGroupFeatureUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

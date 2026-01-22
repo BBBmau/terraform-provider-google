@@ -127,6 +127,7 @@ func ResourceApihubApiHubInstance() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"config": {
 				Type:        schema.TypeList,

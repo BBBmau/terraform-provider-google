@@ -128,6 +128,7 @@ func ResourceCESAppVersion() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"app": {
 				Type:        schema.TypeString,

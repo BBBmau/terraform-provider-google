@@ -71,12 +71,6 @@ func TestAccParameterManagerRegionalRegionalParameterVersion_regionalParameterVe
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "parameter", "parameter_version_id"},
 			},
-			{
-				ResourceName:       "google_parameter_manager_regional_parameter_version.regional-parameter-version-basic",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -116,12 +110,6 @@ func TestAccParameterManagerRegionalRegionalParameterVersion_regionalParameterVe
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "parameter", "parameter_version_id"},
-			},
-			{
-				ResourceName:       "google_parameter_manager_regional_parameter_version.regional-parameter-version-with-json-format",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -166,12 +154,6 @@ func TestAccParameterManagerRegionalRegionalParameterVersion_regionalParameterVe
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "parameter", "parameter_version_id"},
-			},
-			{
-				ResourceName:       "google_parameter_manager_regional_parameter_version.regional-parameter-version-with-yaml-format",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -224,12 +206,6 @@ func TestAccParameterManagerRegionalRegionalParameterVersion_regionalParameterVe
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "parameter", "parameter_version_id"},
 			},
-			{
-				ResourceName:       "google_parameter_manager_regional_parameter_version.regional-parameter-version-with-kms-key",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -275,12 +251,6 @@ func TestAccParameterManagerRegionalRegionalParameterVersion_regionalParameterVe
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "parameter", "parameter_version_id"},
 			},
-			{
-				ResourceName:       "google_parameter_manager_regional_parameter_version.regional-parameter-version-with-json-format-with-file",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -322,12 +292,6 @@ func TestAccParameterManagerRegionalRegionalParameterVersion_regionalParameterVe
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "parameter", "parameter_version_id"},
-			},
-			{
-				ResourceName:       "google_parameter_manager_regional_parameter_version.regional-parameter-version-with-yaml-format-with-file",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

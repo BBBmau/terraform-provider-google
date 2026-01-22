@@ -112,6 +112,7 @@ func ResourceSiteVerificationWebResource() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"site": {
 				Type:        schema.TypeList,

@@ -127,6 +127,7 @@ func ResourceOracleDatabaseCloudVmCluster() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cloud_vm_cluster_id": {
 				Type:     schema.TypeString,

@@ -118,6 +118,7 @@ func ResourceResourceManager3Capability() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"capability_name": {
 				Type:        schema.TypeString,
@@ -283,7 +284,6 @@ func resourceResourceManager3CapabilityUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {

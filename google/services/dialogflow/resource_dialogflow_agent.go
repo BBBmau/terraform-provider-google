@@ -118,6 +118,7 @@ func ResourceDialogflowAgent() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"default_language_code": {
 				Type:     schema.TypeString,
@@ -449,7 +450,6 @@ func resourceDialogflowAgentUpdate(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

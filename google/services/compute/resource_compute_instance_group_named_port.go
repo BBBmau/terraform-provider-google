@@ -115,7 +115,7 @@ func ResourceComputeInstanceGroupNamedPort() *schema.Resource {
 						RequiredForImport: true,
 					},
 					"port": {
-						Type:              schema.TypeString,
+						Type:              schema.TypeInt,
 						RequiredForImport: true,
 					},
 					"group": {
@@ -133,6 +133,7 @@ func ResourceComputeInstanceGroupNamedPort() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"group": {
 				Type:             schema.TypeString,
@@ -259,8 +260,9 @@ func resourceComputeInstanceGroupNamedPortCreate(d *schema.ResourceData, meta in
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
-		if portValue, ok := d.GetOk("port"); ok && portValue.(string) != "" {
-			if err = identity.Set("port", portValue.(string)); err != nil {
+		if _, ok := d.GetOk("port"); ok {
+			err = identity.Set("port", d.Get("port").(int))
+			if err != nil {
 				return fmt.Errorf("Error setting port: %s", err)
 			}
 		}
@@ -375,8 +377,8 @@ func resourceComputeInstanceGroupNamedPortRead(d *schema.ResourceData, meta inte
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
-		if v, ok := identity.GetOk("port"); !ok && v == "" {
-			err = identity.Set("port", d.Get("port").(string))
+		if _, ok := identity.GetOk("port"); !ok {
+			err = identity.Set("port", d.Get("port").(int))
 			if err != nil {
 				return fmt.Errorf("Error setting port: %s", err)
 			}

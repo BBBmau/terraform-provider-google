@@ -130,6 +130,7 @@ func ResourceDiscoveryEngineSearchEngine() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"collection_id": {
 				Type:        schema.TypeString,
@@ -522,7 +523,6 @@ func resourceDiscoveryEngineSearchEngineUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if engineIdValue, ok := d.GetOk("engine_id"); ok && engineIdValue.(string) != "" {

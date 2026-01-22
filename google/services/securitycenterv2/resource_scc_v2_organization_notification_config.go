@@ -114,6 +114,7 @@ func ResourceSecurityCenterV2OrganizationNotificationConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"config_id": {
 				Type:        schema.TypeString,
@@ -356,7 +357,6 @@ func resourceSecurityCenterV2OrganizationNotificationConfigUpdate(d *schema.Reso
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

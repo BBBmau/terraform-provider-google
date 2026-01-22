@@ -122,6 +122,7 @@ func ResourceAppEngineServiceSplitTraffic() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"service": {
 				Type:        schema.TypeString,
@@ -339,7 +340,6 @@ func resourceAppEngineServiceSplitTrafficUpdate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if serviceValue, ok := d.GetOk("service"); ok && serviceValue.(string) != "" {

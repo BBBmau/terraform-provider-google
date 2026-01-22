@@ -126,6 +126,7 @@ func ResourceFirebaseAppCheckDebugToken() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"app_id": {
 				Type:     schema.TypeString,
@@ -347,7 +348,6 @@ func resourceFirebaseAppCheckDebugTokenUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if debugTokenIdValue, ok := d.GetOk("debug_token_id"); ok && debugTokenIdValue.(string) != "" {

@@ -124,6 +124,7 @@ func ResourceApihubHostProjectRegistration() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"gcp_project": {
 				Type:             schema.TypeString,

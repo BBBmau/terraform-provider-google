@@ -114,6 +114,7 @@ func ResourceAccessApprovalProjectSettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"enrolled_services": {
 				Type:     schema.TypeSet,
@@ -405,7 +406,6 @@ func resourceAccessApprovalProjectSettingsUpdate(d *schema.ResourceData, meta in
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectIdValue, ok := d.GetOk("project_id"); ok && projectIdValue.(string) != "" {

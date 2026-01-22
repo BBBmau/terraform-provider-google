@@ -71,12 +71,6 @@ func TestAccBigQueryRowAccessPolicy_bigqueryRowAccessPolicyBasicExample(t *testi
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"grantees"},
 			},
-			{
-				ResourceName:       "google_bigquery_row_access_policy.example",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }

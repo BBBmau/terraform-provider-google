@@ -127,6 +127,7 @@ func ResourceSecureSourceManagerInstance() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance_id": {
 				Type:        schema.TypeString,

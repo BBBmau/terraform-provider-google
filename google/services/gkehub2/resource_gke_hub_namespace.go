@@ -127,6 +127,7 @@ func ResourceGKEHub2Namespace() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"scope": {
 				Type:             schema.TypeString,
@@ -443,7 +444,6 @@ func resourceGKEHub2NamespaceUpdate(d *schema.ResourceData, meta interface{}) er
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if scopeNamespaceIdValue, ok := d.GetOk("scope_namespace_id"); ok && scopeNamespaceIdValue.(string) != "" {

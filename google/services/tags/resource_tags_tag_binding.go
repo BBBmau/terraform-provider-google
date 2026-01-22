@@ -112,6 +112,7 @@ func ResourceTagsTagBinding() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"parent": {
 				Type:        schema.TypeString,

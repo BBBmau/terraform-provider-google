@@ -127,6 +127,7 @@ func ResourceGeminiGeminiGcpEnablementSetting() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"gemini_gcp_enablement_setting_id": {
 				Type:        schema.TypeString,
@@ -418,7 +419,6 @@ func resourceGeminiGeminiGcpEnablementSettingUpdate(d *schema.ResourceData, meta
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

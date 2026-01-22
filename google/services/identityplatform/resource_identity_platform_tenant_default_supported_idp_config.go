@@ -126,6 +126,7 @@ func ResourceIdentityPlatformTenantDefaultSupportedIdpConfig() *schema.Resource 
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"client_id": {
 				Type:        schema.TypeString,
@@ -372,7 +373,6 @@ func resourceIdentityPlatformTenantDefaultSupportedIdpConfigUpdate(d *schema.Res
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if idpIdValue, ok := d.GetOk("idp_id"); ok && idpIdValue.(string) != "" {

@@ -130,6 +130,7 @@ func ResourceDiscoveryEngineChatEngine() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"chat_engine_config": {
 				Type:        schema.TypeList,
@@ -528,7 +529,6 @@ func resourceDiscoveryEngineChatEngineUpdate(d *schema.ResourceData, meta interf
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if engineIdValue, ok := d.GetOk("engine_id"); ok && engineIdValue.(string) != "" {

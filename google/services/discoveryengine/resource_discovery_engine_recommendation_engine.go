@@ -126,6 +126,7 @@ func ResourceDiscoveryEngineRecommendationEngine() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"data_store_ids": {
 				Type:        schema.TypeList,
@@ -537,7 +538,6 @@ func resourceDiscoveryEngineRecommendationEngineUpdate(d *schema.ResourceData, m
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if engineIdValue, ok := d.GetOk("engine_id"); ok && engineIdValue.(string) != "" {

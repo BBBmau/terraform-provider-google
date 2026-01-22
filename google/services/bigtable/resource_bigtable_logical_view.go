@@ -126,6 +126,7 @@ func ResourceBigtableLogicalView() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"logical_view_id": {
 				Type:        schema.TypeString,
@@ -339,7 +340,6 @@ func resourceBigtableLogicalViewUpdate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if logicalViewIdValue, ok := d.GetOk("logical_view_id"); ok && logicalViewIdValue.(string) != "" {

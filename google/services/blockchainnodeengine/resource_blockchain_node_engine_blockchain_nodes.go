@@ -127,6 +127,7 @@ func ResourceBlockchainNodeEngineBlockchainNodes() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"blockchain_node_id": {
 				Type:        schema.TypeString,
@@ -544,7 +545,6 @@ func resourceBlockchainNodeEngineBlockchainNodesUpdate(d *schema.ResourceData, m
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

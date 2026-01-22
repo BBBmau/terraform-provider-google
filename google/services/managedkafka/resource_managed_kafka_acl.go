@@ -130,6 +130,7 @@ func ResourceManagedKafkaAcl() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"acl_entries": {
 				Type:        schema.TypeSet,
@@ -432,7 +433,6 @@ func resourceManagedKafkaAclUpdate(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

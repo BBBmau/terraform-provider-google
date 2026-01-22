@@ -127,6 +127,7 @@ func ResourceTranscoderJobTemplate() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"job_template_id": {
 				Type:        schema.TypeString,

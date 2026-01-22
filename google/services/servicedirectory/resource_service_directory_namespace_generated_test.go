@@ -71,12 +71,6 @@ func TestAccServiceDirectoryNamespace_serviceDirectoryNamespaceBasicExample(t *t
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "namespace_id", "terraform_labels"},
 			},
-			{
-				ResourceName:       "google_service_directory_namespace.example",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }

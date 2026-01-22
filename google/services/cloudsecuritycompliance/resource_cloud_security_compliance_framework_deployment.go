@@ -120,6 +120,7 @@ func ResourceCloudSecurityComplianceFrameworkDeployment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cloud_control_metadata": {
 				Type:     schema.TypeList,

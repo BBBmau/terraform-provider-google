@@ -114,6 +114,7 @@ func ResourceLoggingOrganizationSettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"organization": {
 				Type:        schema.TypeString,
@@ -309,7 +310,6 @@ func resourceLoggingOrganizationSettingsUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if organizationValue, ok := d.GetOk("organization"); ok && organizationValue.(string) != "" {

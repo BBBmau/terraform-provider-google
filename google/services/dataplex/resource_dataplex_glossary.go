@@ -127,6 +127,7 @@ func ResourceDataplexGlossary() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"glossary_id": {
 				Type:        schema.TypeString,
@@ -427,7 +428,6 @@ func resourceDataplexGlossaryUpdate(d *schema.ResourceData, meta interface{}) er
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

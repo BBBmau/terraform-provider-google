@@ -122,6 +122,7 @@ func ResourceAppEngineDomainMapping() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"domain_name": {
 				Type:        schema.TypeString,
@@ -411,7 +412,6 @@ func resourceAppEngineDomainMappingUpdate(d *schema.ResourceData, meta interface
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if domainNameValue, ok := d.GetOk("domain_name"); ok && domainNameValue.(string) != "" {

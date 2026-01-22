@@ -232,42 +232,6 @@ func ResourceBigQueryDatasetAccess() *schema.Resource {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
 					},
-					"role": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"user_by_email": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"group_by_email": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"domain": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"special_group": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"iam_member": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"view": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"dataset": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
-					"routine": {
-						Type:              schema.TypeString,
-						OptionalForImport: true,
-					},
 					"project": {
 						Type:              schema.TypeString,
 						OptionalForImport: true,
@@ -275,6 +239,7 @@ func ResourceBigQueryDatasetAccess() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"dataset_id": {
 				Type:     schema.TypeString,
@@ -652,51 +617,6 @@ func resourceBigQueryDatasetAccessCreate(d *schema.ResourceData, meta interface{
 				return fmt.Errorf("Error setting dataset_id: %s", err)
 			}
 		}
-		if roleValue, ok := d.GetOk("role"); ok && roleValue.(string) != "" {
-			if err = identity.Set("role", roleValue.(string)); err != nil {
-				return fmt.Errorf("Error setting role: %s", err)
-			}
-		}
-		if userByEmailValue, ok := d.GetOk("user_by_email"); ok && userByEmailValue.(string) != "" {
-			if err = identity.Set("user_by_email", userByEmailValue.(string)); err != nil {
-				return fmt.Errorf("Error setting user_by_email: %s", err)
-			}
-		}
-		if groupByEmailValue, ok := d.GetOk("group_by_email"); ok && groupByEmailValue.(string) != "" {
-			if err = identity.Set("group_by_email", groupByEmailValue.(string)); err != nil {
-				return fmt.Errorf("Error setting group_by_email: %s", err)
-			}
-		}
-		if domainValue, ok := d.GetOk("domain"); ok && domainValue.(string) != "" {
-			if err = identity.Set("domain", domainValue.(string)); err != nil {
-				return fmt.Errorf("Error setting domain: %s", err)
-			}
-		}
-		if specialGroupValue, ok := d.GetOk("special_group"); ok && specialGroupValue.(string) != "" {
-			if err = identity.Set("special_group", specialGroupValue.(string)); err != nil {
-				return fmt.Errorf("Error setting special_group: %s", err)
-			}
-		}
-		if iamMemberValue, ok := d.GetOk("iam_member"); ok && iamMemberValue.(string) != "" {
-			if err = identity.Set("iam_member", iamMemberValue.(string)); err != nil {
-				return fmt.Errorf("Error setting iam_member: %s", err)
-			}
-		}
-		if viewValue, ok := d.GetOk("view"); ok && viewValue.(string) != "" {
-			if err = identity.Set("view", viewValue.(string)); err != nil {
-				return fmt.Errorf("Error setting view: %s", err)
-			}
-		}
-		if datasetValue, ok := d.GetOk("dataset"); ok && datasetValue.(string) != "" {
-			if err = identity.Set("dataset", datasetValue.(string)); err != nil {
-				return fmt.Errorf("Error setting dataset: %s", err)
-			}
-		}
-		if routineValue, ok := d.GetOk("routine"); ok && routineValue.(string) != "" {
-			if err = identity.Set("routine", routineValue.(string)); err != nil {
-				return fmt.Errorf("Error setting routine: %s", err)
-			}
-		}
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
 			if err = identity.Set("project", projectValue.(string)); err != nil {
 				return fmt.Errorf("Error setting project: %s", err)
@@ -831,60 +751,6 @@ func resourceBigQueryDatasetAccessRead(d *schema.ResourceData, meta interface{})
 			err = identity.Set("dataset_id", d.Get("dataset_id").(string))
 			if err != nil {
 				return fmt.Errorf("Error setting dataset_id: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("role"); !ok && v == "" {
-			err = identity.Set("role", d.Get("role").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting role: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("user_by_email"); !ok && v == "" {
-			err = identity.Set("user_by_email", d.Get("user_by_email").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting user_by_email: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("group_by_email"); !ok && v == "" {
-			err = identity.Set("group_by_email", d.Get("group_by_email").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting group_by_email: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("domain"); !ok && v == "" {
-			err = identity.Set("domain", d.Get("domain").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting domain: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("special_group"); !ok && v == "" {
-			err = identity.Set("special_group", d.Get("special_group").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting special_group: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("iam_member"); !ok && v == "" {
-			err = identity.Set("iam_member", d.Get("iam_member").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting iam_member: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("view"); !ok && v == "" {
-			err = identity.Set("view", d.Get("view").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting view: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("dataset"); !ok && v == "" {
-			err = identity.Set("dataset", d.Get("dataset").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting dataset: %s", err)
-			}
-		}
-		if v, ok := identity.GetOk("routine"); !ok && v == "" {
-			err = identity.Set("routine", d.Get("routine").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting routine: %s", err)
 			}
 		}
 		if v, ok := identity.GetOk("project"); !ok && v == "" {

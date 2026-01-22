@@ -122,6 +122,7 @@ func ResourceComputeInterconnectAttachmentGroup() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"intent": {
 				Type:     schema.TypeList,
@@ -325,6 +326,17 @@ present in.`,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
 																		"attachment": {
+																			Type:       schema.TypeList,
+																			Computed:   true,
+																			Deprecated: "`attachment` is deprecated and will be removed in a future major release. Use `attachments` instead.",
+																			Description: `URLs of Attachments in the given zone, to the given
+region, on Interconnects in the given facility and metro. Every
+Attachment in the AG has such an entry.`,
+																			Elem: &schema.Schema{
+																				Type: schema.TypeString,
+																			},
+																		},
+																		"attachments": {
 																			Type:     schema.TypeList,
 																			Computed: true,
 																			Description: `URLs of Attachments in the given zone, to the given
@@ -584,7 +596,6 @@ func resourceComputeInterconnectAttachmentGroupUpdate(d *schema.ResourceData, me
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
@@ -899,8 +910,9 @@ func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacil
 			continue
 		}
 		transformed = append(transformed, map[string]interface{}{
-			"zone":       flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesZone(original["zone"], d, config),
-			"attachment": flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachment(original["attachment"], d, config),
+			"zone":        flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesZone(original["zone"], d, config),
+			"attachment":  flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachment(original["attachment"], d, config),
+			"attachments": flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachments(original["attachments"], d, config),
 		})
 	}
 	return transformed
@@ -910,6 +922,10 @@ func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacil
 }
 
 func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachment(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachments(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 

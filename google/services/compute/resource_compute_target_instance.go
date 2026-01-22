@@ -124,6 +124,7 @@ func ResourceComputeTargetInstance() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance": {
 				Type:             schema.TypeString,

@@ -122,6 +122,7 @@ func ResourceCloudSecurityComplianceFramework() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"framework_id": {
 				Type:     schema.TypeString,
@@ -537,7 +538,6 @@ func resourceCloudSecurityComplianceFrameworkUpdate(d *schema.ResourceData, meta
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if organizationValue, ok := d.GetOk("organization"); ok && organizationValue.(string) != "" {

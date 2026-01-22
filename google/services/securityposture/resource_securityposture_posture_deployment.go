@@ -122,6 +122,7 @@ func ResourceSecurityposturePostureDeployment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
@@ -433,7 +434,6 @@ func resourceSecurityposturePostureDeploymentUpdate(d *schema.ResourceData, meta
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {

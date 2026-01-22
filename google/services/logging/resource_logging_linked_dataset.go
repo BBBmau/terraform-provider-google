@@ -124,6 +124,7 @@ func ResourceLoggingLinkedDataset() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"bucket": {
 				Type:             schema.TypeString,

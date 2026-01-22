@@ -148,6 +148,7 @@ func ResourceClouddomainsRegistration() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"contact_settings": {
 				Type:        schema.TypeList,

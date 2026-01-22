@@ -126,6 +126,7 @@ func ResourceNetworkSecurityTlsInspectionPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"ca_pool": {
 				Type:        schema.TypeString,
@@ -432,7 +433,6 @@ func resourceNetworkSecurityTlsInspectionPolicyUpdate(d *schema.ResourceData, me
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

@@ -118,12 +118,13 @@ func ResourceApigeeEnvironmentApiRevisionDeployment() *schema.Resource {
 						RequiredForImport: true,
 					},
 					"revision": {
-						Type:              schema.TypeString,
+						Type:              schema.TypeInt,
 						RequiredForImport: true,
 					},
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"api": {
 				Type:        schema.TypeString,
@@ -253,8 +254,9 @@ func resourceApigeeEnvironmentApiRevisionDeploymentCreate(d *schema.ResourceData
 				return fmt.Errorf("Error setting api: %s", err)
 			}
 		}
-		if revisionValue, ok := d.GetOk("revision"); ok && revisionValue.(string) != "" {
-			if err = identity.Set("revision", revisionValue.(string)); err != nil {
+		if _, ok := d.GetOk("revision"); ok {
+			err = identity.Set("revision", d.Get("revision").(int))
+			if err != nil {
 				return fmt.Errorf("Error setting revision: %s", err)
 			}
 		}
@@ -329,8 +331,8 @@ func resourceApigeeEnvironmentApiRevisionDeploymentRead(d *schema.ResourceData, 
 				return fmt.Errorf("Error setting api: %s", err)
 			}
 		}
-		if v, ok := identity.GetOk("revision"); !ok && v == "" {
-			err = identity.Set("revision", d.Get("revision").(string))
+		if _, ok := identity.GetOk("revision"); !ok {
+			err = identity.Set("revision", d.Get("revision").(int))
 			if err != nil {
 				return fmt.Errorf("Error setting revision: %s", err)
 			}

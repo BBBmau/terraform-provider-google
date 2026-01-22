@@ -122,6 +122,7 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"bucket_list": {
 				Type:        schema.TypeList,

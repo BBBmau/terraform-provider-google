@@ -130,6 +130,7 @@ func ResourceChronicleRule() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance": {
 				Type:        schema.TypeString,
@@ -623,7 +624,6 @@ func resourceChronicleRuleUpdate(d *schema.ResourceData, meta interface{}) error
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if ruleIdValue, ok := d.GetOk("rule_id"); ok && ruleIdValue.(string) != "" {

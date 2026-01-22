@@ -122,6 +122,7 @@ func ResourceSecurityCenterV2OrganizationMuteConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"filter": {
 				Type:     schema.TypeString,
@@ -370,7 +371,6 @@ func resourceSecurityCenterV2OrganizationMuteConfigUpdate(d *schema.ResourceData
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if organizationValue, ok := d.GetOk("organization"); ok && organizationValue.(string) != "" {

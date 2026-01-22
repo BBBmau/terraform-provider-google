@@ -108,6 +108,7 @@ func ResourceAccessContextManagerAccessLevelCondition() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"access_level": {
 				Type:             schema.TypeString,

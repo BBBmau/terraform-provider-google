@@ -129,6 +129,7 @@ func ResourceCloudbuildv2Repository() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:        schema.TypeString,

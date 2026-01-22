@@ -123,6 +123,7 @@ func ResourceNetworkServicesEndpointPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"endpoint_matcher": {
 				Type:        schema.TypeList,
@@ -497,7 +498,6 @@ func resourceNetworkServicesEndpointPolicyUpdate(d *schema.ResourceData, meta in
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

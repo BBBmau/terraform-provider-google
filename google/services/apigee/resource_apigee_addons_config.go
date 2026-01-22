@@ -114,6 +114,7 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"org": {
 				Type:        schema.TypeString,
@@ -354,7 +355,6 @@ func resourceApigeeAddonsConfigUpdate(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if orgValue, ok := d.GetOk("org"); ok && orgValue.(string) != "" {

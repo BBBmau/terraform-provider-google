@@ -120,6 +120,7 @@ func ResourceSQLSourceRepresentationInstance() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"database_version": {
 				Type:        schema.TypeString,

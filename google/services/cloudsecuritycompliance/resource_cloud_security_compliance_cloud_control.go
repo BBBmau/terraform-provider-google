@@ -122,6 +122,7 @@ func ResourceCloudSecurityComplianceCloudControl() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cloud_control_id": {
 				Type:     schema.TypeString,
@@ -1211,7 +1212,6 @@ func resourceCloudSecurityComplianceCloudControlUpdate(d *schema.ResourceData, m
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if organizationValue, ok := d.GetOk("organization"); ok && organizationValue.(string) != "" {

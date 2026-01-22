@@ -143,6 +143,7 @@ func ResourceIAMWorkforcePoolWorkforcePoolProviderKey() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"key_data": {
 				Type:        schema.TypeList,

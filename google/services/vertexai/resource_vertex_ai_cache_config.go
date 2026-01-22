@@ -118,6 +118,7 @@ func ResourceVertexAICacheConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"disable_cache": {
 				Type:        schema.TypeBool,
@@ -292,7 +293,6 @@ func resourceVertexAICacheConfigUpdate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

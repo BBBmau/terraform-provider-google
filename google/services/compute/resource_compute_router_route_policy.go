@@ -130,6 +130,7 @@ func ResourceComputeRouterRoutePolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:        schema.TypeString,
@@ -472,7 +473,6 @@ func resourceComputeRouterRoutePolicyUpdate(d *schema.ResourceData, meta interfa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if routerValue, ok := d.GetOk("router"); ok && routerValue.(string) != "" {

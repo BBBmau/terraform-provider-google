@@ -128,6 +128,7 @@ func ResourcePubsubLiteTopic() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:             schema.TypeString,
@@ -417,7 +418,6 @@ func resourcePubsubLiteTopicUpdate(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if zoneValue, ok := d.GetOk("zone"); ok && zoneValue.(string) != "" {

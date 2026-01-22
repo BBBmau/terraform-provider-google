@@ -114,6 +114,7 @@ func ResourceAccessContextManagerServicePerimeters() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"parent": {
 				Type:     schema.TypeString,
@@ -1161,7 +1162,6 @@ func resourceAccessContextManagerServicePerimetersUpdate(d *schema.ResourceData,
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {

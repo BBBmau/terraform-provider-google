@@ -112,6 +112,7 @@ func ResourceKMSKeyRingImportJob() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"import_job_id": {
 				Type:        schema.TypeString,

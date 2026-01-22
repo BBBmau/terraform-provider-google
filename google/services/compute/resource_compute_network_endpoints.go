@@ -237,6 +237,7 @@ func ResourceComputeNetworkEndpoints() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"network_endpoint_group": {
 				Type:             schema.TypeString,
@@ -515,7 +516,6 @@ func resourceComputeNetworkEndpointsUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if zoneValue, ok := d.GetOk("zone"); ok && zoneValue.(string) != "" {

@@ -126,6 +126,7 @@ func ResourceBigqueryDatapolicyDataPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"data_policy_id": {
 				Type:        schema.TypeString,
@@ -382,7 +383,6 @@ func resourceBigqueryDatapolicyDataPolicyUpdate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if dataPolicyIdValue, ok := d.GetOk("data_policy_id"); ok && dataPolicyIdValue.(string) != "" {

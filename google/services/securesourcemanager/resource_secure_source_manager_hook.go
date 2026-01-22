@@ -130,6 +130,7 @@ func ResourceSecureSourceManagerHook() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"hook_id": {
 				Type:        schema.TypeString,
@@ -451,7 +452,6 @@ func resourceSecureSourceManagerHookUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if hookIdValue, ok := d.GetOk("hook_id"); ok && hookIdValue.(string) != "" {

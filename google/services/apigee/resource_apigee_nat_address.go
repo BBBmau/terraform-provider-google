@@ -139,6 +139,7 @@ func ResourceApigeeNatAddress() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance_id": {
 				Type:     schema.TypeString,

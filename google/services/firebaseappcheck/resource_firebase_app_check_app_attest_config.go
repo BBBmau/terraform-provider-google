@@ -122,6 +122,7 @@ func ResourceFirebaseAppCheckAppAttestConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"app_id": {
 				Type:     schema.TypeString,
@@ -308,7 +309,6 @@ func resourceFirebaseAppCheckAppAttestConfigUpdate(d *schema.ResourceData, meta 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if appIdValue, ok := d.GetOk("app_id"); ok && appIdValue.(string) != "" {

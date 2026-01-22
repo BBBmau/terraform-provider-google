@@ -130,6 +130,7 @@ func ResourceBigtableSchemaBundle() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"proto_schema": {
 				Type:     schema.TypeList,
@@ -378,7 +379,6 @@ func resourceBigtableSchemaBundleUpdate(d *schema.ResourceData, meta interface{}
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if schemaBundleIdValue, ok := d.GetOk("schema_bundle_id"); ok && schemaBundleIdValue.(string) != "" {

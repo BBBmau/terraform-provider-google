@@ -131,6 +131,7 @@ func ResourceEdgenetworkInterconnectAttachment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"interconnect": {
 				Type:        schema.TypeString,

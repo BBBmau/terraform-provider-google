@@ -115,7 +115,7 @@ func ResourceComputeNetworkEndpoint() *schema.Resource {
 						OptionalForImport: true,
 					},
 					"port": {
-						Type:              schema.TypeString,
+						Type:              schema.TypeInt,
 						OptionalForImport: true,
 					},
 					"ip_address": {
@@ -137,6 +137,7 @@ func ResourceComputeNetworkEndpoint() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"ip_address": {
 				Type:     schema.TypeString,
@@ -276,8 +277,9 @@ func resourceComputeNetworkEndpointCreate(d *schema.ResourceData, meta interface
 				return fmt.Errorf("Error setting instance: %s", err)
 			}
 		}
-		if portValue, ok := d.GetOk("port"); ok && portValue.(string) != "" {
-			if err = identity.Set("port", portValue.(string)); err != nil {
+		if _, ok := d.GetOk("port"); ok {
+			err = identity.Set("port", d.Get("port").(int))
+			if err != nil {
 				return fmt.Errorf("Error setting port: %s", err)
 			}
 		}
@@ -412,8 +414,8 @@ func resourceComputeNetworkEndpointRead(d *schema.ResourceData, meta interface{}
 				return fmt.Errorf("Error setting instance: %s", err)
 			}
 		}
-		if v, ok := identity.GetOk("port"); !ok && v == "" {
-			err = identity.Set("port", d.Get("port").(string))
+		if _, ok := identity.GetOk("port"); !ok {
+			err = identity.Set("port", d.Get("port").(int))
 			if err != nil {
 				return fmt.Errorf("Error setting port: %s", err)
 			}

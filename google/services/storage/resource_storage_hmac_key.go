@@ -122,6 +122,7 @@ func ResourceStorageHmacKey() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"service_account_email": {
 				Type:        schema.TypeString,
@@ -437,7 +438,6 @@ func resourceStorageHmacKeyUpdate(d *schema.ResourceData, meta interface{}) erro
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if accessIdValue, ok := d.GetOk("access_id"); ok && accessIdValue.(string) != "" {

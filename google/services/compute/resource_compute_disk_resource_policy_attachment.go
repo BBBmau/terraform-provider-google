@@ -129,6 +129,7 @@ func ResourceComputeDiskResourcePolicyAttachment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"disk": {
 				Type:             schema.TypeString,

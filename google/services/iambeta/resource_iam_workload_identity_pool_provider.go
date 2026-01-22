@@ -82,6 +82,24 @@ func ValidateWorkloadIdentityPoolProviderId(v interface{}, k string) (ws []strin
 	return
 }
 
+func jwksJsonDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
+	if old == "" || new == "" {
+		return old == new
+	}
+
+	var oldJson, newJson interface{}
+
+	if err := json.Unmarshal([]byte(old), &oldJson); err != nil {
+		return false
+	}
+
+	if err := json.Unmarshal([]byte(new), &newJson); err != nil {
+		return false
+	}
+
+	return reflect.DeepEqual(oldJson, newJson)
+}
+
 var (
 	_ = bytes.Clone
 	_ = context.WithCancel
@@ -154,6 +172,7 @@ func ResourceIAMBetaWorkloadIdentityPoolProvider() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"workload_identity_pool_id": {
 				Type:     schema.TypeString,
@@ -324,9 +343,9 @@ https://iam.googleapis.com/projects/<project-number>/locations/<location>/worklo
 							},
 						},
 						"jwks_json": {
-							Type:      schema.TypeString,
-							Optional:  true,
-							StateFunc: func(v interface{}) string { s, _ := structure.NormalizeJsonString(v); return s },
+							Type:             schema.TypeString,
+							Optional:         true,
+							DiffSuppressFunc: jwksJsonDiffSuppress,
 							Description: `OIDC JWKs in JSON String format. For details on definition of a
 JWK, see https:tools.ietf.org/html/rfc7517. If not set, then we
 use the 'jwks_uri' from the discovery document fetched from the
@@ -720,7 +739,6 @@ func resourceIAMBetaWorkloadIdentityPoolProviderUpdate(d *schema.ResourceData, m
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if workloadIdentityPoolIdValue, ok := d.GetOk("workload_identity_pool_id"); ok && workloadIdentityPoolIdValue.(string) != "" {

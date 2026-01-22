@@ -211,6 +211,7 @@ func ResourceComputeRouterNatAddress() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"nat_ips": {
 				Type:     schema.TypeSet,
@@ -467,7 +468,6 @@ func resourceComputeRouterNatAddressUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if routerValue, ok := d.GetOk("router"); ok && routerValue.(string) != "" {

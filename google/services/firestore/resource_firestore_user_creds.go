@@ -124,6 +124,7 @@ func ResourceFirestoreUserCreds() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"database": {
 				Type:        schema.TypeString,

@@ -130,6 +130,7 @@ func ResourceSecureSourceManagerBranchRule() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"branch_rule_id": {
 				Type:        schema.TypeString,
@@ -474,7 +475,6 @@ func resourceSecureSourceManagerBranchRuleUpdate(d *schema.ResourceData, meta in
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if branchRuleIdValue, ok := d.GetOk("branch_rule_id"); ok && branchRuleIdValue.(string) != "" {

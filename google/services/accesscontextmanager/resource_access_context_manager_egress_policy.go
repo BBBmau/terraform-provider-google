@@ -116,6 +116,7 @@ func ResourceAccessContextManagerEgressPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"egress_policy_name": {
 				Type:             schema.TypeString,

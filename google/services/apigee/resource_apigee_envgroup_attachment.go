@@ -116,6 +116,7 @@ func ResourceApigeeEnvgroupAttachment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"envgroup_id": {
 				Type:     schema.TypeString,

@@ -126,6 +126,7 @@ func ResourceDialogflowCXSecuritySettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -517,7 +518,6 @@ func resourceDialogflowCXSecuritySettingsUpdate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

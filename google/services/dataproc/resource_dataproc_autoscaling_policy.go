@@ -126,6 +126,7 @@ func ResourceDataprocAutoscalingPolicy() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"policy_id": {
 				Type:     schema.TypeString,
@@ -517,7 +518,6 @@ func resourceDataprocAutoscalingPolicyUpdate(d *schema.ResourceData, meta interf
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if policyIdValue, ok := d.GetOk("policy_id"); ok && policyIdValue.(string) != "" {

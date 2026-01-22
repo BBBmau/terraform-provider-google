@@ -146,6 +146,7 @@ func ResourcePrivilegedAccessManagerEntitlement() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"eligible_users": {
 				Type:        schema.TypeList,
@@ -637,7 +638,6 @@ func resourcePrivilegedAccessManagerEntitlementUpdate(d *schema.ResourceData, me
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

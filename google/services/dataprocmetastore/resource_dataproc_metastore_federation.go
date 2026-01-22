@@ -127,6 +127,7 @@ func ResourceDataprocMetastoreFederation() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"backend_metastores": {
 				Type:        schema.TypeSet,
@@ -485,7 +486,6 @@ func resourceDataprocMetastoreFederationUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if federationIdValue, ok := d.GetOk("federation_id"); ok && federationIdValue.(string) != "" {

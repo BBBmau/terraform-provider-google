@@ -122,6 +122,7 @@ func ResourceSecurityCenterV2FolderMuteConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"filter": {
 				Type:     schema.TypeString,
@@ -370,7 +371,6 @@ func resourceSecurityCenterV2FolderMuteConfigUpdate(d *schema.ResourceData, meta
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if folderValue, ok := d.GetOk("folder"); ok && folderValue.(string) != "" {

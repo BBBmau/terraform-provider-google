@@ -118,6 +118,7 @@ func ResourceComputeProjectCloudArmorTier() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cloud_armor_tier": {
 				Type:         schema.TypeString,
@@ -285,7 +286,6 @@ func resourceComputeProjectCloudArmorTierUpdate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

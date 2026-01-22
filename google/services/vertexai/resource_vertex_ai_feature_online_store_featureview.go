@@ -131,6 +131,7 @@ func ResourceVertexAIFeatureOnlineStoreFeatureview() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"feature_online_store": {
 				Type:        schema.TypeString,
@@ -503,7 +504,6 @@ func resourceVertexAIFeatureOnlineStoreFeatureviewUpdate(d *schema.ResourceData,
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

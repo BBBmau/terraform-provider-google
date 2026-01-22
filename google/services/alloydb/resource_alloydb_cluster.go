@@ -128,6 +128,7 @@ func ResourceAlloydbCluster() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cluster_id": {
 				Type:        schema.TypeString,
@@ -1214,7 +1215,6 @@ func resourceAlloydbClusterUpdate(d *schema.ResourceData, meta interface{}) erro
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if clusterIdValue, ok := d.GetOk("cluster_id"); ok && clusterIdValue.(string) != "" {

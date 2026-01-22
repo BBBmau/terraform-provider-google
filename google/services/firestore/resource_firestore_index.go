@@ -153,6 +153,7 @@ func ResourceFirestoreIndex() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"collection": {
 				Type:        schema.TypeString,

@@ -127,6 +127,7 @@ func ResourceOracleDatabaseDbSystem() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"db_system_id": {
 				Type:     schema.TypeString,

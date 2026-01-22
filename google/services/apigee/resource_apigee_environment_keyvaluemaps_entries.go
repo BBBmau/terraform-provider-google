@@ -116,6 +116,7 @@ func ResourceApigeeEnvironmentKeyvaluemapsEntries() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"env_keyvaluemap_id": {
 				Type:     schema.TypeString,

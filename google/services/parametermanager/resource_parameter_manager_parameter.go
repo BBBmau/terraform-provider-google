@@ -123,6 +123,7 @@ func ResourceParameterManagerParameter() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"parameter_id": {
 				Type:        schema.TypeString,
@@ -416,7 +417,6 @@ func resourceParameterManagerParameterUpdate(d *schema.ResourceData, meta interf
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if parameterIdValue, ok := d.GetOk("parameter_id"); ok && parameterIdValue.(string) != "" {

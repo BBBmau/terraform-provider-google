@@ -126,6 +126,7 @@ func ResourceSecurityCenterV2ProjectSccBigQueryExport() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"big_query_export_id": {
 				Type:        schema.TypeString,
@@ -419,7 +420,6 @@ func resourceSecurityCenterV2ProjectSccBigQueryExportUpdate(d *schema.ResourceDa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if bigQueryExportIdValue, ok := d.GetOk("big_query_export_id"); ok && bigQueryExportIdValue.(string) != "" {

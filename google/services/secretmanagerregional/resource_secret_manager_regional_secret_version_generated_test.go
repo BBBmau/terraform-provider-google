@@ -71,12 +71,6 @@ func TestAccSecretManagerRegionalRegionalSecretVersion_regionalSecretVersionBasi
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "secret"},
 			},
-			{
-				ResourceName:       "google_secret_manager_regional_secret_version.regional_secret_version_basic",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -116,12 +110,6 @@ func TestAccSecretManagerRegionalRegionalSecretVersion_regionalSecretVersionWith
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"is_secret_data_base64", "location", "secret"},
-			},
-			{
-				ResourceName:       "google_secret_manager_regional_secret_version.regional_secret_version_base64",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -163,12 +151,6 @@ func TestAccSecretManagerRegionalRegionalSecretVersion_regionalSecretVersionDisa
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "secret"},
 			},
-			{
-				ResourceName:       "google_secret_manager_regional_secret_version.regional_secret_version_disabled",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -209,12 +191,6 @@ func TestAccSecretManagerRegionalRegionalSecretVersion_regionalSecretVersionDele
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"deletion_policy", "location", "secret"},
 			},
-			{
-				ResourceName:       "google_secret_manager_regional_secret_version.regional_secret_version_deletion_policy",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -254,12 +230,6 @@ func TestAccSecretManagerRegionalRegionalSecretVersion_regionalSecretVersionDele
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"deletion_policy", "location", "secret"},
-			},
-			{
-				ResourceName:       "google_secret_manager_regional_secret_version.regional_secret_version_deletion_policy",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

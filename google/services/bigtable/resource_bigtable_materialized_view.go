@@ -126,6 +126,7 @@ func ResourceBigtableMaterializedView() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"materialized_view_id": {
 				Type:        schema.TypeString,
@@ -340,7 +341,6 @@ func resourceBigtableMaterializedViewUpdate(d *schema.ResourceData, meta interfa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if materializedViewIdValue, ok := d.GetOk("materialized_view_id"); ok && materializedViewIdValue.(string) != "" {

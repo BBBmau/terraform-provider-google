@@ -178,6 +178,7 @@ func ResourceComputeRegionNetworkFirewallPolicyWithRules() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
@@ -1065,7 +1066,6 @@ func resourceComputeRegionNetworkFirewallPolicyWithRulesUpdate(d *schema.Resourc
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

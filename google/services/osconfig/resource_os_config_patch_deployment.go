@@ -120,6 +120,7 @@ func ResourceOSConfigPatchDeployment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance_filter": {
 				Type:        schema.TypeList,

@@ -122,6 +122,7 @@ func ResourceFirebaseAppCheckServiceConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"service_id": {
 				Type:     schema.TypeString,
@@ -337,7 +338,6 @@ func resourceFirebaseAppCheckServiceConfigUpdate(d *schema.ResourceData, meta in
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if serviceIdValue, ok := d.GetOk("service_id"); ok && serviceIdValue.(string) != "" {

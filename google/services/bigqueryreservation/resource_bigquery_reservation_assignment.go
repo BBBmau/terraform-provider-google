@@ -128,6 +128,7 @@ func ResourceBigqueryReservationReservationAssignment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"assignee": {
 				Type:             schema.TypeString,

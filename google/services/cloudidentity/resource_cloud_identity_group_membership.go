@@ -114,6 +114,7 @@ func ResourceCloudIdentityGroupMembership() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"group": {
 				Type:             schema.TypeString,

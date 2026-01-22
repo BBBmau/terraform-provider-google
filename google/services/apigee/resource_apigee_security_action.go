@@ -120,6 +120,7 @@ func ResourceApigeeSecurityAction() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"condition_config": {
 				Type:        schema.TypeList,

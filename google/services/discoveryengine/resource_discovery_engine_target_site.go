@@ -128,6 +128,7 @@ func ResourceDiscoveryEngineTargetSite() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"data_store_id": {
 				Type:        schema.TypeString,

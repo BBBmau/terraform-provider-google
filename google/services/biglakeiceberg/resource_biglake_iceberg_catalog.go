@@ -122,6 +122,7 @@ func ResourceBiglakeIcebergIcebergCatalog() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"catalog_type": {
 				Type:         schema.TypeString,

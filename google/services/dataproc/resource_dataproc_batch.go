@@ -143,6 +143,7 @@ func ResourceDataprocBatch() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"batch_id": {
 				Type:     schema.TypeString,

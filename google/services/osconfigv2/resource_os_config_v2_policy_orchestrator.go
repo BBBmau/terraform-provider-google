@@ -123,6 +123,7 @@ func ResourceOSConfigV2PolicyOrchestrator() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"action": {
 				Type:     schema.TypeString,
@@ -1981,7 +1982,6 @@ func resourceOSConfigV2PolicyOrchestratorUpdate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if policyOrchestratorIdValue, ok := d.GetOk("policy_orchestrator_id"); ok && policyOrchestratorIdValue.(string) != "" {

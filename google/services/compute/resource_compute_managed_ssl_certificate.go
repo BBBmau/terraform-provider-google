@@ -128,6 +128,7 @@ func ResourceComputeManagedSslCertificate() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"description": {
 				Type:        schema.TypeString,

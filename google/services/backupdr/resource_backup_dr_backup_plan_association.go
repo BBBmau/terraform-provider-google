@@ -126,6 +126,7 @@ func ResourceBackupDRBackupPlanAssociation() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"backup_plan": {
 				Type:             schema.TypeString,
@@ -435,7 +436,6 @@ func resourceBackupDRBackupPlanAssociationUpdate(d *schema.ResourceData, meta in
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

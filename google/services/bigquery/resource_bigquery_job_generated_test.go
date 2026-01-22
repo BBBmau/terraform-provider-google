@@ -70,12 +70,6 @@ func TestAccBigQueryJob_bigqueryJobQueryExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "status.0.state", "terraform_labels"},
 			},
-			{
-				ResourceName:       "google_bigquery_job.job",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -141,12 +135,6 @@ func TestAccBigQueryJob_bigqueryJobQueryTableReferenceExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "query.0.default_dataset.0.dataset_id", "query.0.destination_table.0.table_id", "status.0.state", "terraform_labels"},
-			},
-			{
-				ResourceName:       "google_bigquery_job.job",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -545,12 +533,6 @@ func TestAccBigQueryJob_bigqueryJobCopyExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "status.0.state", "terraform_labels"},
 			},
-			{
-				ResourceName:       "google_bigquery_job.job",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -702,12 +684,6 @@ func TestAccBigQueryJob_bigqueryJobCopyTableReferenceExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"copy.0.destination_table.0.table_id", "copy.0.source_tables.0.table_id", "copy.0.source_tables.1.table_id", "etag", "labels", "status.0.state", "terraform_labels"},
 			},
-			{
-				ResourceName:       "google_bigquery_job.job",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -852,12 +828,6 @@ func TestAccBigQueryJob_bigqueryJobExtractExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "status.0.state", "terraform_labels"},
 			},
-			{
-				ResourceName:       "google_bigquery_job.job",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -941,12 +911,6 @@ func TestAccBigQueryJob_bigqueryJobExtractTableReferenceExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "extract.0.source_table.0.table_id", "labels", "status.0.state", "terraform_labels"},
-			},
-			{
-				ResourceName:       "google_bigquery_job.job",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

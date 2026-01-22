@@ -180,12 +180,12 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `id` - an identifier for the resource with format `{{name}}`
 
+* `name` -
+  The format will be folders/{folder_number}/feeds/{client-assigned_feed_identifier}.
+
 * `folder_id` -
   The ID of the folder where this feed has been created. Both [FOLDER_NUMBER]
   and folders/[FOLDER_NUMBER] are accepted.
-
-* `name` -
-  The format will be folders/{folder_number}/feeds/{client-assigned_feed_identifier}.
 
 
 ## Timeouts
@@ -210,8 +210,8 @@ In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hash
 ```tf
 import {
   identity = {
-    folder_id = "<-optional value->"
     name = "<-optional value->"
+    folder_id = "<-optional value->"
   }
   to = google_cloud_asset_folder_feed.default
 }

@@ -126,6 +126,7 @@ func ResourceComputeNetworkPeeringRoutesConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"export_custom_routes": {
 				Type:        schema.TypeBool,
@@ -406,7 +407,6 @@ func resourceComputeNetworkPeeringRoutesConfigUpdate(d *schema.ResourceData, met
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if peeringValue, ok := d.GetOk("peering"); ok && peeringValue.(string) != "" {

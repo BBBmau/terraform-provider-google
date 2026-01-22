@@ -37,10 +37,12 @@ import (
 func ParseImportId(idRegexes []string, d TerraformResourceData, config *transport_tpg.Config) error {
 	for _, idFormat := range idRegexes {
 		re, err := regexp.Compile(idFormat)
+
 		if err != nil {
 			log.Printf("[DEBUG] Could not compile %s.", idFormat)
 			return fmt.Errorf("Import is not supported. Invalid regex formats.")
 		}
+
 		identity, err := d.Identity()
 		if identity == nil {
 			log.Printf("[DEBUG] identity not set: %s", err)
@@ -112,6 +114,7 @@ func ParseImportId(idRegexes []string, d TerraformResourceData, config *transpor
 			if err != nil {
 				return err
 			}
+
 			return nil
 		}
 	}

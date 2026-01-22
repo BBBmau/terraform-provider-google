@@ -122,6 +122,7 @@ func ResourceComputeInstanceSettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"zone": {
 				Type:             schema.TypeString,
@@ -361,7 +362,6 @@ func resourceComputeInstanceSettingsUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if zoneValue, ok := d.GetOk("zone"); ok && zoneValue.(string) != "" {

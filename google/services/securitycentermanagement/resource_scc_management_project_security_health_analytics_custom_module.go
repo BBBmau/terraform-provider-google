@@ -126,6 +126,7 @@ func ResourceSecurityCenterManagementProjectSecurityHealthAnalyticsCustomModule(
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"custom_config": {
 				Type:        schema.TypeList,
@@ -533,7 +534,6 @@ func resourceSecurityCenterManagementProjectSecurityHealthAnalyticsCustomModuleU
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

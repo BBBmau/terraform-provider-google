@@ -127,6 +127,7 @@ func ResourceCloudQuotasQuotaPreference() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"parent": {
 				Type:        schema.TypeString,
@@ -456,7 +457,6 @@ func resourceCloudQuotasQuotaPreferenceUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

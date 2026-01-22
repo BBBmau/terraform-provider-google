@@ -220,6 +220,7 @@ func ResourceAccessContextManagerServicePerimeterDryRunEgressPolicy() *schema.Re
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"perimeter": {
 				Type:             schema.TypeString,

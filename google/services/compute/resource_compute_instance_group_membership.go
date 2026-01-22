@@ -128,6 +128,7 @@ func ResourceComputeInstanceGroupMembership() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance": {
 				Type:             schema.TypeString,

@@ -120,6 +120,7 @@ func ResourceIntegrationsClient() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,

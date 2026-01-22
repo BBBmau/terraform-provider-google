@@ -178,6 +178,7 @@ func ResourceCloudBuildTrigger() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"approval_config": {
 				Type:     schema.TypeList,
@@ -1940,7 +1941,6 @@ func resourceCloudBuildTriggerUpdate(d *schema.ResourceData, meta interface{}) e
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if triggerIdValue, ok := d.GetOk("trigger_id"); ok && triggerIdValue.(string) != "" {
@@ -2696,7 +2696,7 @@ func flattenCloudBuildTriggerPubsubConfig(v interface{}, d *schema.ResourceData,
 	transformed["topic"] =
 		flattenCloudBuildTriggerPubsubConfigTopic(original["topic"], d, config)
 	transformed["service_account_email"] =
-		flattenCloudBuildTriggerPubsubConfigServiceAccountEmail(original["service_account_email"], d, config)
+		flattenCloudBuildTriggerPubsubConfigServiceAccountEmail(original["serviceAccountEmail"], d, config)
 	transformed["state"] =
 		flattenCloudBuildTriggerPubsubConfigState(original["state"], d, config)
 	return []interface{}{transformed}
@@ -4263,7 +4263,7 @@ func expandCloudBuildTriggerPubsubConfig(v interface{}, d tpgresource.TerraformR
 	if err != nil {
 		return nil, err
 	} else if val := reflect.ValueOf(transformedServiceAccountEmail); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-		transformed["service_account_email"] = transformedServiceAccountEmail
+		transformed["serviceAccountEmail"] = transformedServiceAccountEmail
 	}
 
 	transformedState, err := expandCloudBuildTriggerPubsubConfigState(original["state"], d, config)

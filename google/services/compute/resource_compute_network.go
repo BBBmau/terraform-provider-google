@@ -122,6 +122,7 @@ func ResourceComputeNetwork() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:         schema.TypeString,
@@ -616,7 +617,6 @@ func resourceComputeNetworkUpdate(d *schema.ResourceData, meta interface{}) erro
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
@@ -970,8 +970,6 @@ func flattenComputeNetworkRoutingConfigBgpInterRegionCost(v interface{}, d *sche
 	return v
 }
 
-// The API does not return this field, so we must read it from the
-// local state to prevent perpetual diffs.
 func flattenComputeNetworkRoutingConfigDeleteBgpAlwaysCompareMed(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return d.Get("delete_bgp_always_compare_med")
 }

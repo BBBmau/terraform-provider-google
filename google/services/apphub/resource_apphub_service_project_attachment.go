@@ -125,6 +125,7 @@ func ResourceApphubServiceProjectAttachment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"service_project_attachment_id": {
 				Type:        schema.TypeString,

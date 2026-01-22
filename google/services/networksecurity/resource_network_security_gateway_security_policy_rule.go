@@ -130,6 +130,7 @@ func ResourceNetworkSecurityGatewaySecurityPolicyRule() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"basic_profile": {
 				Type:         schema.TypeString,
@@ -469,7 +470,6 @@ func resourceNetworkSecurityGatewaySecurityPolicyRuleUpdate(d *schema.ResourceDa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

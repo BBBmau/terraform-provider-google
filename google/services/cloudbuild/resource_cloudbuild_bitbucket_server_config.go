@@ -126,6 +126,7 @@ func ResourceCloudBuildBitbucketServerConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"api_key": {
 				Type:     schema.TypeString,
@@ -529,7 +530,6 @@ func resourceCloudBuildBitbucketServerConfigUpdate(d *schema.ResourceData, meta 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if configIdValue, ok := d.GetOk("config_id"); ok && configIdValue.(string) != "" {

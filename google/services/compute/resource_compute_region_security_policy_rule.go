@@ -112,7 +112,7 @@ func ResourceComputeRegionSecurityPolicyRule() *schema.Resource {
 			SchemaFunc: func() map[string]*schema.Schema {
 				return map[string]*schema.Schema{
 					"priority": {
-						Type:              schema.TypeString,
+						Type:              schema.TypeInt,
 						RequiredForImport: true,
 					},
 					"region": {
@@ -130,6 +130,7 @@ func ResourceComputeRegionSecurityPolicyRule() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"action": {
 				Type:     schema.TypeString,
@@ -717,8 +718,9 @@ func resourceComputeRegionSecurityPolicyRuleCreate(d *schema.ResourceData, meta 
 
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
-		if priorityValue, ok := d.GetOk("priority"); ok && priorityValue.(string) != "" {
-			if err = identity.Set("priority", priorityValue.(string)); err != nil {
+		if _, ok := d.GetOk("priority"); ok {
+			err = identity.Set("priority", d.Get("priority").(int))
+			if err != nil {
 				return fmt.Errorf("Error setting priority: %s", err)
 			}
 		}
@@ -825,8 +827,8 @@ func resourceComputeRegionSecurityPolicyRuleRead(d *schema.ResourceData, meta in
 
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
-		if v, ok := identity.GetOk("priority"); !ok && v == "" {
-			err = identity.Set("priority", d.Get("priority").(string))
+		if _, ok := identity.GetOk("priority"); !ok {
+			err = identity.Set("priority", d.Get("priority").(int))
 			if err != nil {
 				return fmt.Errorf("Error setting priority: %s", err)
 			}
@@ -862,11 +864,11 @@ func resourceComputeRegionSecurityPolicyRuleUpdate(d *schema.ResourceData, meta 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
-		if priorityValue, ok := d.GetOk("priority"); ok && priorityValue.(string) != "" {
-			if err = identity.Set("priority", priorityValue.(string)); err != nil {
+		if _, ok := d.GetOk("priority"); ok {
+			err = identity.Set("priority", d.Get("priority").(int))
+			if err != nil {
 				return fmt.Errorf("Error setting priority: %s", err)
 			}
 		}

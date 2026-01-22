@@ -123,6 +123,7 @@ func ResourceGKEHub2Scope() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"scope_id": {
 				Type:        schema.TypeString,
@@ -406,7 +407,6 @@ func resourceGKEHub2ScopeUpdate(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if scopeIdValue, ok := d.GetOk("scope_id"); ok && scopeIdValue.(string) != "" {

@@ -128,6 +128,7 @@ func ResourceComputeResizeRequest() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"instance_group_manager": {
 				Type:             schema.TypeString,

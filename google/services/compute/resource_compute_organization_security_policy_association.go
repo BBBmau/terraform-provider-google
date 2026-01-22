@@ -116,6 +116,7 @@ func ResourceComputeOrganizationSecurityPolicyAssociation() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"attachment_id": {
 				Type:        schema.TypeString,

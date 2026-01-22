@@ -122,6 +122,7 @@ func ResourceSecurityCenterManagementOrganizationEventThreatDetectionCustomModul
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"organization": {
 				Type:        schema.TypeString,
@@ -379,7 +380,6 @@ func resourceSecurityCenterManagementOrganizationEventThreatDetectionCustomModul
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

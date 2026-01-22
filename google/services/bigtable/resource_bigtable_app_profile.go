@@ -128,6 +128,7 @@ func ResourceBigtableAppProfile() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"app_profile_id": {
 				Type:        schema.TypeString,
@@ -454,7 +455,6 @@ func resourceBigtableAppProfileUpdate(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if appProfileIdValue, ok := d.GetOk("app_profile_id"); ok && appProfileIdValue.(string) != "" {

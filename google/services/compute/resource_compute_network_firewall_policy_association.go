@@ -124,6 +124,7 @@ func ResourceComputeNetworkFirewallPolicyAssociation() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"attachment_target": {
 				Type:             schema.TypeString,

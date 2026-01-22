@@ -122,6 +122,7 @@ func ResourceSecurityCenterV2OrganizationSccBigQueryExport() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"big_query_export_id": {
 				Type:        schema.TypeString,
@@ -406,7 +407,6 @@ func resourceSecurityCenterV2OrganizationSccBigQueryExportUpdate(d *schema.Resou
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if organizationValue, ok := d.GetOk("organization"); ok && organizationValue.(string) != "" {

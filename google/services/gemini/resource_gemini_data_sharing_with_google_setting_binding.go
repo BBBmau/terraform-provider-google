@@ -131,6 +131,7 @@ func ResourceGeminiDataSharingWithGoogleSettingBinding() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"data_sharing_with_google_setting_id": {
 				Type:        schema.TypeString,
@@ -432,7 +433,6 @@ func resourceGeminiDataSharingWithGoogleSettingBindingUpdate(d *schema.ResourceD
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

@@ -118,6 +118,7 @@ func ResourceComputeSnapshotSettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"storage_location": {
 				Type:     schema.TypeList,
@@ -322,7 +323,6 @@ func resourceComputeSnapshotSettingsUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

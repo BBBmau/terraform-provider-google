@@ -126,6 +126,7 @@ func ResourceSecurityCenterV2ProjectMuteConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"filter": {
 				Type:     schema.TypeString,
@@ -389,7 +390,6 @@ func resourceSecurityCenterV2ProjectMuteConfigUpdate(d *schema.ResourceData, met
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

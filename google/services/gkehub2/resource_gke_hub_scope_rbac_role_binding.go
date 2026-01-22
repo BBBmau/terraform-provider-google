@@ -127,6 +127,7 @@ func ResourceGKEHub2ScopeRBACRoleBinding() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"role": {
 				Type:        schema.TypeList,
@@ -475,7 +476,6 @@ func resourceGKEHub2ScopeRBACRoleBindingUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if scopeRbacRoleBindingIdValue, ok := d.GetOk("scope_rbac_role_binding_id"); ok && scopeRbacRoleBindingIdValue.(string) != "" {

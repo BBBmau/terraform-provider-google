@@ -130,6 +130,7 @@ func ResourceCESExample() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"app": {
 				Type:        schema.TypeString,
@@ -629,7 +630,6 @@ func resourceCESExampleUpdate(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

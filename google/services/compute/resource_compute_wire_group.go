@@ -126,6 +126,7 @@ func ResourceComputeWireGroup() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"cross_site_network": {
 				Type:             schema.TypeString,
@@ -541,7 +542,6 @@ func resourceComputeWireGroupUpdate(d *schema.ResourceData, meta interface{}) er
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

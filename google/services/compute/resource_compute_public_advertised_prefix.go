@@ -120,6 +120,7 @@ func ResourceComputePublicAdvertisedPrefix() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"ip_cidr_range": {
 				Type:        schema.TypeString,

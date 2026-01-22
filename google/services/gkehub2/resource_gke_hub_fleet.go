@@ -118,6 +118,7 @@ func ResourceGKEHub2Fleet() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"default_cluster_config": {
 				Type:        schema.TypeList,
@@ -409,7 +410,6 @@ func resourceGKEHub2FleetUpdate(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {

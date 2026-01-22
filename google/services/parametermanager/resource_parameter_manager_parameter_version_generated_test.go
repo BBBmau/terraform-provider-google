@@ -71,12 +71,6 @@ func TestAccParameterManagerParameterVersion_parameterVersionBasicExample(t *tes
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"parameter", "parameter_version_id"},
 			},
-			{
-				ResourceName:       "google_parameter_manager_parameter_version.parameter-version-basic",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -115,12 +109,6 @@ func TestAccParameterManagerParameterVersion_parameterVersionWithJsonFormatExamp
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"parameter", "parameter_version_id"},
-			},
-			{
-				ResourceName:       "google_parameter_manager_parameter_version.parameter-version-with-json-format",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -172,12 +160,6 @@ func TestAccParameterManagerParameterVersion_parameterVersionWithKmsKeyExample(t
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"parameter", "parameter_version_id"},
 			},
-			{
-				ResourceName:       "google_parameter_manager_parameter_version.parameter-version-with-kms-key",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -219,12 +201,6 @@ func TestAccParameterManagerParameterVersion_parameterVersionWithYamlFormatExamp
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"parameter", "parameter_version_id"},
-			},
-			{
-				ResourceName:       "google_parameter_manager_parameter_version.parameter-version-with-yaml-format",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -270,12 +246,6 @@ func TestAccParameterManagerParameterVersion_parameterVersionWithJsonFormatWithF
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"parameter", "parameter_version_id"},
 			},
-			{
-				ResourceName:       "google_parameter_manager_parameter_version.parameter-version-with-json-format-with-file",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -316,12 +286,6 @@ func TestAccParameterManagerParameterVersion_parameterVersionWithYamlFormatWithF
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"parameter", "parameter_version_id"},
-			},
-			{
-				ResourceName:       "google_parameter_manager_parameter_version.parameter-version-with-yaml-format-with-file",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

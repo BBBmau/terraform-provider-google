@@ -118,6 +118,7 @@ func ResourceIapClient() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"brand": {
 				Type:     schema.TypeString,

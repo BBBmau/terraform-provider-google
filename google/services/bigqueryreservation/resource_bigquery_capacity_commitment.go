@@ -133,6 +133,7 @@ func ResourceBigqueryReservationCapacityCommitment() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"plan": {
 				Type:             schema.TypeString,
@@ -418,7 +419,6 @@ func resourceBigqueryReservationCapacityCommitmentUpdate(d *schema.ResourceData,
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if capacityCommitmentIdValue, ok := d.GetOk("capacity_commitment_id"); ok && capacityCommitmentIdValue.(string) != "" {

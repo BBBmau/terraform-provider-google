@@ -130,6 +130,7 @@ func ResourceComposerUserWorkloadsConfigMap() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"environment": {
 				Type:         schema.TypeString,
@@ -351,7 +352,6 @@ func resourceComposerUserWorkloadsConfigMapUpdate(d *schema.ResourceData, meta i
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

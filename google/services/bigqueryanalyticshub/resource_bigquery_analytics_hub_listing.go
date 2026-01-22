@@ -130,6 +130,7 @@ func ResourceBigqueryAnalyticsHubListing() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"data_exchange_id": {
 				Type:        schema.TypeString,
@@ -698,7 +699,6 @@ func resourceBigqueryAnalyticsHubListingUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if dataExchangeIdValue, ok := d.GetOk("data_exchange_id"); ok && dataExchangeIdValue.(string) != "" {

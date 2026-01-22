@@ -138,6 +138,7 @@ func ResourceDatastreamConnectionProfile() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"connection_profile_id": {
 				Type:        schema.TypeString,
@@ -1004,7 +1005,6 @@ func resourceDatastreamConnectionProfileUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if connectionProfileIdValue, ok := d.GetOk("connection_profile_id"); ok && connectionProfileIdValue.(string) != "" {

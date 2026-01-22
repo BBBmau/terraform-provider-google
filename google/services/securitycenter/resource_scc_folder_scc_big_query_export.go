@@ -118,6 +118,7 @@ func ResourceSecurityCenterFolderSccBigQueryExport() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"big_query_export_id": {
 				Type:        schema.TypeString,
@@ -377,7 +378,6 @@ func resourceSecurityCenterFolderSccBigQueryExportUpdate(d *schema.ResourceData,
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if folderValue, ok := d.GetOk("folder"); ok && folderValue.(string) != "" {

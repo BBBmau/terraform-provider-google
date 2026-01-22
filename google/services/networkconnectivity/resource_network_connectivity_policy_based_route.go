@@ -123,6 +123,7 @@ func ResourceNetworkConnectivityPolicyBasedRoute() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"filter": {
 				Type:        schema.TypeList,

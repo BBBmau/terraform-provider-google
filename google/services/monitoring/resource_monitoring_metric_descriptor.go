@@ -122,6 +122,7 @@ func ResourceMonitoringMetricDescriptor() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"metric_kind": {
 				Type:         schema.TypeString,
@@ -541,7 +542,6 @@ func resourceMonitoringMetricDescriptorUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

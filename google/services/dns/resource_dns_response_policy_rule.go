@@ -126,6 +126,7 @@ func ResourceDNSResponsePolicyRule() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"dns_name": {
 				Type:        schema.TypeString,
@@ -380,7 +381,6 @@ func resourceDNSResponsePolicyRuleUpdate(d *schema.ResourceData, meta interface{
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if ruleNameValue, ok := d.GetOk("rule_name"); ok && ruleNameValue.(string) != "" {

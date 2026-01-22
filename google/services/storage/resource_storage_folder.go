@@ -128,6 +128,7 @@ func ResourceStorageFolder() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"bucket": {
 				Type:        schema.TypeString,

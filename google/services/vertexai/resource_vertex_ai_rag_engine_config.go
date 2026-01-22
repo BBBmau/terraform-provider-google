@@ -122,6 +122,7 @@ func ResourceVertexAIRagEngineConfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"rag_managed_db_config": {
 				Type:        schema.TypeList,
@@ -351,7 +352,6 @@ func resourceVertexAIRagEngineConfigUpdate(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {

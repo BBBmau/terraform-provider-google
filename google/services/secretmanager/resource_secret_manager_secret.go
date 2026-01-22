@@ -151,6 +151,7 @@ func ResourceSecretManagerSecret() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"replication": {
 				Type:     schema.TypeList,
@@ -668,7 +669,6 @@ func resourceSecretManagerSecretUpdate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if secretIdValue, ok := d.GetOk("secret_id"); ok && secretIdValue.(string) != "" {

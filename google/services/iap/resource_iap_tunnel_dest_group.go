@@ -126,6 +126,7 @@ func ResourceIapTunnelDestGroup() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"group_name": {
 				Type:        schema.TypeString,
@@ -345,7 +346,6 @@ func resourceIapTunnelDestGroupUpdate(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {

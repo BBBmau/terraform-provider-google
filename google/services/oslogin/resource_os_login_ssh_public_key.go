@@ -118,6 +118,7 @@ func ResourceOSLoginSSHPublicKey() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"key": {
 				Type:        schema.TypeString,
@@ -338,7 +339,6 @@ func resourceOSLoginSSHPublicKeyUpdate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if fingerprintValue, ok := d.GetOk("fingerprint"); ok && fingerprintValue.(string) != "" {

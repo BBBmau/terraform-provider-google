@@ -127,6 +127,7 @@ func ResourceNetappkmsconfig() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"crypto_key_name": {
 				Type:        schema.TypeString,
@@ -415,7 +416,6 @@ func resourceNetappkmsconfigUpdate(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

@@ -114,6 +114,7 @@ func ResourceTagsTagKey() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"parent": {
 				Type:             schema.TypeString,
@@ -383,7 +384,6 @@ func resourceTagsTagKeyUpdate(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

@@ -132,6 +132,7 @@ func ResourceDeveloperConnectGitRepositoryLink() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"clone_uri": {
 				Type:        schema.TypeString,

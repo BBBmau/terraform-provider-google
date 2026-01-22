@@ -122,6 +122,7 @@ func ResourceStorageObjectAccessControl() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"bucket": {
 				Type:             schema.TypeString,
@@ -392,7 +393,6 @@ func resourceStorageObjectAccessControlUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if bucketValue, ok := d.GetOk("bucket"); ok && bucketValue.(string) != "" {

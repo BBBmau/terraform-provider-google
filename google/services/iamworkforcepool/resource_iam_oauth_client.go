@@ -126,6 +126,7 @@ func ResourceIAMWorkforcePoolOauthClient() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"allowed_grant_types": {
 				Type:        schema.TypeList,
@@ -493,7 +494,6 @@ func resourceIAMWorkforcePoolOauthClientUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

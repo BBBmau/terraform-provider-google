@@ -131,6 +131,7 @@ func ResourceGkeonpremBareMetalNodePool() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"bare_metal_cluster": {
 				Type:             schema.TypeString,
@@ -596,7 +597,6 @@ func resourceGkeonpremBareMetalNodePoolUpdate(d *schema.ResourceData, meta inter
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

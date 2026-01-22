@@ -127,6 +127,7 @@ func ResourceGeminiCodeRepositoryIndex() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"code_repository_index_id": {
 				Type:        schema.TypeString,
@@ -420,7 +421,6 @@ func resourceGeminiCodeRepositoryIndexUpdate(d *schema.ResourceData, meta interf
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

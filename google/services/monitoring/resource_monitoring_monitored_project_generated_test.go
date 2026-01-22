@@ -73,12 +73,6 @@ func TestAccMonitoringMonitoredProject_monitoringMonitoredProjectBasicExample(t 
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"metrics_scope"},
 			},
-			{
-				ResourceName:       "google_monitoring_monitored_project.primary",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
-			},
 		},
 	})
 }
@@ -121,12 +115,6 @@ func TestAccMonitoringMonitoredProject_monitoringMonitoredProjectLongFormExample
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"metrics_scope"},
-			},
-			{
-				ResourceName:       "google_monitoring_monitored_project.primary",
-				RefreshState:       true,
-				ExpectNonEmptyPlan: true,
-				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

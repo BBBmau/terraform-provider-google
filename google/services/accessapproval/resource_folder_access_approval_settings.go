@@ -138,6 +138,7 @@ func ResourceAccessApprovalFolderSettings() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"enrolled_services": {
 				Type:     schema.TypeSet,
@@ -423,7 +424,6 @@ func resourceAccessApprovalFolderSettingsUpdate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if folderIdValue, ok := d.GetOk("folder_id"); ok && folderIdValue.(string) != "" {

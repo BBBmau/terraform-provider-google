@@ -112,6 +112,7 @@ func ResourceDocumentAIProcessorDefaultVersion() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"processor": {
 				Type:        schema.TypeString,

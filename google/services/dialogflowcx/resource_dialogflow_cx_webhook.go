@@ -118,6 +118,7 @@ func ResourceDialogflowCXWebhook() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -268,6 +269,27 @@ When the same header name is specified in both 'request_headers' and
 										Required: true,
 										Description: `The SecretManager secret version resource storing the header value.
 Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+									},
+								},
+							},
+						},
+						"service_account_auth_config": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `Configuration for authentication using a service account.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"service_account": {
+										Type:     schema.TypeString,
+										Required: true,
+										Description: `The email address of the service account used to authenticate the webhook call.
+Dialogflow uses this service account to exchange an access token and the access
+token is then sent in the **Authorization** header of the webhook request.
+
+The service account must have the **roles/iam.serviceAccountTokenCreator** role
+granted to the
+[Dialogflow service agent](https://cloud.google.com/iam/docs/service-agents?_gl=1*1jsujvh*_ga*NjYxMzU3OTg2LjE3Njc3MzQ4NjM.*_ga_WH2QY8WWF5*czE3Njc3MzQ2MjgkbzIkZzEkdDE3Njc3MzQ3NzQkajYwJGwwJGgw#dialogflow-service-agent).`,
 									},
 								},
 							},
@@ -442,6 +464,27 @@ When the same header name is specified in both 'request_headers' and
 													Required: true,
 													Description: `The SecretManager secret version resource storing the header value.
 Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+												},
+											},
+										},
+									},
+									"service_account_auth_config": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										Description: `Configuration for authentication using a service account.`,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"service_account": {
+													Type:     schema.TypeString,
+													Required: true,
+													Description: `The email address of the service account used to authenticate the webhook call.
+Dialogflow uses this service account to exchange an access token and the access
+token is then sent in the **Authorization** header of the webhook request.
+
+The service account must have the **roles/iam.serviceAccountTokenCreator** role
+granted to the
+[Dialogflow service agent](https://cloud.google.com/iam/docs/service-agents?_gl=1*1jsujvh*_ga*NjYxMzU3OTg2LjE3Njc3MzQ4NjM.*_ga_WH2QY8WWF5*czE3Njc3MzQ2MjgkbzIkZzEkdDE3Njc3MzQ3NzQkajYwJGwwJGgw#dialogflow-service-agent).`,
 												},
 											},
 										},
@@ -736,7 +779,6 @@ func resourceDialogflowCXWebhookUpdate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
@@ -1030,6 +1072,8 @@ func flattenDialogflowCXWebhookGenericWebService(v interface{}, d *schema.Resour
 		flattenDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeaders(original["secretVersionsForRequestHeaders"], d, config)
 	transformed["service_agent_auth"] =
 		flattenDialogflowCXWebhookGenericWebServiceServiceAgentAuth(original["serviceAgentAuth"], d, config)
+	transformed["service_account_auth_config"] =
+		flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(original["serviceAccountAuthConfig"], d, config)
 	transformed["uri"] =
 		flattenDialogflowCXWebhookGenericWebServiceUri(original["uri"], d, config)
 	transformed["webhook_type"] =
@@ -1124,6 +1168,23 @@ func flattenDialogflowCXWebhookGenericWebServiceServiceAgentAuth(v interface{}, 
 	return v
 }
 
+func flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["service_account"] =
+		flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(original["serviceAccount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenDialogflowCXWebhookGenericWebServiceUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -1178,6 +1239,8 @@ func flattenDialogflowCXWebhookServiceDirectoryGenericWebService(v interface{}, 
 		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders(original["secretVersionsForRequestHeaders"], d, config)
 	transformed["service_agent_auth"] =
 		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(original["serviceAgentAuth"], d, config)
+	transformed["service_account_auth_config"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(original["serviceAccountAuthConfig"], d, config)
 	transformed["uri"] =
 		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(original["uri"], d, config)
 	transformed["webhook_type"] =
@@ -1269,6 +1332,23 @@ func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsFo
 }
 
 func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["service_account"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(original["serviceAccount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1381,6 +1461,13 @@ func expandDialogflowCXWebhookGenericWebService(v interface{}, d tpgresource.Ter
 		return nil, err
 	} else if val := reflect.ValueOf(transformedServiceAgentAuth); val.IsValid() && !tpgresource.IsEmptyValue(val) {
 		transformed["serviceAgentAuth"] = transformedServiceAgentAuth
+	}
+
+	transformedServiceAccountAuthConfig, err := expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(original["service_account_auth_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccountAuthConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccountAuthConfig"] = transformedServiceAccountAuthConfig
 	}
 
 	transformedUri, err := expandDialogflowCXWebhookGenericWebServiceUri(original["uri"], d, config)
@@ -1541,6 +1628,32 @@ func expandDialogflowCXWebhookGenericWebServiceServiceAgentAuth(v interface{}, d
 	return v, nil
 }
 
+func expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedServiceAccount, err := expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(original["service_account"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccount"] = transformedServiceAccount
+	}
+
+	return transformed, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandDialogflowCXWebhookGenericWebServiceUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -1655,6 +1768,13 @@ func expandDialogflowCXWebhookServiceDirectoryGenericWebService(v interface{}, d
 		return nil, err
 	} else if val := reflect.ValueOf(transformedServiceAgentAuth); val.IsValid() && !tpgresource.IsEmptyValue(val) {
 		transformed["serviceAgentAuth"] = transformedServiceAgentAuth
+	}
+
+	transformedServiceAccountAuthConfig, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(original["service_account_auth_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccountAuthConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccountAuthConfig"] = transformedServiceAccountAuthConfig
 	}
 
 	transformedUri, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(original["uri"], d, config)
@@ -1812,6 +1932,32 @@ func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsFor
 }
 
 func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedServiceAccount, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(original["service_account"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccount"] = transformedServiceAccount
+	}
+
+	return transformed, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

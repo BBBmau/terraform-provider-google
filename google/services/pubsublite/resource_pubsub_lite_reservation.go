@@ -128,6 +128,7 @@ func ResourcePubsubLiteReservation() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:             schema.TypeString,
@@ -320,7 +321,6 @@ func resourcePubsubLiteReservationUpdate(d *schema.ResourceData, meta interface{
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {

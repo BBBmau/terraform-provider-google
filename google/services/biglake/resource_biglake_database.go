@@ -118,6 +118,7 @@ func ResourceBiglakeDatabase() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"catalog": {
 				Type:        schema.TypeString,
@@ -351,7 +352,6 @@ func resourceBiglakeDatabaseUpdate(d *schema.ResourceData, meta interface{}) err
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if catalogValue, ok := d.GetOk("catalog"); ok && catalogValue.(string) != "" {

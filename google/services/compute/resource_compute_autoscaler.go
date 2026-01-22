@@ -127,6 +127,7 @@ func ResourceComputeAutoscaler() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"autoscaling_policy": {
 				Type:     schema.TypeList,
@@ -687,7 +688,6 @@ func resourceComputeAutoscalerUpdate(d *schema.ResourceData, meta interface{}) e
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

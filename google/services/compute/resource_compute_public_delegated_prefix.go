@@ -124,6 +124,7 @@ func ResourceComputePublicDelegatedPrefix() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"ip_cidr_range": {
 				Type:        schema.TypeString,
@@ -184,6 +185,12 @@ except the last character, which cannot be a dash.`,
   * EXTERNAL_IPV6_FORWARDING_RULE_CREATION
   * EXTERNAL_IPV6_SUBNETWORK_CREATION
   * INTERNAL_IPV6_SUBNETWORK_CREATION Possible values: ["DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION", "INTERNAL_IPV6_SUBNETWORK_CREATION"]`,
+			},
+			"enable_enhanced_ipv4_allocation": {
+				Type:     schema.TypeBool,
+				Computed: true,
+				Description: `Whether this PublicDelegatedPrefix supports enhanced IPv4 allocations.
+Applicable for IPv4 PDPs only.`,
 			},
 			"ipv6_access_type": {
 				Type:     schema.TypeString,
@@ -250,6 +257,12 @@ used to create addresses or further allocations.`,
 							Optional:     true,
 							ValidateFunc: verify.ValidateEnum([]string{"INITIALIZING", "READY_TO_ANNOUNCE", "ANNOUNCED", "DELETING", ""}),
 							Description:  `The status of the sub public delegated prefix. Possible values: ["INITIALIZING", "READY_TO_ANNOUNCE", "ANNOUNCED", "DELETING"]`,
+						},
+						"enable_enhanced_ipv4_allocation": {
+							Type:     schema.TypeBool,
+							Computed: true,
+							Description: `Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
+Applicable for IPv4 sub-PDPs only.`,
 						},
 						"ipv6_access_type": {
 							Type:     schema.TypeString,
@@ -474,6 +487,9 @@ func resourceComputePublicDelegatedPrefixRead(d *schema.ResourceData, meta inter
 	if err := d.Set("ipv6_access_type", flattenComputePublicDelegatedPrefixIpv6AccessType(res["ipv6AccessType"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
 	}
+	if err := d.Set("enable_enhanced_ipv4_allocation", flattenComputePublicDelegatedPrefixEnableEnhancedIpv4Allocation(res["enableEnhancedIpv4Allocation"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
+	}
 	if err := d.Set("public_delegated_sub_prefixs", flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixs(res["publicDelegatedSubPrefixs"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
 	}
@@ -630,6 +646,10 @@ func flattenComputePublicDelegatedPrefixIpv6AccessType(v interface{}, d *schema.
 	return v
 }
 
+func flattenComputePublicDelegatedPrefixEnableEnhancedIpv4Allocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixs(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -643,16 +663,17 @@ func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixs(v interface{},
 			continue
 		}
 		transformed = append(transformed, map[string]interface{}{
-			"name":                      flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsName(original["name"], d, config),
-			"description":               flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDescription(original["description"], d, config),
-			"region":                    flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsRegion(original["region"], d, config),
-			"status":                    flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsStatus(original["status"], d, config),
-			"ip_cidr_range":             flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpCidrRange(original["ipCidrRange"], d, config),
-			"is_address":                flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIsAddress(original["isAddress"], d, config),
-			"mode":                      flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsMode(original["mode"], d, config),
-			"allocatable_prefix_length": flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsAllocatablePrefixLength(original["allocatablePrefixLength"], d, config),
-			"ipv6_access_type":          flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpv6AccessType(original["ipv6AccessType"], d, config),
-			"delegatee_project":         flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDelegateeProject(original["delegateeProject"], d, config),
+			"name":                            flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsName(original["name"], d, config),
+			"description":                     flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDescription(original["description"], d, config),
+			"region":                          flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsRegion(original["region"], d, config),
+			"status":                          flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsStatus(original["status"], d, config),
+			"ip_cidr_range":                   flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpCidrRange(original["ipCidrRange"], d, config),
+			"is_address":                      flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIsAddress(original["isAddress"], d, config),
+			"mode":                            flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsMode(original["mode"], d, config),
+			"allocatable_prefix_length":       flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsAllocatablePrefixLength(original["allocatablePrefixLength"], d, config),
+			"ipv6_access_type":                flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpv6AccessType(original["ipv6AccessType"], d, config),
+			"enable_enhanced_ipv4_allocation": flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsEnableEnhancedIpv4Allocation(original["enableEnhancedIpv4Allocation"], d, config),
+			"delegatee_project":               flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDelegateeProject(original["delegateeProject"], d, config),
 		})
 	}
 	return transformed
@@ -703,6 +724,10 @@ func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsAllocatablePref
 }
 
 func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpv6AccessType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsEnableEnhancedIpv4Allocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 

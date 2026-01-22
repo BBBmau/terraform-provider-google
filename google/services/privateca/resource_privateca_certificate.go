@@ -131,6 +131,7 @@ func ResourcePrivatecaCertificate() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:     schema.TypeString,
@@ -1618,7 +1619,6 @@ func resourcePrivatecaCertificateUpdate(d *schema.ResourceData, meta interface{}
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if poolValue, ok := d.GetOk("pool"); ok && poolValue.(string) != "" {

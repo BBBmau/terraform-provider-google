@@ -124,6 +124,7 @@ func ResourceApigeeKeystoresAliasesSelfSignedCert() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"alias": {
 				Type:     schema.TypeString,

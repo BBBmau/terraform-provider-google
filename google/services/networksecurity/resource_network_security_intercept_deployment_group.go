@@ -127,6 +127,7 @@ func ResourceNetworkSecurityInterceptDeploymentGroup() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"intercept_deployment_group_id": {
 				Type:     schema.TypeString,
@@ -486,7 +487,6 @@ func resourceNetworkSecurityInterceptDeploymentGroupUpdate(d *schema.ResourceDat
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {

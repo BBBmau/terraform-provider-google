@@ -111,7 +111,7 @@ func ResourceComputeRegionNetworkEndpoint() *schema.Resource {
 			SchemaFunc: func() map[string]*schema.Schema {
 				return map[string]*schema.Schema{
 					"port": {
-						Type:              schema.TypeString,
+						Type:              schema.TypeInt,
 						RequiredForImport: true,
 					},
 					"ip_address": {
@@ -137,6 +137,7 @@ func ResourceComputeRegionNetworkEndpoint() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"port": {
 				Type:         schema.TypeInt,
@@ -301,8 +302,9 @@ func resourceComputeRegionNetworkEndpointCreate(d *schema.ResourceData, meta int
 
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
-		if portValue, ok := d.GetOk("port"); ok && portValue.(string) != "" {
-			if err = identity.Set("port", portValue.(string)); err != nil {
+		if _, ok := d.GetOk("port"); ok {
+			err = identity.Set("port", d.Get("port").(int))
+			if err != nil {
 				return fmt.Errorf("Error setting port: %s", err)
 			}
 		}
@@ -445,8 +447,8 @@ func resourceComputeRegionNetworkEndpointRead(d *schema.ResourceData, meta inter
 
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
-		if v, ok := identity.GetOk("port"); !ok && v == "" {
-			err = identity.Set("port", d.Get("port").(string))
+		if _, ok := identity.GetOk("port"); !ok {
+			err = identity.Set("port", d.Get("port").(int))
 			if err != nil {
 				return fmt.Errorf("Error setting port: %s", err)
 			}

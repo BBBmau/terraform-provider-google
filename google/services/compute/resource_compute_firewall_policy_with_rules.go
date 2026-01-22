@@ -165,6 +165,7 @@ func ResourceComputeFirewallPolicyWithRules() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"parent": {
 				Type:     schema.TypeString,
@@ -1037,7 +1038,6 @@ func resourceComputeFirewallPolicyWithRulesUpdate(d *schema.ResourceData, meta i
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if policyIdValue, ok := d.GetOk("policy_id"); ok && policyIdValue.(string) != "" {

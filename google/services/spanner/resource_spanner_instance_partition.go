@@ -126,6 +126,7 @@ func ResourceSpannerInstancePartition() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"config": {
 				Type:             schema.TypeString,
@@ -409,7 +410,6 @@ func resourceSpannerInstancePartitionUpdate(d *schema.ResourceData, meta interfa
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {

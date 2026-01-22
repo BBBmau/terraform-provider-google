@@ -126,6 +126,7 @@ func ResourceAppEngineFlexibleAppVersion() *schema.Resource {
 				}
 			},
 		},
+
 		Schema: map[string]*schema.Schema{
 			"liveness_check": {
 				Type:        schema.TypeList,
@@ -1383,7 +1384,6 @@ func resourceAppEngineFlexibleAppVersionUpdate(d *schema.ResourceData, meta inte
 	if err != nil {
 		return err
 	}
-
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
 		if versionIdValue, ok := d.GetOk("version_id"); ok && versionIdValue.(string) != "" {
