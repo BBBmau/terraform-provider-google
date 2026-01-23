@@ -438,11 +438,12 @@ func CompareAuditConfigs(a, b []*cloudresourcemanager.AuditConfig) bool {
 }
 
 type IamSettings struct {
-	DeprecationMessage string
-	EnableBatching     bool
-	StateUpgraders     []schema.StateUpgrader
-	SchemaVersion      int
-	CreateTimeOut      int64
+	DeprecationMessage     string
+	EnableBatching         bool
+	StateUpgraders         []schema.StateUpgrader
+	SchemaVersion          int
+	CreateTimeOut          int64
+	EnableResourceIdentity bool // if true, the resource will have an identity schema
 }
 
 func NewIamSettings(options ...func(*IamSettings)) *IamSettings {
@@ -465,6 +466,10 @@ func IamWithGAResourceDeprecation() func(s *IamSettings) {
 
 func IamWithBatching(s *IamSettings) {
 	s.EnableBatching = true
+}
+
+func IamWithResourceIdentity(s *IamSettings) {
+	s.EnableResourceIdentity = true
 }
 
 func IamWithStateUpgraders(upgraders []schema.StateUpgrader) func(*IamSettings) {
