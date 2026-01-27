@@ -194,8 +194,8 @@ func ListInstances(config *transport_tpg.Config, filter string, callback func(rd
 		Flattener: flattenComputeInstance,
 		Callback:  callback,
 	}
-	ListCall(opts)
-	return nil
+
+	return ListCall(opts)
 }
 
 type ListCallOptions struct {
