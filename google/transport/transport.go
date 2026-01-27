@@ -27,6 +27,7 @@ import (
 
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
 	"google.golang.org/api/googleapi"
 )
 
@@ -132,6 +133,76 @@ func SendRequest(opt SendRequestOptions) (map[string]interface{}, error) {
 	}
 
 	return result, nil
+}
+
+type ListCallOptions struct {
+	Config         *Config
+	TempData       *schema.ResourceData
+	Url            string
+	BillingProject string
+	UserAgent      string
+	ItemName       string
+	Filter         string
+	Flattener      func(item interface{}, d *schema.ResourceData, config *Config) error
+	Callback       func(rd *schema.ResourceData) error
+}
+
+func ListCall(opts ListCallOptions) error {
+	// Set default ItemName if not provided
+	if opts.ItemName == "" {
+		opts.ItemName = "items"
+	}
+
+	params := make(map[string]string)
+	if opts.Filter != "" {
+		params["filter"] = opts.Filter
+	}
+
+	for {
+		// Depending on previous iterations, params might contain a pageToken param
+		url, err := AddQueryParams(opts.Url, params)
+		if err != nil {
+			return err
+		}
+
+		headers := make(http.Header)
+		res, err := SendRequest(SendRequestOptions{
+			Config:    opts.Config,
+			Method:    "GET",
+			Project:   opts.BillingProject,
+			RawURL:    url,
+			UserAgent: opts.UserAgent,
+			Headers:   headers,
+			// ErrorRetryPredicates used to allow retrying if rate limits are hit when requesting multiple pages in a row
+			ErrorRetryPredicates: []RetryErrorPredicateFunc{Is429RetryableQuotaError},
+		})
+		if err != nil {
+			return HandleNotFoundError(err, opts.TempData, fmt.Sprintf("%s %q", opts.ItemName, opts.TempData.Id()))
+		}
+
+		if v, ok := res[opts.ItemName].([]interface{}); ok {
+			for _, item := range v {
+
+				err = opts.Flattener(item, opts.TempData, opts.Config)
+				if err != nil {
+					return fmt.Errorf("Error flattening instance: %s", err)
+				}
+				err = opts.Callback(opts.TempData)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		// Handle pagination for next loop, or break loop
+		v, ok := res["nextPageToken"]
+		if ok {
+			params["pageToken"] = v.(string)
+		}
+		if !ok {
+			break
+		}
+	}
+	return nil
 }
 
 func AddQueryParams(rawurl string, params map[string]string) (string, error) {

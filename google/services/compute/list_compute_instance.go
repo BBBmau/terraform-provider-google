@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/list"
@@ -129,7 +128,7 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 
 	stream.Results = func(push func(list.ListResult) bool) {
-		err := ListInstances(r.Client, filterString, func(rd *schema.ResourceData) error {
+		err := ListInstances(r.Client.Config, filterString, func(rd *schema.ResourceData) error {
 			result := req.NewListResult(ctx)
 
 			// flatten using the instance from the LIST call
@@ -181,103 +180,38 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 }
 
 func ListInstances(config *transport_tpg.Config, filter string, callback func(rd *schema.ResourceData) error) error {
-	url, err := tpgresource.ReplaceVars(ResourceComputeInstance().Data(&terraform.InstanceState{}), config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
+	instanceData := ResourceComputeInstance().Data(&terraform.InstanceState{})
+	url, err := tpgresource.ReplaceVars(instanceData, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
 	if err != nil {
 		return err
-	}
-
-	opts := ListCallOptions{
-		Config:    config,
-		TempData:  ResourceComputeInstance().Data(&terraform.InstanceState{}),
-		Url:       url,
-		Filter:    filter,
-		Flattener: flattenComputeInstance,
-		Callback:  callback,
-	}
-
-	return ListCall(opts)
-}
-
-type ListCallOptions struct {
-	Config    *transport_tpg.Config
-	TempData  *schema.ResourceData
-	Url       string
-	ItemName  string
-	Filter    string
-	Flattener func(item interface{}, d *schema.ResourceData, config *transport_tpg.Config) error
-	Callback  func(rd *schema.ResourceData) error
-}
-
-func ListCall(opts ListCallOptions) error {
-	// Set default ItemName if not provided
-	if opts.ItemName == "" {
-		opts.ItemName = "items"
 	}
 
 	billingProject := ""
 
-	if parts := regexp.MustCompile(`projects\/([^\/]+)\/`).FindStringSubmatch(opts.Url); parts != nil {
+	if parts := regexp.MustCompile(`projects\/([^\/]+)\/`).FindStringSubmatch(url); parts != nil {
 		billingProject = parts[1]
 	}
 
 	// err == nil indicates that the billing_project value was found
-	if bp, err := tpgresource.GetBillingProject(opts.TempData, opts.Config); err == nil {
+	if bp, err := tpgresource.GetBillingProject(instanceData, config); err == nil {
 		billingProject = bp
 	}
 
-	userAgent, err := tpgresource.GenerateUserAgentString(opts.TempData, opts.Config.UserAgent)
+	userAgent, err := tpgresource.GenerateUserAgentString(instanceData, config.UserAgent)
 	if err != nil {
 		return err
 	}
 
-	params := make(map[string]string)
-	if opts.Filter != "" {
-		params["filter"] = opts.Filter
+	opts := transport_tpg.ListCallOptions{
+		Config:         config,
+		TempData:       instanceData,
+		Url:            url,
+		BillingProject: billingProject,
+		UserAgent:      userAgent,
+		Filter:         filter,
+		Flattener:      flattenComputeInstance,
+		Callback:       callback,
 	}
 
-	for {
-		// Depending on previous iterations, params might contain a pageToken param
-		url, err := transport_tpg.AddQueryParams(opts.Url, params)
-		if err != nil {
-			return err
-		}
-
-		headers := make(http.Header)
-		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-			Config:    opts.Config,
-			Method:    "GET",
-			Project:   billingProject,
-			RawURL:    url,
-			UserAgent: userAgent,
-			Headers:   headers,
-			// ErrorRetryPredicates used to allow retrying if rate limits are hit when requesting multiple pages in a row
-			ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.Is429RetryableQuotaError},
-		})
-		if err != nil {
-			return transport_tpg.HandleNotFoundError(err, opts.TempData, fmt.Sprintf("%s %q", opts.ItemName, opts.TempData.Id()))
-		}
-
-		if v, ok := res[opts.ItemName].([]interface{}); ok {
-			for _, item := range v {
-
-				err = opts.Flattener(item, opts.TempData, opts.Config)
-				if err != nil {
-					return fmt.Errorf("Error flattening instance: %s", err)
-				}
-				err = opts.Callback(opts.TempData)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		// Handle pagination for next loop, or break loop
-		v, ok := res["nextPageToken"]
-		if ok {
-			params["pageToken"] = v.(string)
-		}
-		if !ok {
-			break
-		}
-	}
-	return nil
+	return transport_tpg.ListCall(opts)
 }
