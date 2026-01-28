@@ -143,7 +143,7 @@ type ListCallOptions struct {
 	UserAgent      string
 	ItemName       string
 	Filter         string
-	Flattener      func(item interface{}, d *schema.ResourceData, config *Config) error
+	Flattener      func(item map[string]interface{}, d *schema.ResourceData, config *Config) error
 	Callback       func(rd *schema.ResourceData) error
 }
 
@@ -177,13 +177,17 @@ func ListCall(opts ListCallOptions) error {
 			ErrorRetryPredicates: []RetryErrorPredicateFunc{Is429RetryableQuotaError},
 		})
 		if err != nil {
-			return HandleNotFoundError(err, opts.TempData, fmt.Sprintf("%s %q", opts.ItemName, opts.TempData.Id()))
+			return HandleNotFoundError(err, opts.TempData, opts.ItemName)
 		}
 
 		if v, ok := res[opts.ItemName].([]interface{}); ok {
 			for _, item := range v {
+				itemMap, ok := item.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("expected item to be map[string]interface{}, got %T", item)
+				}
 
-				err = opts.Flattener(item, opts.TempData, opts.Config)
+				err = opts.Flattener(itemMap, opts.TempData, opts.Config)
 				if err != nil {
 					return fmt.Errorf("Error flattening instance: %s", err)
 				}

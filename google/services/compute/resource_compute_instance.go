@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -1875,19 +1874,21 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 	return resourceComputeInstanceRead(d, meta)
 }
 
-func flattenComputeInstance(res interface{}, d *schema.ResourceData, config *transport_tpg.Config) error {
+func flattenComputeInstance(res map[string]interface{}, d *schema.ResourceData, config *transport_tpg.Config) error {
 	var instance compute.Instance
 	var err error
 	if res != nil {
-		err = json.Unmarshal(res.([]byte), &instance)
+		// Convert map[string]interface{} to compute.Instance struct
+		err = tpgresource.Convert(res, &instance)
 		if err != nil {
 			return err
 		}
 	} else {
-		instance, err := getInstance(config, d)
-		if err != nil || instance == nil {
+		instancePtr, err := getInstance(config, d)
+		if err != nil || instancePtr == nil {
 			return err
 		}
+		instance = *instancePtr
 	}
 
 	project, err := tpgresource.GetProject(d, config)

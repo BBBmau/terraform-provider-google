@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/list"
 	listschema "github.com/hashicorp/terraform-plugin-framework/list/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -52,38 +51,17 @@ func (r *ComputeInstanceListResource) ListResourceConfigSchema(ctx context.Conte
 			"zone": listschema.StringAttribute{
 				Optional: true,
 			},
-		},
-		Blocks: map[string]listschema.Block{
-			"filter": customListFiltersBlock(),
-		},
-	}
-}
-
-type ComputeInstanceListModel struct {
-	Project types.String            `tfsdk:"project"`
-	Zone    types.String            `tfsdk:"zone"`
-	Filter  []customListFilterModel `tfsdk:"filter"`
-}
-
-func customListFiltersBlock() listschema.ListNestedBlock {
-	return listschema.ListNestedBlock{
-		NestedObject: listschema.NestedBlockObject{
-			Attributes: map[string]listschema.Attribute{
-				"name": listschema.StringAttribute{
-					Required: true,
-				},
-				"values": listschema.ListAttribute{
-					Required:    true,
-					ElementType: types.StringType,
-				},
+			"filter": listschema.StringAttribute{
+				Optional: true,
 			},
 		},
 	}
 }
 
-type customListFilterModel struct {
-	Name   types.String        `tfsdk:"name"`
-	Values basetypes.ListValue `tfsdk:"values"`
+type ComputeInstanceListModel struct {
+	Project types.String `tfsdk:"project"`
+	Zone    types.String `tfsdk:"zone"`
+	Filter  types.String `tfsdk:"filter"`
 }
 
 func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {
@@ -111,24 +89,12 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 	}
 
 	filterString := ""
-	if len(data.Filter) > 0 {
-		for i, filter := range data.Filter {
-			values := make([]string, 0)
-			diags := filter.Values.ElementsAs(ctx, &values, false)
-			if diags.HasError() {
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
-				return
-			}
-			// values represents the operator and value used for filtering
-			filterString += fmt.Sprintf("(%s %s \"%s\")", filter.Name.ValueString(), values[0], values[1])
-			if i < len(data.Filter)-1 {
-				filterString += " AND "
-			}
-		}
+	if !data.Filter.IsNull() && !data.Filter.IsUnknown() {
+		filterString = data.Filter.ValueString()
 	}
 
 	stream.Results = func(push func(list.ListResult) bool) {
-		err := ListInstances(r.Client.Config, filterString, func(rd *schema.ResourceData) error {
+		err := ListInstances(r.Client, filterString, func(rd *schema.ResourceData) error {
 			result := req.NewListResult(ctx)
 
 			// flatten using the instance from the LIST call
@@ -180,8 +146,8 @@ func (r *ComputeInstanceListResource) List(ctx context.Context, req list.ListReq
 }
 
 func ListInstances(config *transport_tpg.Config, filter string, callback func(rd *schema.ResourceData) error) error {
-	instanceData := ResourceComputeInstance().Data(&terraform.InstanceState{})
-	url, err := tpgresource.ReplaceVars(instanceData, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
+	resourceData := ResourceComputeInstance().Data(&terraform.InstanceState{})
+	url, err := tpgresource.ReplaceVars(resourceData, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instances")
 	if err != nil {
 		return err
 	}
@@ -193,18 +159,18 @@ func ListInstances(config *transport_tpg.Config, filter string, callback func(rd
 	}
 
 	// err == nil indicates that the billing_project value was found
-	if bp, err := tpgresource.GetBillingProject(instanceData, config); err == nil {
+	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
 
-	userAgent, err := tpgresource.GenerateUserAgentString(instanceData, config.UserAgent)
+	userAgent, err := tpgresource.GenerateUserAgentString(resourceData, config.UserAgent)
 	if err != nil {
 		return err
 	}
 
 	opts := transport_tpg.ListCallOptions{
 		Config:         config,
-		TempData:       instanceData,
+		TempData:       resourceData,
 		Url:            url,
 		BillingProject: billingProject,
 		UserAgent:      userAgent,
