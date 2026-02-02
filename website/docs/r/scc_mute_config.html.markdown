@@ -72,9 +72,6 @@ The following arguments are supported:
   "projects/[project_id]".
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A description of the mute config.
@@ -91,6 +88,7 @@ The following arguments are supported:
   If the expiry is set, when the config expires, it is removed from all findings.
   A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to
   nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+
 
 
 ## Attributes Reference
@@ -136,6 +134,16 @@ MuteConfig can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MuteConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_scc_mute_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MuteConfig using one of the formats above. For example:
 

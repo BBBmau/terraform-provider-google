@@ -19,8 +19,11 @@ package compute_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccComputeNetwork_networkBasicExample(t *testing.T) {
@@ -47,9 +66,16 @@ func TestAccComputeNetwork_networkBasicExample(t *testing.T) {
 				Config: testAccComputeNetwork_networkBasicExample(context),
 			},
 			{
-				ResourceName:      "google_compute_network.vpc_network",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -80,9 +106,16 @@ func TestAccComputeNetwork_networkCustomMtuExample(t *testing.T) {
 				Config: testAccComputeNetwork_networkCustomMtuExample(context),
 			},
 			{
-				ResourceName:      "google_compute_network.vpc_network",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -116,9 +149,16 @@ func TestAccComputeNetwork_networkCustomFirewallEnforcementOrderExample(t *testi
 				Config: testAccComputeNetwork_networkCustomFirewallEnforcementOrderExample(context),
 			},
 			{
-				ResourceName:      "google_compute_network.vpc_network",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -152,9 +192,16 @@ func TestAccComputeNetwork_networkBgpBestPathSelectionModeExample(t *testing.T) 
 				Config: testAccComputeNetwork_networkBgpBestPathSelectionModeExample(context),
 			},
 			{
-				ResourceName:      "google_compute_network.vpc_network",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -187,9 +234,16 @@ func TestAccComputeNetwork_networkBgpBestPathSelectionModeStandardExample(t *tes
 				Config: testAccComputeNetwork_networkBgpBestPathSelectionModeStandardExample(context),
 			},
 			{
-				ResourceName:      "google_compute_network.vpc_network",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -223,9 +277,16 @@ func TestAccComputeNetwork_networkBgpBestPathSelectionModeStandardCustomFieldsEx
 				Config: testAccComputeNetwork_networkBgpBestPathSelectionModeStandardCustomFieldsExample(context),
 			},
 			{
-				ResourceName:      "google_compute_network.vpc_network",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -240,6 +301,54 @@ resource "google_compute_network" "vpc_network" {
   bgp_best_path_selection_mode              = "STANDARD"
   bgp_always_compare_med                    = true
   bgp_inter_region_cost                     = "ADD_COST_TO_MED"
+}
+`, context)
+}
+
+func TestAccComputeNetwork_networkBgpStandardModeDeleteMedExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"project":       envvar.GetTestProjectFromEnv(),
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckComputeNetworkDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccComputeNetwork_networkBgpStandardModeDeleteMedExample(context),
+			},
+			{
+				ResourceName:            "google_compute_network.vpc_network",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_bgp_always_compare_med", "params"},
+			},
+			{
+				ResourceName:       "google_compute_network.vpc_network",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccComputeNetwork_networkBgpStandardModeDeleteMedExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_compute_network" "vpc_network" {
+  name                    = "tf-test-vpc-network%{random_suffix}"
+  auto_create_subnetworks = false
+  routing_mode            = "GLOBAL"
+  project                 = "%{project}"
+  bgp_best_path_selection_mode  = "LEGACY"
+  bgp_always_compare_med        = false
+  # By setting this to true, any previous value for bgp_always_compare_med
+  # will be cleared, reverting it to the API default.
+  delete_bgp_always_compare_med = true
 }
 `, context)
 }

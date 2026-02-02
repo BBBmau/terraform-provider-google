@@ -19,15 +19,35 @@ package managedkafka_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccManagedKafkaCluster_managedkafkaClusterBasicExample(t *testing.T) {
@@ -49,7 +69,13 @@ func TestAccManagedKafkaCluster_managedkafkaClusterBasicExample(t *testing.T) {
 				ResourceName:            "google_managed_kafka_cluster.example",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"cluster_id", "labels", "location", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"broker_capacity_config", "cluster_id", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_managed_kafka_cluster.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -76,6 +102,78 @@ resource "google_managed_kafka_cluster" "example" {
   }
   labels = {
     key = "value"
+  }
+}
+
+data "google_project" "project" {
+}
+`, context)
+}
+
+func TestAccManagedKafkaCluster_managedkafkaClusterMtlsExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckManagedKafkaClusterDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccManagedKafkaCluster_managedkafkaClusterMtlsExample(context),
+			},
+			{
+				ResourceName:            "google_managed_kafka_cluster.example",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"broker_capacity_config", "cluster_id", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_managed_kafka_cluster.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccManagedKafkaCluster_managedkafkaClusterMtlsExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_managed_kafka_cluster" "example" {
+  cluster_id = "tf-test-my-cluster%{random_suffix}"
+  location = "us-central1"
+  capacity_config {
+    vcpu_count = 3
+    memory_bytes = 3221225472
+  }
+  gcp_config {
+    access_config {
+      network_configs {
+        subnet = "projects/${data.google_project.project.number}/regions/us-central1/subnetworks/default"
+      }
+    }
+  }
+  tls_config {
+    trust_config {
+      cas_configs {
+        ca_pool = google_privateca_ca_pool.ca_pool.id 
+      }
+    }
+    ssl_principal_mapping_rules = "RULE:pattern/replacement/L,DEFAULT"
+  }
+}
+
+resource "google_privateca_ca_pool" "ca_pool" {
+  name = "tf-test-my-ca-pool%{random_suffix}"
+  location = "us-central1"
+  tier = "ENTERPRISE"
+  publishing_options {
+    publish_ca_cert = true
+    publish_crl = true
   }
 }
 

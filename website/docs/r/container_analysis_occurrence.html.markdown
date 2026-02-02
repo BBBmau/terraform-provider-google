@@ -119,6 +119,15 @@ The following arguments are supported:
   Structure is [documented below](#nested_attestation).
 
 
+* `remediation` -
+  (Optional)
+  A description of actions that can be taken to remedy the note.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_attestation"></a>The `attestation` block supports:
 
 * `serialized_payload` -
@@ -161,17 +170,6 @@ The following arguments are supported:
   * RFC6920 digest-named SubjectPublicKeyInfo (digest of the DER serialization):
       * "ni:///sha-256;cD9o9Cq6LG3jD0iKXqEi_vdjJGecm_iXkbqVoScViaU"
 
-- - -
-
-
-* `remediation` -
-  (Optional)
-  A description of actions that can be taken to remedy the note.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -211,6 +209,17 @@ Occurrence can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Occurrence using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_container_analysis_occurrence.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Occurrence using one of the formats above. For example:
 

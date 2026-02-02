@@ -82,8 +82,6 @@ resource "google_project_iam_member" "app_hosting_sa_runner" {
 resource "google_project_service" "fah" {
   project = "my-project-name"
   service = "firebaseapphosting.googleapis.com"
-
-  disable_on_destroy = false
 }
 ###
 ```
@@ -149,8 +147,6 @@ resource "google_project_iam_member" "app_hosting_sa_runner" {
 resource "google_project_service" "fah" {
   project = "my-project-name"
   service = "firebaseapphosting.googleapis.com"
-
-  disable_on_destroy = false
 }
 ###
 ```
@@ -202,10 +198,6 @@ resource "google_developer_connect_git_repository_link" "my-repository" {
 
   project  = "my-project-name"
   location = "us-central1"
-  provider = google-beta
-
-  provider = google-beta
-  project  = "my-project-name"
   service  = "developerconnect.googleapis.com"
 }
 
@@ -257,6 +249,30 @@ The following arguments are supported:
 * `build_id` -
   (Required)
   The user-specified ID of the build being created.
+
+
+* `display_name` -
+  (Optional)
+  Human-readable name. 63 character limit.
+
+* `annotations` -
+  (Optional)
+  Unstructured key value map that may be set by external tools to
+  store and arbitrary metadata. They are not queryable and should be
+  preserved when modifying objects.
+  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
+  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+
+* `labels` -
+  (Optional)
+  Unstructured key value map that can be used to organize and categorize
+  objects.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_source"></a>The `source` block supports:
@@ -336,32 +352,6 @@ The following arguments are supported:
   (Output)
   The URI of an image file associated with the user's account in an
   external source control provider, if available.
-
-- - -
-
-
-* `display_name` -
-  (Optional)
-  Human-readable name. 63 character limit.
-
-* `annotations` -
-  (Optional)
-  Unstructured key value map that may be set by external tools to
-  store and arbitrary metadata. They are not queryable and should be
-  preserved when modifying objects.
-  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
-  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
-
-* `labels` -
-  (Optional)
-  Unstructured key value map that can be used to organize and categorize
-  objects.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -473,6 +463,19 @@ Build can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{backend}}/{{build_id}}`
 * `{{location}}/{{backend}}/{{build_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Build using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    backend = "<-required value->"
+    buildId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_app_hosting_build.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Build using one of the formats above. For example:
 

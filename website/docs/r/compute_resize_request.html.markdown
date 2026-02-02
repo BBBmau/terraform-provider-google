@@ -58,7 +58,7 @@ resource "google_compute_region_instance_template" "a3_dws" {
   }
 
   disk {
-    source_image = "cos-cloud/cos-105-lts"
+    source_image = "cos-cloud/cos-121-lts"
     auto_delete  = true
     boot         = true
     disk_type    = "pd-ssd"
@@ -133,9 +133,6 @@ The following arguments are supported:
   The reference of the instance group manager this ResizeRequest is a part of.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resize-request.
@@ -151,6 +148,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_requested_run_duration"></a>The `requested_run_duration` block supports:
@@ -218,33 +216,33 @@ In addition to the arguments listed above, the following computed attributes are
 * `error_details` -
   (Output)
   An array of messages that contain the error details. There is a set of defined message types to use for providing details.The syntax depends on the error code. For example, QuotaExceededInfo will have details when the error code is QUOTA_EXCEEDED.
-  Structure is [documented below](#nested_status_error_errors_errors_error_details).
+  Structure is [documented below](#nested_status_error_errors_error_details).
 
 
-<a name="nested_status_error_errors_errors_error_details"></a>The `error_details` block contains:
+<a name="nested_status_error_errors_error_details"></a>The `error_details` block contains:
 
 * `error_info` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_error_errors_errors_error_details_error_details_error_info).
+  Structure is [documented below](#nested_status_error_errors_error_details_error_info).
 
 * `quota_info` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_error_errors_errors_error_details_error_details_quota_info).
+  Structure is [documented below](#nested_status_error_errors_error_details_quota_info).
 
 * `help` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_error_errors_errors_error_details_error_details_help).
+  Structure is [documented below](#nested_status_error_errors_error_details_help).
 
 * `localized_message` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_error_errors_errors_error_details_error_details_localized_message).
+  Structure is [documented below](#nested_status_error_errors_error_details_localized_message).
 
 
-<a name="nested_status_error_errors_errors_error_details_error_details_error_info"></a>The `error_info` block contains:
+<a name="nested_status_error_errors_error_details_error_info"></a>The `error_info` block contains:
 
 * `reason` -
   (Output)
@@ -258,7 +256,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Additional structured details about this error.
 
-<a name="nested_status_error_errors_errors_error_details_error_details_quota_info"></a>The `quota_info` block contains:
+<a name="nested_status_error_errors_error_details_quota_info"></a>The `quota_info` block contains:
 
 * `metric_name` -
   (Output)
@@ -284,15 +282,15 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Rollout status of the future quota limit.
 
-<a name="nested_status_error_errors_errors_error_details_error_details_help"></a>The `help` block contains:
+<a name="nested_status_error_errors_error_details_help"></a>The `help` block contains:
 
 * `links` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_error_errors_errors_error_details_error_details_help_links).
+  Structure is [documented below](#nested_status_error_errors_error_details_help_links).
 
 
-<a name="nested_status_error_errors_errors_error_details_error_details_help_links"></a>The `links` block contains:
+<a name="nested_status_error_errors_error_details_help_links"></a>The `links` block contains:
 
 * `description` -
   (Output)
@@ -302,7 +300,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The URL of the link.
 
-<a name="nested_status_error_errors_errors_error_details_error_details_localized_message"></a>The `localized_message` block contains:
+<a name="nested_status_error_errors_error_details_localized_message"></a>The `localized_message` block contains:
 
 * `locale` -
   (Output)
@@ -345,33 +343,33 @@ In addition to the arguments listed above, the following computed attributes are
 * `error_details` -
   (Output)
   An array of messages that contain the error details. There is a set of defined message types to use for providing details.The syntax depends on the error code. For example, QuotaExceededInfo will have details when the error code is QUOTA_EXCEEDED.
-  Structure is [documented below](#nested_status_last_attempt_error_errors_errors_error_details).
+  Structure is [documented below](#nested_status_last_attempt_error_errors_error_details).
 
 
-<a name="nested_status_last_attempt_error_errors_errors_error_details"></a>The `error_details` block contains:
+<a name="nested_status_last_attempt_error_errors_error_details"></a>The `error_details` block contains:
 
 * `error_info` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_last_attempt_error_errors_errors_error_details_error_details_error_info).
+  Structure is [documented below](#nested_status_last_attempt_error_errors_error_details_error_info).
 
 * `quota_info` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_last_attempt_error_errors_errors_error_details_error_details_quota_info).
+  Structure is [documented below](#nested_status_last_attempt_error_errors_error_details_quota_info).
 
 * `help` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_last_attempt_error_errors_errors_error_details_error_details_help).
+  Structure is [documented below](#nested_status_last_attempt_error_errors_error_details_help).
 
 * `localized_message` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_last_attempt_error_errors_errors_error_details_error_details_localized_message).
+  Structure is [documented below](#nested_status_last_attempt_error_errors_error_details_localized_message).
 
 
-<a name="nested_status_last_attempt_error_errors_errors_error_details_error_details_error_info"></a>The `error_info` block contains:
+<a name="nested_status_last_attempt_error_errors_error_details_error_info"></a>The `error_info` block contains:
 
 * `reason` -
   (Output)
@@ -385,7 +383,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Additional structured details about this error.
 
-<a name="nested_status_last_attempt_error_errors_errors_error_details_error_details_quota_info"></a>The `quota_info` block contains:
+<a name="nested_status_last_attempt_error_errors_error_details_quota_info"></a>The `quota_info` block contains:
 
 * `metric_name` -
   (Output)
@@ -411,15 +409,15 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Rollout status of the future quota limit.
 
-<a name="nested_status_last_attempt_error_errors_errors_error_details_error_details_help"></a>The `help` block contains:
+<a name="nested_status_last_attempt_error_errors_error_details_help"></a>The `help` block contains:
 
 * `links` -
   (Output)
   A nested object resource.
-  Structure is [documented below](#nested_status_last_attempt_error_errors_errors_error_details_error_details_help_links).
+  Structure is [documented below](#nested_status_last_attempt_error_errors_error_details_help_links).
 
 
-<a name="nested_status_last_attempt_error_errors_errors_error_details_error_details_help_links"></a>The `links` block contains:
+<a name="nested_status_last_attempt_error_errors_error_details_help_links"></a>The `links` block contains:
 
 * `description` -
   (Output)
@@ -429,7 +427,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The URL of the link.
 
-<a name="nested_status_last_attempt_error_errors_errors_error_details_error_details_localized_message"></a>The `localized_message` block contains:
+<a name="nested_status_last_attempt_error_errors_error_details_localized_message"></a>The `localized_message` block contains:
 
 * `locale` -
   (Output)
@@ -457,6 +455,19 @@ ResizeRequest can be imported using any of these accepted formats:
 * `{{zone}}/{{instance_group_manager}}/{{name}}`
 * `{{instance_group_manager}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ResizeRequest using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    zone = "<-optional value->"
+    instanceGroupManager = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_resize_request.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ResizeRequest using one of the formats above. For example:
 

@@ -63,9 +63,6 @@ The following arguments are supported:
   of https://cloud.google.com/managed-microsoft-ad/reference/rest/v1/projects.locations.global.domains.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Resource labels that can contain user-provided metadata
@@ -91,6 +88,7 @@ the command will fail if this field is not set to false in Terraform state.
 When the field is set to true or unset in Terraform state, a `terraform apply`
 or `terraform destroy` that would delete the domain will fail.
 When the field is set to false, deleting the domain is allowed.
+
 
 
 ## Attributes Reference
@@ -132,6 +130,17 @@ Domain can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Domain using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_active_directory_domain.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Domain using one of the formats above. For example:
 

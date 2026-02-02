@@ -20,19 +20,70 @@
 package clouddeploy
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceClouddeployDeployPolicy() *schema.Resource {
@@ -58,6 +109,26 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
@@ -74,25 +145,25 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 			"rules": {
 				Type:        schema.TypeList,
 				Required:    true,
-				Description: `Required. Rules to apply. At least one rule must be present.`,
+				Description: `Rules to apply. At least one rule must be present.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"rollout_restriction": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `Optional. Rollout restrictions.`,
+							Description: `Rollout restrictions.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"id": {
 										Type:        schema.TypeString,
 										Required:    true,
-										Description: `Required. ID of the rule. This id must be unique in the 'DeployPolicy' resource to which this rule belongs. The format is 'a-z{0,62}'.`,
+										Description: `ID of the rule. This id must be unique in the 'DeployPolicy' resource to which this rule belongs. The format is 'a-z{0,62}'.`,
 									},
 									"actions": {
 										Type:        schema.TypeList,
 										Optional:    true,
-										Description: `Optional. Rollout actions to be restricted as part of the policy. If left empty, all actions will be restricted. Possible values: ["ADVANCE", "APPROVE", "CANCEL", "CREATE", "IGNORE_JOB", "RETRY_JOB", "ROLLBACK", "TERMINATE_JOBRUN"]`,
+										Description: `Rollout actions to be restricted as part of the policy. If left empty, all actions will be restricted. Possible values: ["ADVANCE", "APPROVE", "CANCEL", "CREATE", "IGNORE_JOB", "RETRY_JOB", "ROLLBACK", "TERMINATE_JOBRUN"]`,
 										Elem: &schema.Schema{
 											Type:         schema.TypeString,
 											ValidateFunc: verify.ValidateEnum([]string{"ADVANCE", "APPROVE", "CANCEL", "CREATE", "IGNORE_JOB", "RETRY_JOB", "ROLLBACK", "TERMINATE_JOBRUN"}),
@@ -101,7 +172,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 									"invokers": {
 										Type:        schema.TypeList,
 										Optional:    true,
-										Description: `Optional. What invoked the action. If left empty, all invoker types will be restricted. Possible values: ["USER", "DEPLOY_AUTOMATION"]`,
+										Description: `What invoked the action. If left empty, all invoker types will be restricted. Possible values: ["USER", "DEPLOY_AUTOMATION"]`,
 										Elem: &schema.Schema{
 											Type:         schema.TypeString,
 											ValidateFunc: verify.ValidateEnum([]string{"USER", "DEPLOY_AUTOMATION"}),
@@ -110,25 +181,25 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 									"time_windows": {
 										Type:        schema.TypeList,
 										Optional:    true,
-										Description: `Required. Time window within which actions are restricted.`,
+										Description: `Time window within which actions are restricted.`,
 										MaxItems:    1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"time_zone": {
 													Type:        schema.TypeString,
 													Required:    true,
-													Description: `Required. The time zone in IANA format IANA Time Zone Database (e.g. America/New_York).`,
+													Description: `The time zone in IANA format IANA Time Zone Database (e.g. America/New_York).`,
 												},
 												"one_time_windows": {
 													Type:        schema.TypeList,
 													Optional:    true,
-													Description: `Optional. One-time windows within which actions are restricted.`,
+													Description: `One-time windows within which actions are restricted.`,
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"end_date": {
 																Type:        schema.TypeList,
 																Required:    true,
-																Description: `Required. End date.`,
+																Description: `End date.`,
 																MaxItems:    1,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
@@ -153,7 +224,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 															"end_time": {
 																Type:        schema.TypeList,
 																Required:    true,
-																Description: `Required. End time (exclusive). You may use 24:00 for the end of the day.`,
+																Description: `End time (exclusive). You may use 24:00 for the end of the day.`,
 																MaxItems:    1,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
@@ -183,7 +254,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 															"start_date": {
 																Type:        schema.TypeList,
 																Required:    true,
-																Description: `Required. Start date.`,
+																Description: `Start date.`,
 																MaxItems:    1,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
@@ -208,7 +279,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 															"start_time": {
 																Type:        schema.TypeList,
 																Required:    true,
-																Description: `Required. Start time (inclusive). Use 00:00 for the beginning of the day.`,
+																Description: `Start time (inclusive). Use 00:00 for the beginning of the day.`,
 																MaxItems:    1,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
@@ -241,13 +312,13 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 												"weekly_windows": {
 													Type:        schema.TypeList,
 													Optional:    true,
-													Description: `Optional. Recurring weekly windows within which actions are restricted.`,
+													Description: `Recurring weekly windows within which actions are restricted.`,
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"days_of_week": {
 																Type:        schema.TypeList,
 																Optional:    true,
-																Description: `Optional. Days of week. If left empty, all days of the week will be included. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]`,
+																Description: `Days of week. If left empty, all days of the week will be included. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]`,
 																Elem: &schema.Schema{
 																	Type:         schema.TypeString,
 																	ValidateFunc: verify.ValidateEnum([]string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}),
@@ -256,7 +327,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 															"end_time": {
 																Type:        schema.TypeList,
 																Optional:    true,
-																Description: `Optional. End time (exclusive). Use 24:00 to indicate midnight. If you specify endTime you must also specify startTime. If left empty, this will block for the entire day for the days specified in daysOfWeek.`,
+																Description: `End time (exclusive). Use 24:00 to indicate midnight. If you specify endTime you must also specify startTime. If left empty, this will block for the entire day for the days specified in daysOfWeek.`,
 																MaxItems:    1,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
@@ -286,7 +357,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 															"start_time": {
 																Type:        schema.TypeList,
 																Optional:    true,
-																Description: `Optional. Start time (inclusive). Use 00:00 for the beginning of the day. If you specify startTime you must also specify endTime. If left empty, this will block for the entire day for the days specified in daysOfWeek.`,
+																Description: `Start time (inclusive). Use 00:00 for the beginning of the day. If you specify startTime you must also specify endTime. If left empty, this will block for the entire day for the days specified in daysOfWeek.`,
 																MaxItems:    1,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
@@ -328,7 +399,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 			"selectors": {
 				Type:        schema.TypeList,
 				Required:    true,
-				Description: `Required. Selected resources to which the policy will be applied. At least one selector is required. If one selector matches the resource the policy applies. For example, if there are two selectors and the action being attempted matches one of them, the policy will apply to that action.`,
+				Description: `Selected resources to which the policy will be applied. At least one selector is required. If one selector matches the resource the policy applies. For example, if there are two selectors and the action being attempted matches one of them, the policy will apply to that action.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"delivery_pipeline": {
@@ -341,7 +412,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 									"id": {
 										Type:     schema.TypeString,
 										Optional: true,
-										Description: `Optional. ID of the DeliveryPipeline. The value of this field could be one of the following:
+										Description: `ID of the DeliveryPipeline. The value of this field could be one of the following:
 - The last segment of a pipeline name
 - "*", all delivery pipelines in a location`,
 									},
@@ -383,7 +454,7 @@ func ResourceClouddeployDeployPolicy() *schema.Resource {
 			"annotations": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				Description: `Optional. User annotations. These attributes can only be set and used by the user, and not by Cloud Deploy. Annotations must meet the following constraints: * Annotations are key/value pairs. * Valid annotation keys have two segments: an optional prefix and name, separated by a slash ('/'). * The name segment is required and must be 63 characters or less, beginning and ending with an alphanumeric character ('[a-z0-9A-Z]') with dashes ('-'), underscores ('_'), dots ('.'), and alphanumerics between. * The prefix is optional. If specified, the prefix must be a DNS subdomain: a series of DNS labels separated by dots('.'), not longer than 253 characters in total, followed by a slash ('/'). See https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set for more details.
+				Description: `User annotations. These attributes can only be set and used by the user, and not by Cloud Deploy. Annotations must meet the following constraints: * Annotations are key/value pairs. * Valid annotation keys have two segments: an optional prefix and name, separated by a slash ('/'). * The name segment is required and must be 63 characters or less, beginning and ending with an alphanumeric character ('[a-z0-9A-Z]') with dashes ('-'), underscores ('_'), dots ('.'), and alphanumerics between. * The prefix is optional. If specified, the prefix must be a DNS subdomain: a series of DNS labels separated by dots('.'), not longer than 253 characters in total, followed by a slash ('/'). See https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/#syntax-and-character-set for more details.
 
 **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
 Please refer to the field 'effective_annotations' for all of the annotations present on the resource.`,
@@ -392,12 +463,12 @@ Please refer to the field 'effective_annotations' for all of the annotations pre
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: `Optional. Description of the 'DeployPolicy'. Max length is 255 characters.`,
+				Description: `Description of the 'DeployPolicy'. Max length is 255 characters.`,
 			},
 			"labels": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				Description: `Optional. Labels are attributes that can be set and used by both the user and by Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 63 characters.
+				Description: `Labels are attributes that can be set and used by both the user and by Cloud Deploy. Labels must meet the following constraints: * Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes. * All characters must use UTF-8 encoding, and international characters are allowed. * Keys must start with a lowercase letter or international character. * Each resource is limited to a maximum of 64 labels. Both keys and values are additionally constrained to be <= 63 characters.
 
 **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
 Please refer to the field 'effective_labels' for all of the labels present on the resource.`,
@@ -406,7 +477,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 			"suspended": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: `Optional. When suspended, the policy will not prevent actions from occurring, even if the action violates the policy.`,
+				Description: `When suspended, the policy will not prevent actions from occurring, even if the action violates the policy.`,
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -428,7 +499,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 			"etag": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: `Optional. The weak etag of the 'DeployPolicy' resource. This checksum is computed by the server based on the value of other fields, and may be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.`,
+				Description: `The weak etag of the 'DeployPolicy' resource. This checksum is computed by the server based on the value of other fields, and may be sent on update and delete requests to ensure the client has an up-to-date value before proceeding.`,
 			},
 			"terraform_labels": {
 				Type:     schema.TypeMap,
@@ -475,7 +546,7 @@ func resourceClouddeployDeployPolicyCreate(d *schema.ResourceData, meta interfac
 	suspendedProp, err := expandClouddeployDeployPolicySuspended(d.Get("suspended"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("suspended"); ok || !reflect.DeepEqual(v, suspendedProp) {
+	} else if v, ok := d.GetOkExists("suspended"); !tpgresource.IsEmptyValue(reflect.ValueOf(suspendedProp)) && (ok || !reflect.DeepEqual(v, suspendedProp)) {
 		obj["suspended"] = suspendedProp
 	}
 	selectorsProp, err := expandClouddeployDeployPolicySelectors(d.Get("selectors"), d, config)
@@ -490,17 +561,17 @@ func resourceClouddeployDeployPolicyCreate(d *schema.ResourceData, meta interfac
 	} else if v, ok := d.GetOkExists("rules"); !tpgresource.IsEmptyValue(reflect.ValueOf(rulesProp)) && (ok || !reflect.DeepEqual(v, rulesProp)) {
 		obj["rules"] = rulesProp
 	}
-	annotationsProp, err := expandClouddeployDeployPolicyEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandClouddeployDeployPolicyEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(annotationsProp)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveAnnotationsProp)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
-	labelsProp, err := expandClouddeployDeployPolicyEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandClouddeployDeployPolicyEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{ClouddeployBasePath}}projects/{{project}}/locations/{{location}}/deployPolicies?deployPolicyId={{name}}")
@@ -543,6 +614,27 @@ func resourceClouddeployDeployPolicyCreate(d *schema.ResourceData, meta interfac
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ClouddeployOperationWaitTime(
 		config, res, project, "Creating DeployPolicy", userAgent,
@@ -641,6 +733,30 @@ func resourceClouddeployDeployPolicyRead(d *schema.ResourceData, meta interface{
 		return fmt.Errorf("Error reading DeployPolicy: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -649,6 +765,26 @@ func resourceClouddeployDeployPolicyUpdate(d *schema.ResourceData, meta interfac
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -669,7 +805,7 @@ func resourceClouddeployDeployPolicyUpdate(d *schema.ResourceData, meta interfac
 	suspendedProp, err := expandClouddeployDeployPolicySuspended(d.Get("suspended"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("suspended"); ok || !reflect.DeepEqual(v, suspendedProp) {
+	} else if v, ok := d.GetOkExists("suspended"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, suspendedProp)) {
 		obj["suspended"] = suspendedProp
 	}
 	selectorsProp, err := expandClouddeployDeployPolicySelectors(d.Get("selectors"), d, config)
@@ -684,17 +820,17 @@ func resourceClouddeployDeployPolicyUpdate(d *schema.ResourceData, meta interfac
 	} else if v, ok := d.GetOkExists("rules"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, rulesProp)) {
 		obj["rules"] = rulesProp
 	}
-	annotationsProp, err := expandClouddeployDeployPolicyEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandClouddeployDeployPolicyEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
-	labelsProp, err := expandClouddeployDeployPolicyEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandClouddeployDeployPolicyEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{ClouddeployBasePath}}projects/{{project}}/locations/{{location}}/deployPolicies/{{name}}")
@@ -1199,9 +1335,6 @@ func flattenClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWind
 		return nil
 	}
 	original := v.(map[string]interface{})
-	if len(original) == 0 {
-		return nil
-	}
 	transformed := make(map[string]interface{})
 	transformed["hours"] =
 		flattenClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindowsStartTimeHours(original["hours"], d, config)
@@ -1397,9 +1530,6 @@ func flattenClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindo
 		return nil
 	}
 	original := v.(map[string]interface{})
-	if len(original) == 0 {
-		return nil
-	}
 	transformed := make(map[string]interface{})
 	transformed["hours"] =
 		flattenClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindowsStartTimeHours(original["hours"], d, config)
@@ -1598,6 +1728,9 @@ func expandClouddeployDeployPolicySuspended(v interface{}, d tpgresource.Terrafo
 }
 
 func expandClouddeployDeployPolicySelectors(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1627,6 +1760,9 @@ func expandClouddeployDeployPolicySelectors(v interface{}, d tpgresource.Terrafo
 }
 
 func expandClouddeployDeployPolicySelectorsTarget(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1668,6 +1804,9 @@ func expandClouddeployDeployPolicySelectorsTargetLabels(v interface{}, d tpgreso
 }
 
 func expandClouddeployDeployPolicySelectorsDeliveryPipeline(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1709,6 +1848,9 @@ func expandClouddeployDeployPolicySelectorsDeliveryPipelineLabels(v interface{},
 }
 
 func expandClouddeployDeployPolicyRules(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1731,6 +1873,9 @@ func expandClouddeployDeployPolicyRules(v interface{}, d tpgresource.TerraformRe
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestriction(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1783,6 +1928,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionActions(v interface{}, 
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindows(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1820,6 +1968,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsTimeZone(v i
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindows(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1846,7 +1997,7 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindo
 		transformedStartTime, err := expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindowsStartTime(original["start_time"], d, config)
 		if err != nil {
 			return nil, err
-		} else if val := reflect.ValueOf(transformedStartTime); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		} else {
 			transformed["startTime"] = transformedStartTime
 		}
 
@@ -1863,6 +2014,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindo
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindowsStartDate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1908,6 +2062,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindo
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindowsEndDate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1953,9 +2110,17 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindo
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindowsStartTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	l := v.([]interface{})
-	if len(l) == 0 || l[0] == nil {
+	if v == nil {
 		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 {
+		return nil, nil
+	}
+
+	if l[0] == nil {
+		transformed := make(map[string]interface{})
+		return transformed, nil
 	}
 	raw := l[0]
 	original := raw.(map[string]interface{})
@@ -2009,6 +2174,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindo
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindowsEndTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2065,6 +2233,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsOneTimeWindo
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindows(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2084,7 +2255,7 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindow
 		transformedStartTime, err := expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindowsStartTime(original["start_time"], d, config)
 		if err != nil {
 			return nil, err
-		} else if val := reflect.ValueOf(transformedStartTime); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		} else {
 			transformed["startTime"] = transformedStartTime
 		}
 
@@ -2105,9 +2276,17 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindow
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindowsStartTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	l := v.([]interface{})
-	if len(l) == 0 || l[0] == nil {
+	if v == nil {
 		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 {
+		return nil, nil
+	}
+
+	if l[0] == nil {
+		transformed := make(map[string]interface{})
+		return transformed, nil
 	}
 	raw := l[0]
 	original := raw.(map[string]interface{})
@@ -2161,6 +2340,9 @@ func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindow
 }
 
 func expandClouddeployDeployPolicyRulesRolloutRestrictionTimeWindowsWeeklyWindowsEndTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

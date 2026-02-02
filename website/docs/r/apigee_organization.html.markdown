@@ -86,9 +86,11 @@ provider "google" {
 data "google_client_config" "current" {}
 
 resource "google_apigee_organization" "org" {
-  description         = "Terraform-provisioned basic Apigee Org under European Union hosting jurisdiction."
-  project_id          = data.google_client_config.current.project
-  disable_vpc_peering = true
+  description                = "Terraform-provisioned basic Apigee Org under European Union hosting jurisdiction."
+  project_id                 = data.google_client_config.current.project
+  api_consumer_data_location = "europe-west1"
+  billing_type               = "PAYG"
+  disable_vpc_peering        = true
 }
 ```
 ## Example Usage - Apigee Organization Cloud Full
@@ -213,9 +215,6 @@ The following arguments are supported:
   The project ID associated with the Apigee organization.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   The display name of the Apigee organization.
@@ -289,6 +288,7 @@ The following arguments are supported:
   Possible values are: `DELETION_RETENTION_UNSPECIFIED`, `MINIMUM`.
 
 
+
 <a name="nested_properties"></a>The `properties` block supports:
 
 * `property` -
@@ -345,6 +345,16 @@ Organization can be imported using any of these accepted formats:
 * `organizations/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Organization using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_apigee_organization.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Organization using one of the formats above. For example:
 

@@ -108,6 +108,77 @@ To [detach](https://cloud.google.com/memorystore/docs/cluster/working-with-cross
           * Execute `terraform plan` once again. This should not generate any diff, confirming the configuration is in sync with the infrastructure.
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=redis_cluster_ha_with_labels&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Redis Cluster Ha With Labels
+
+
+```hcl
+resource "google_redis_cluster" "cluster-ha-with-labels" {
+  name           = "ha-cluster"
+  shard_count    = 3
+  labels = {
+    my_key = "my_val"
+    other_key = "other_val" 
+  }
+  psc_configs {
+    network = google_compute_network.consumer_net.id
+  }
+  region = "us-central1"
+  replica_count = 1
+  node_type = "REDIS_SHARED_CORE_NANO"
+  transit_encryption_mode = "TRANSIT_ENCRYPTION_MODE_DISABLED"
+  authorization_mode = "AUTH_MODE_DISABLED"
+  redis_configs = {
+    maxmemory-policy	= "volatile-ttl"
+  }
+  deletion_protection_enabled = true
+
+  zone_distribution_config {
+    mode = "MULTI_ZONE"
+  }
+  maintenance_policy {
+    weekly_maintenance_window {
+      day = "MONDAY"
+      start_time {
+        hours = 1
+        minutes = 0
+        seconds = 0
+        nanos = 0
+      }
+    }
+  }
+  depends_on = [
+    google_network_connectivity_service_connection_policy.default
+  ]
+}
+
+resource "google_network_connectivity_service_connection_policy" "default" {
+  name = "my-policy"
+  location = "us-central1"
+  service_class = "gcp-memorystore-redis"
+  description   = "my basic service connection policy"
+  network = google_compute_network.consumer_net.id
+  psc_config {
+    subnetworks = [google_compute_subnetwork.consumer_subnet.id]
+  }
+}
+
+resource "google_compute_subnetwork" "consumer_subnet" {
+  name          = "my-subnet"
+  ip_cidr_range = "10.0.0.248/29"
+  region        = "us-central1"
+  network       = google_compute_network.consumer_net.id
+}
+
+resource "google_compute_network" "consumer_net" {
+  name                    = "my-network"
+  auto_create_subnetworks = false
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=redis_cluster_ha&open_in_editor=main.tf" target="_blank">
     <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
   </a>
@@ -494,7 +565,6 @@ resource "google_redis_cluster" "cluster-aof" {
     maxmemory-policy	= "volatile-ttl"
   }
   deletion_protection_enabled = true
-
   zone_distribution_config {
     mode = "MULTI_ZONE"
   }
@@ -609,8 +679,11 @@ The following arguments are supported:
   projects/{projectId}/locations/{locationId}/clusters/{clusterId}
 
 
-- - -
-
+* `labels` -
+  (Optional)
+  Resource labels to represent user provided metadata.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
 
 * `gcs_source` -
   (Optional)
@@ -684,6 +757,11 @@ The following arguments are supported:
   Maintenance policy for a cluster
   Structure is [documented below](#nested_maintenance_policy).
 
+* `maintenance_version` -
+  (Optional)
+  This field can be used to trigger self service update to indicate the desired maintenance version. The input to this field can be determined by the available_maintenance_versions field.
+  *Note*: This field can only be specified when updating an existing cluster to a newer version. Downgrades are currently not supported!
+
 * `cross_cluster_replication_config` -
   (Optional)
   Cross cluster replication config
@@ -701,6 +779,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_gcs_source"></a>The `gcs_source` block supports:
 
 * `uris` -
@@ -711,8 +790,7 @@ The following arguments are supported:
 
 * `backup` -
   (Required)
-  Example: //redis.googleapis.com/projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup} A shorter version (without the prefix) of the backup name is also supported,
-  like projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backupId}. In this case, it assumes the backup is under redis.googleapis.com.
+  Example: `projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup}`.
 
 <a name="nested_automated_backup_config"></a>The `automated_backup_config` block supports:
 
@@ -859,10 +937,10 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Required. Start time of the window in UTC time.
-  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time).
+  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_start_time).
 
 
-<a name="nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_policy_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -1011,9 +1089,26 @@ In addition to the arguments listed above, the following computed attributes are
   Upcoming maintenance schedule.
   Structure is [documented below](#nested_maintenance_schedule).
 
+* `effective_maintenance_version` -
+  This field represents the actual maintenance version of the cluster.
+
+* `available_maintenance_versions` -
+  This field is used to determine the available maintenance versions for the self service update.
+
 * `psc_service_attachments` -
   Service attachment details to configure Psc connections.
   Structure is [documented below](#nested_psc_service_attachments).
+
+* `managed_server_ca` -
+  Cluster's Certificate Authority. This field will only be populated if Redis Cluster's transit_encryption_mode is TRANSIT_ENCRYPTION_MODE_SERVER_AUTHENTICATION
+  Structure is [documented below](#nested_managed_server_ca).
+
+* `terraform_labels` -
+  The combination of labels configured directly on the resource
+   and default labels configured on the provider.
+
+* `effective_labels` -
+  All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.
 
 
 <a name="nested_discovery_endpoints"></a>The `discovery_endpoints` block contains:
@@ -1030,10 +1125,10 @@ In addition to the arguments listed above, the following computed attributes are
   (Optional)
   Output only. Customer configuration for where the endpoint
   is created and accessed from.
-  Structure is [documented below](#nested_discovery_endpoints_discovery_endpoints_psc_config).
+  Structure is [documented below](#nested_discovery_endpoints_psc_config).
 
 
-<a name="nested_discovery_endpoints_discovery_endpoints_psc_config"></a>The `psc_config` block supports:
+<a name="nested_discovery_endpoints_psc_config"></a>The `psc_config` block supports:
 
 * `network` -
   (Optional)
@@ -1112,6 +1207,20 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Type of a PSC connection targeting this service attachment.
 
+<a name="nested_managed_server_ca"></a>The `managed_server_ca` block contains:
+
+* `ca_certs` -
+  (Output)
+  The PEM encoded CA certificate chains for redis managed server authentication
+  Structure is [documented below](#nested_managed_server_ca_ca_certs).
+
+
+<a name="nested_managed_server_ca_ca_certs"></a>The `ca_certs` block contains:
+
+* `certificates` -
+  (Output)
+  The certificates that form the CA chain, from leaf to root order
+
 ## Timeouts
 
 This resource provides the following
@@ -1131,6 +1240,18 @@ Cluster can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Cluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_redis_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Cluster using one of the formats above. For example:
 

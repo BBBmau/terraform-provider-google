@@ -70,9 +70,6 @@ The following arguments are supported:
   The client id of an OAuth client.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   Human friendly display name.
@@ -94,6 +91,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_response_type"></a>The `response_type` block supports:
@@ -131,6 +129,17 @@ OauthIdpConfig can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OauthIdpConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_identity_platform_oauth_idp_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OauthIdpConfig using one of the formats above. For example:
 

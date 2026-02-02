@@ -172,9 +172,6 @@ The following arguments are supported:
   The connection for the resource
 
 
-- - -
-
-
 * `annotations` -
   (Optional)
   Allows clients to store small amounts of arbitrary data.
@@ -187,6 +184,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -225,6 +223,19 @@ Repository can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{parent_connection}}/{{name}}`
 * `{{location}}/{{parent_connection}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Repository using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    parent_connection = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloudbuildv2_repository.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Repository using one of the formats above. For example:
 

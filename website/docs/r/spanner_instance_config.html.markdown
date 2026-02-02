@@ -70,27 +70,6 @@ The following arguments are supported:
   Structure is [documented below](#nested_replicas).
 
 
-<a name="nested_replicas"></a>The `replicas` block supports:
-
-* `location` -
-  (Optional)
-  The location of the serving resources, e.g. "us-central1".
-
-* `type` -
-  (Optional)
-  Indicates the type of replica.  See the [replica types
-  documentation](https://cloud.google.com/spanner/docs/replication#replica_types)
-  for more details.
-  Possible values are: `READ_WRITE`, `READ_ONLY`, `WITNESS`.
-
-* `default_leader_location` -
-  (Optional)
-  If true, this location is designated as the default leader location where
-  leader replicas are placed.
-
-- - -
-
-
 * `name` -
   (Optional)
   A unique identifier for the instance configuration. Values are of the
@@ -113,6 +92,25 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_replicas"></a>The `replicas` block supports:
+
+* `location` -
+  (Optional)
+  The location of the serving resources, e.g. "us-central1".
+
+* `type` -
+  (Optional)
+  Indicates the type of replica.  See the [replica types
+  documentation](https://cloud.google.com/spanner/docs/replication#replica_types)
+  for more details.
+  Possible values are: `READ_WRITE`, `READ_ONLY`, `WITNESS`.
+
+* `default_leader_location` -
+  (Optional)
+  If true, this location is designated as the default leader location where
+  leader replicas are placed.
 
 ## Attributes Reference
 
@@ -149,6 +147,17 @@ InstanceConfig can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InstanceConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_spanner_instance_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InstanceConfig using one of the formats above. For example:
 

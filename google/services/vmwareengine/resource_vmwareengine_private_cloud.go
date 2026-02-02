@@ -20,20 +20,38 @@
 package vmwareengine
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"google.golang.org/api/googleapi"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 func vmwareenginePrivateCloudStandardTypeDiffSuppressFunc(_, old, new string, d *schema.ResourceData) bool {
@@ -116,6 +134,38 @@ func pollCheckForPrivateCloudAbsence(resp map[string]interface{}, respErr error)
 	return transport_tpg.PendingStatusPollResult("found")
 }
 
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceVmwareenginePrivateCloud() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceVmwareenginePrivateCloudCreate,
@@ -128,7 +178,7 @@ func ResourceVmwareenginePrivateCloud() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(240 * time.Minute),
+			Create: schema.DefaultTimeout(360 * time.Minute),
 			Update: schema.DefaultTimeout(190 * time.Minute),
 			Delete: schema.DefaultTimeout(150 * time.Minute),
 		},
@@ -136,6 +186,26 @@ func ResourceVmwareenginePrivateCloud() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"location": {
@@ -403,6 +473,27 @@ the form: projects/{project_number}/locations/{location}/vmwareEngineNetworks/{v
 				DiffSuppressFunc: vmwareenginePrivateCloudStandardTypeDiffSuppressFunc,
 				Description:      `Initial type of the private cloud. Possible values: ["STANDARD", "TIME_LIMITED", "STRETCHED"]`,
 			},
+			"create_time": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Description: `Creation time of this resource.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".`,
+			},
+			"delete_time": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Description: `Time when the resource was scheduled for deletion.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".`,
+			},
+			"expire_time": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Description: `Time when the resource will be irreversibly deleted.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".`,
+			},
 			"hcx": {
 				Type:        schema.TypeList,
 				Computed:    true,
@@ -472,6 +563,13 @@ the form: projects/{project_number}/locations/{location}/vmwareEngineNetworks/{v
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: `System-generated unique identifier for the resource.`,
+			},
+			"update_time": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Description: `Last update time of this resource.
+A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".`,
 			},
 			"vcenter": {
 				Type:        schema.TypeList,
@@ -614,6 +712,27 @@ func resourceVmwareenginePrivateCloudCreate(d *schema.ResourceData, meta interfa
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = VmwareengineOperationWaitTime(
 		config, res, project, "Creating PrivateCloud", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -743,6 +862,18 @@ func resourceVmwareenginePrivateCloudRead(d *schema.ResourceData, meta interface
 	if err := d.Set("description", flattenVmwareenginePrivateCloudDescription(res["description"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PrivateCloud: %s", err)
 	}
+	if err := d.Set("create_time", flattenVmwareenginePrivateCloudCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PrivateCloud: %s", err)
+	}
+	if err := d.Set("update_time", flattenVmwareenginePrivateCloudUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PrivateCloud: %s", err)
+	}
+	if err := d.Set("delete_time", flattenVmwareenginePrivateCloudDeleteTime(res["deleteTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PrivateCloud: %s", err)
+	}
+	if err := d.Set("expire_time", flattenVmwareenginePrivateCloudExpireTime(res["expireTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PrivateCloud: %s", err)
+	}
 	if err := d.Set("uid", flattenVmwareenginePrivateCloudUid(res["uid"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PrivateCloud: %s", err)
 	}
@@ -768,6 +899,30 @@ func resourceVmwareenginePrivateCloudRead(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error reading PrivateCloud: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -776,6 +931,26 @@ func resourceVmwareenginePrivateCloudUpdate(d *schema.ResourceData, meta interfa
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -963,6 +1138,45 @@ func resourceVmwareenginePrivateCloudDelete(d *schema.ResourceData, meta interfa
 	if err != nil {
 		return err
 	}
+	privateCloudPollRead := func(d *schema.ResourceData, meta interface{}) transport_tpg.PollReadFunc {
+		return func() (map[string]interface{}, error) {
+			config := meta.(*transport_tpg.Config)
+			url, err := tpgresource.ReplaceVars(d, config, "{{VmwareengineBasePath}}projects/{{project}}/locations/{{location}}/privateClouds/{{name}}")
+			if err != nil {
+				return nil, err
+			}
+			billingProject := ""
+			project, err := tpgresource.GetProject(d, config)
+			if err != nil {
+				return nil, fmt.Errorf("Error fetching project for PrivateCloud: %s", err)
+			}
+			billingProject = project
+			// err == nil indicates that the billing_project value was found
+			if bp, err := tpgresource.GetBillingProject(d, config); err == nil {
+				billingProject = bp
+			}
+			userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
+			if err != nil {
+				return nil, err
+			}
+			res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+				Config:    config,
+				Method:    "GET",
+				Project:   billingProject,
+				RawURL:    url,
+				UserAgent: userAgent,
+			})
+			if err != nil {
+				return res, err
+			}
+			return res, nil
+		}
+	}
+
+	err = transport_tpg.PollingWaitTime(privateCloudPollRead(d, meta), pollCheckForPrivateCloudAbsence, "Deleting PrivateCloud", d.Timeout(schema.TimeoutDelete), 10)
+	if err != nil {
+		return fmt.Errorf("Error waiting to delete PrivateCloud: %s", err)
+	}
 
 	log.Printf("[DEBUG] Finished deleting PrivateCloud %q: %#v", d.Id(), res)
 	return nil
@@ -991,6 +1205,22 @@ func resourceVmwareenginePrivateCloudImport(d *schema.ResourceData, meta interfa
 }
 
 func flattenVmwareenginePrivateCloudDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenVmwareenginePrivateCloudCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenVmwareenginePrivateCloudUpdateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenVmwareenginePrivateCloudDeleteTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenVmwareenginePrivateCloudExpireTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1510,6 +1740,9 @@ func expandVmwareenginePrivateCloudDescription(v interface{}, d tpgresource.Terr
 }
 
 func expandVmwareenginePrivateCloudNetworkConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1577,6 +1810,9 @@ func expandVmwareenginePrivateCloudNetworkConfigDnsServerIp(v interface{}, d tpg
 }
 
 func expandVmwareenginePrivateCloudManagementCluster(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1661,6 +1897,9 @@ func expandVmwareenginePrivateCloudManagementClusterNodeTypeConfigsCustomCoreCou
 }
 
 func expandVmwareenginePrivateCloudManagementClusterStretchedClusterConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1695,6 +1934,9 @@ func expandVmwareenginePrivateCloudManagementClusterStretchedClusterConfigSecond
 }
 
 func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1796,6 +2038,9 @@ func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscali
 }
 
 func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesCpuThresholds(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1830,6 +2075,9 @@ func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscali
 }
 
 func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesConsumedMemoryThresholds(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1864,6 +2112,9 @@ func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscali
 }
 
 func expandVmwareenginePrivateCloudManagementClusterAutoscalingSettingsAutoscalingPoliciesStorageThresholds(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

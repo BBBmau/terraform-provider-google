@@ -84,6 +84,12 @@ The following arguments are supported:
   The location of the resource.
 
 
+* `document_is_folder` -
+  (Optional)
+  Tells whether the document is a folder or a typical document.
+
+
+
 <a name="nested_property_definitions"></a>The `property_definitions` block supports:
 
 * `name` -
@@ -122,7 +128,7 @@ The following arguments are supported:
 * `schema_sources` -
   (Optional)
   The schema source information.
-  Structure is [documented below](#nested_property_definitions_property_definitions_schema_sources).
+  Structure is [documented below](#nested_property_definitions_schema_sources).
 
 * `integer_type_options` -
   (Optional)
@@ -139,12 +145,12 @@ The following arguments are supported:
 * `property_type_options` -
   (Optional)
   Nested structured data property.
-  Structure is [documented below](#nested_property_definitions_property_definitions_property_type_options).
+  Structure is [documented below](#nested_property_definitions_property_type_options).
 
 * `enum_type_options` -
   (Optional)
   Enum/categorical property.
-  Structure is [documented below](#nested_property_definitions_property_definitions_enum_type_options).
+  Structure is [documented below](#nested_property_definitions_enum_type_options).
 
 * `date_time_type_options` -
   (Optional)
@@ -159,7 +165,7 @@ The following arguments are supported:
   Timestamp property. Not supported by CMEK compliant deployment.
 
 
-<a name="nested_property_definitions_property_definitions_schema_sources"></a>The `schema_sources` block supports:
+<a name="nested_property_definitions_schema_sources"></a>The `schema_sources` block supports:
 
 * `name` -
   (Optional)
@@ -169,15 +175,15 @@ The following arguments are supported:
   (Optional)
   The Doc AI processor type name.
 
-<a name="nested_property_definitions_property_definitions_property_type_options"></a>The `property_type_options` block supports:
+<a name="nested_property_definitions_property_type_options"></a>The `property_type_options` block supports:
 
 * `property_definitions` -
   (Required)
   Defines the metadata for a schema property.
-  Structure is [documented below](#nested_property_definitions_property_definitions_property_type_options_property_definitions).
+  Structure is [documented below](#nested_property_definitions_property_type_options_property_definitions).
 
 
-<a name="nested_property_definitions_property_definitions_property_type_options_property_definitions"></a>The `property_definitions` block supports:
+<a name="nested_property_definitions_property_type_options_property_definitions"></a>The `property_definitions` block supports:
 
 * `name` -
   (Required)
@@ -215,7 +221,7 @@ The following arguments are supported:
 * `schema_sources` -
   (Optional)
   The schema source information.
-  Structure is [documented below](#nested_property_definitions_property_definitions_property_type_options_property_definitions_property_definitions_schema_sources).
+  Structure is [documented below](#nested_property_definitions_property_type_options_property_definitions_schema_sources).
 
 * `integer_type_options` -
   (Optional)
@@ -232,7 +238,7 @@ The following arguments are supported:
 * `enum_type_options` -
   (Optional)
   Enum/categorical property.
-  Structure is [documented below](#nested_property_definitions_property_definitions_property_type_options_property_definitions_property_definitions_enum_type_options).
+  Structure is [documented below](#nested_property_definitions_property_type_options_property_definitions_enum_type_options).
 
 * `date_time_type_options` -
   (Optional)
@@ -247,7 +253,7 @@ The following arguments are supported:
   Timestamp property. Not supported by CMEK compliant deployment.
 
 
-<a name="nested_property_definitions_property_definitions_property_type_options_property_definitions_property_definitions_schema_sources"></a>The `schema_sources` block supports:
+<a name="nested_property_definitions_property_type_options_property_definitions_schema_sources"></a>The `schema_sources` block supports:
 
 * `name` -
   (Optional)
@@ -257,7 +263,7 @@ The following arguments are supported:
   (Optional)
   The Doc AI processor type name.
 
-<a name="nested_property_definitions_property_definitions_property_type_options_property_definitions_property_definitions_enum_type_options"></a>The `enum_type_options` block supports:
+<a name="nested_property_definitions_property_type_options_property_definitions_enum_type_options"></a>The `enum_type_options` block supports:
 
 * `possible_values` -
   (Required)
@@ -267,7 +273,7 @@ The following arguments are supported:
   (Optional)
   Make sure the enum property value provided in the document is in the possile value list during document creation. The validation check runs by default.
 
-<a name="nested_property_definitions_property_definitions_enum_type_options"></a>The `enum_type_options` block supports:
+<a name="nested_property_definitions_enum_type_options"></a>The `enum_type_options` block supports:
 
 * `possible_values` -
   (Required)
@@ -276,14 +282,6 @@ The following arguments are supported:
 * `validation_check_disabled` -
   (Optional)
   Make sure the enum property value provided in the document is in the possile value list during document creation. The validation check runs by default.
-
-- - -
-
-
-* `document_is_folder` -
-  (Optional)
-  Tells whether the document is a folder or a typical document.
-
 
 ## Attributes Reference
 
@@ -311,6 +309,18 @@ DocumentSchema can be imported using any of these accepted formats:
 * `projects/{{project_number}}/locations/{{location}}/documentSchemas/{{name}}`
 * `{{project_number}}/{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DocumentSchema using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project_number = "<-required value->"
+    location = "<-required value->"
+  }
+  to = google_document_ai_warehouse_document_schema.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DocumentSchema using one of the formats above. For example:
 

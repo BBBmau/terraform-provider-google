@@ -143,9 +143,6 @@ The following arguments are supported:
   The ID of the `CustomDomain`, which is the domain name you'd like to use with Firebase Hosting.
 
 
-- - -
-
-
 * `cert_preference` -
   (Optional)
   A field that lets you specify which SSL certificate type Hosting creates
@@ -166,6 +163,7 @@ The following arguments are supported:
 * `wait_dns_verification` - (Optional) If true, Terraform will wait for DNS records to be fully resolved on the `CustomDomain`.
 If false, Terraform will not wait for DNS records on the `CustomDomain`. Any issues in
 the `CustomDomain` will be returned and stored in the Terraform state.
+
 
 
 ## Attributes Reference
@@ -303,10 +301,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `records` -
   (Optional)
   Records on the domain
-  Structure is [documented below](#nested_required_dns_updates_discovered_discovered_records).
+  Structure is [documented below](#nested_required_dns_updates_discovered_records).
 
 
-<a name="nested_required_dns_updates_discovered_discovered_records"></a>The `records` block supports:
+<a name="nested_required_dns_updates_discovered_records"></a>The `records` block supports:
 
 * `domain_name` -
   (Optional)
@@ -339,10 +337,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `records` -
   (Optional)
   Records on the domain
-  Structure is [documented below](#nested_required_dns_updates_desired_desired_records).
+  Structure is [documented below](#nested_required_dns_updates_desired_records).
 
 
-<a name="nested_required_dns_updates_desired_desired_records"></a>The `records` block supports:
+<a name="nested_required_dns_updates_desired_records"></a>The `records` block supports:
 
 * `domain_name` -
   (Optional)
@@ -445,10 +443,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `records` -
   (Optional)
   Records on the domain
-  Structure is [documented below](#nested_cert_verification_dns_discovered_discovered_records).
+  Structure is [documented below](#nested_cert_verification_dns_discovered_records).
 
 
-<a name="nested_cert_verification_dns_discovered_discovered_records"></a>The `records` block supports:
+<a name="nested_cert_verification_dns_discovered_records"></a>The `records` block supports:
 
 * `domain_name` -
   (Optional)
@@ -481,10 +479,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `records` -
   (Optional)
   Records on the domain
-  Structure is [documented below](#nested_cert_verification_dns_desired_desired_records).
+  Structure is [documented below](#nested_cert_verification_dns_desired_records).
 
 
-<a name="nested_cert_verification_dns_desired_desired_records"></a>The `records` block supports:
+<a name="nested_cert_verification_dns_desired_records"></a>The `records` block supports:
 
 * `domain_name` -
   (Optional)
@@ -546,6 +544,18 @@ CustomDomain can be imported using any of these accepted formats:
 * `{{project}}/{{site_id}}/{{custom_domain}}`
 * `{{site_id}}/{{custom_domain}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CustomDomain using identity values. For example:
+
+```tf
+import {
+  identity = {
+    site_id = "<-required value->"
+    custom_domain = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_hosting_custom_domain.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CustomDomain using one of the formats above. For example:
 

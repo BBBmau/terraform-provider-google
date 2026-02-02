@@ -123,9 +123,6 @@ The following arguments are supported:
   * `organizations/{{organization_id}}/locations/{{location}}`
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A description of the info type.
@@ -154,6 +151,7 @@ The following arguments are supported:
   (Optional)
   Dictionary which defines the rule.
   Structure is [documented below](#nested_large_custom_dictionary).
+
 
 
 <a name="nested_regex"></a>The `regex` block supports:
@@ -284,6 +282,17 @@ StoredInfoType can be imported using any of these accepted formats:
 * `{{parent}}/storedInfoTypes/{{name}}`
 * `{{parent}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import StoredInfoType using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    parent = "<-required value->"
+  }
+  to = google_data_loss_prevention_stored_info_type.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import StoredInfoType using one of the formats above. For example:
 

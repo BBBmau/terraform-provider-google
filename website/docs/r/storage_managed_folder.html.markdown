@@ -77,13 +77,11 @@ The following arguments are supported:
   trailing '/'. For example, `example_dir/example_dir2/`.
 
 
-- - -
-
-
 * `force_destroy` - (Optional) Allows the deletion of a managed folder even if contains
 objects. If a non-empty managed folder is deleted, any objects
 within the folder will remain in a simulated folder with the
 same name.
+
 
 
 ## Attributes Reference
@@ -120,6 +118,17 @@ ManagedFolder can be imported using any of these accepted formats:
 * `{{bucket}}/managedFolders/{{name}}`
 * `{{bucket}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ManagedFolder using identity values. For example:
+
+```tf
+import {
+  identity = {
+    bucket = "<-required value->"
+    name = "<-required value->"
+  }
+  to = google_storage_managed_folder.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ManagedFolder using one of the formats above. For example:
 

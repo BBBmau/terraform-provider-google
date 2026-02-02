@@ -59,6 +59,150 @@ resource "google_compute_reservation" "gce_reservation" {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=reservation_basic_beta&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Reservation Basic Beta
+
+
+```hcl
+resource "google_compute_reservation" "gce_reservation" {
+  provider = google-beta
+  name     = "gce-reservation"
+  zone     = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    instance_properties {
+      min_cpu_platform     = "Intel Cascade Lake"
+      machine_type         = "n2-standard-2"
+      maintenance_interval = "PERIODIC"
+    }
+  }
+
+  enable_emergent_maintenance = true
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=reservation_source_instance_template&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Reservation Source Instance Template
+
+
+```hcl
+data "google_compute_image" "my_image" {
+  family  = "debian-11"
+  project = "debian-cloud"
+}
+
+resource "google_compute_instance_template" "foobar" {
+  name           = "instance-template"
+  machine_type   = "n2-standard-2"
+  can_ip_forward = false
+  tags           = ["foo", "bar"]
+
+  disk {
+    source_image = data.google_compute_image.my_image.self_link
+    auto_delete  = true
+    boot         = true
+  }
+
+  network_interface {
+    network = "default"
+  }
+
+  scheduling {
+    preemptible       = false
+    automatic_restart = true
+  }
+
+  metadata = {
+    foo = "bar"
+  }
+
+  service_account {
+    scopes = ["userinfo-email", "compute-ro", "storage-ro"]
+  }
+
+  labels = {
+    my_label = "foobar"
+  }
+}
+
+resource "google_compute_reservation" "gce_reservation_source_instance_template" {
+  name = "gce-reservation-source-instance-template"
+  zone = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    source_instance_template = google_compute_instance_template.foobar.self_link
+  }
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=reservation_sharing_policy&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Reservation Sharing Policy
+
+
+```hcl
+data "google_compute_image" "my_image" {
+  family = "debian-11"
+  project = "debian-cloud"
+}
+
+resource "google_compute_instance_template" "foobar" {
+  name = "instance-template"
+  machine_type = "g2-standard-4"
+  can_ip_forward = false
+  tags = ["foo", "bar"]
+
+  disk {
+    source_image = data.google_compute_image.my_image.self_link
+    auto_delete = true
+    boot = true
+  }
+
+  network_interface {
+    network = "default"
+  }
+
+  scheduling {
+    preemptible = false
+    automatic_restart = true
+  }
+
+  metadata = {
+    foo = "bar"
+  }
+  service_account {
+    scopes = ["userinfo-email", "compute-ro", "storage-ro"]
+  }
+  labels = {
+    my_label = "foobar"
+  }
+}
+
+resource "google_compute_reservation" "gce_reservation_sharing_policy" {
+  name = "gce-reservation-sharing-policy"
+  zone = "us-central1-b"
+
+  specific_reservation {
+    count = 2
+    source_instance_template = google_compute_instance_template.foobar.self_link
+  }
+
+  reservation_sharing_policy {
+    service_share_type = "ALLOW_ALL"
+  }
+}
+```
 
 ## Argument Reference
 
@@ -85,6 +229,47 @@ The following arguments are supported:
   The zone where the reservation is made.
 
 
+* `description` -
+  (Optional)
+  An optional description of this resource.
+
+* `specific_reservation_required` -
+  (Optional)
+  When set to true, only VMs that target this reservation by name can
+  consume this reservation. Otherwise, it can be consumed by VMs with
+  affinity for any reservation. Defaults to false.
+
+* `share_settings` -
+  (Optional)
+  The share setting for reservations.
+  Structure is [documented below](#nested_share_settings).
+
+* `delete_at_time` -
+  (Optional)
+  Absolute time in future when the reservation will be auto-deleted by Compute Engine. Timestamp is represented in RFC3339 text format.
+  Cannot be used with delete_after_duration.
+
+* `delete_after_duration` -
+  (Optional)
+  Duration after which the reservation will be auto-deleted by Compute Engine. Cannot be used with delete_at_time.
+  Structure is [documented below](#nested_delete_after_duration).
+
+* `reservation_sharing_policy` -
+  (Optional)
+  Sharing policy for reservations with Google Cloud managed services.
+  Structure is [documented below](#nested_reservation_sharing_policy).
+
+* `enable_emergent_maintenance` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Indicates if this group of VMs have emergent maintenance enabled.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+* `block_names` - (Optional) List of all reservation block names in the parent reservation.
+
+
+
 <a name="nested_specific_reservation"></a>The `specific_reservation` block supports:
 
 * `count` -
@@ -95,10 +280,19 @@ The following arguments are supported:
   (Output)
   How many instances are in use.
 
+* `assured_count` -
+  (Output)
+  Indicates how many instances are actually usable currently.
+
 * `instance_properties` -
-  (Required)
+  (Optional)
   The instance properties for the reservation.
   Structure is [documented below](#nested_specific_reservation_instance_properties).
+
+* `source_instance_template` -
+  (Optional)
+  Specifies the instance template to create the reservation. If you use this field, you must exclude the
+  instanceProperties field.
 
 
 <a name="nested_specific_reservation_instance_properties"></a>The `instance_properties` block supports:
@@ -124,6 +318,15 @@ The following arguments are supported:
   The amount of local ssd to reserve with each instance. This
   reserves disks of type `local-ssd`.
   Structure is [documented below](#nested_specific_reservation_instance_properties_local_ssds).
+
+* `maintenance_interval` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Specifies the frequency of planned maintenance events.
+  Possible values are: `AS_NEEDED`, `PERIODIC`, `RECURRENT`.
+
+* `location_hint` -
+  (Output)
+  An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API.
 
 
 <a name="nested_specific_reservation_instance_properties_guest_accelerators"></a>The `guest_accelerators` block supports:
@@ -152,28 +355,6 @@ The following arguments are supported:
   (Required)
   The size of the disk in base-2 GB.
 
-- - -
-
-
-* `description` -
-  (Optional)
-  An optional description of this resource.
-
-* `specific_reservation_required` -
-  (Optional)
-  When set to true, only VMs that target this reservation by name can
-  consume this reservation. Otherwise, it can be consumed by VMs with
-  affinity for any reservation. Defaults to false.
-
-* `share_settings` -
-  (Optional)
-  The share setting for reservations.
-  Structure is [documented below](#nested_share_settings).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 <a name="nested_share_settings"></a>The `share_settings` block supports:
 
 * `share_type` -
@@ -186,6 +367,10 @@ The following arguments are supported:
   A map of project number and project config. This is only valid when shareType's value is SPECIFIC_PROJECTS.
   Structure is [documented below](#nested_share_settings_project_map).
 
+* `projects` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  List of project IDs with which the reservation is shared.
+
 
 <a name="nested_share_settings_project_map"></a>The `project_map` block supports:
 
@@ -194,6 +379,23 @@ The following arguments are supported:
 * `project_id` -
   (Optional)
   The project id/number, should be same as the key of this project config in the project map.
+
+<a name="nested_delete_after_duration"></a>The `delete_after_duration` block supports:
+
+* `seconds` -
+  (Optional)
+  Number of seconds for the auto-delete duration.
+
+* `nanos` -
+  (Optional)
+  Number of nanoseconds for the auto-delete duration.
+
+<a name="nested_reservation_sharing_policy"></a>The `reservation_sharing_policy` block supports:
+
+* `service_share_type` -
+  (Optional)
+  Sharing config for all Google Cloud services.
+  Possible values are: `ALLOW_ALL`, `DISALLOW_ALL`.
 
 ## Attributes Reference
 
@@ -210,8 +412,143 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `status` -
   The status of the reservation.
+
+* `reservation_block_count` -
+  The number of reservation blocks associated with this reservation.
+
+* `kind` -
+  Type of the resource. Always compute#reservations for reservations.
+
+* `id` -
+  The unique identifier for the resource. This identifier is defined by the server.
+
+* `linked_commitments` -
+  Full or partial URL to parent commitments. This field displays for reservations that are tied to multiple commitments.
+
+* `satisfies_pzs` -
+  Reserved for future use.
+
+* `resource_status` -
+  Status information for Reservation resource.
+  Structure is [documented below](#nested_resource_status).
 * `self_link` - The URI of the created resource.
 
+
+<a name="nested_resource_status"></a>The `resource_status` block contains:
+
+* `specific_sku_allocation` -
+  (Output)
+  Allocation Properties of this reservation.
+  Structure is [documented below](#nested_resource_status_specific_sku_allocation).
+
+* `reservation_maintenance` -
+  (Output)
+  Maintenance information for this reservation
+  Structure is [documented below](#nested_resource_status_reservation_maintenance).
+
+* `reservation_block_count` -
+  (Output)
+  The number of reservation blocks associated with this reservation.
+
+* `health_info` -
+  (Output)
+  Health information for the reservation.
+  Structure is [documented below](#nested_resource_status_health_info).
+
+
+<a name="nested_resource_status_specific_sku_allocation"></a>The `specific_sku_allocation` block contains:
+
+* `source_instance_template_id` -
+  (Output)
+  ID of the instance template used to populate reservation properties.
+
+* `utilizations` -
+  (Output)
+  Per service utilization breakdown. The Key is the Google Cloud managed service name.
+
+<a name="nested_resource_status_reservation_maintenance"></a>The `reservation_maintenance` block contains:
+
+* `upcoming_group_maintenance` -
+  (Output)
+  Maintenance information on this group of VMs.
+  Structure is [documented below](#nested_resource_status_reservation_maintenance_upcoming_group_maintenance).
+
+* `maintenance_ongoing_count` -
+  (Output)
+  Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have ongoing maintenance.
+
+* `maintenance_pending_count` -
+  (Output)
+  Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have pending maintenance.
+
+* `scheduling_type` -
+  (Output)
+  The type of maintenance for the reservation.
+
+* `subblock_infra_maintenance_ongoing_count` -
+  (Output)
+  Describes number of subblock Infrastructure that has ongoing maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family(e.g. NVLink Domains). Not all VM Families will support this field.
+
+* `subblock_infra_maintenance_pending_count` -
+  (Output)
+  Describes number of subblock Infrastructure that has pending maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family (e.g. NVLink Domains). Not all VM Families will support this field.
+
+* `instance_maintenance_ongoing_count` -
+  (Output)
+  Describes number of instances that have ongoing maintenance.
+
+* `instance_maintenance_pending_count` -
+  (Output)
+  Describes number of instances that have pending maintenance.
+
+
+<a name="nested_resource_status_reservation_maintenance_upcoming_group_maintenance"></a>The `upcoming_group_maintenance` block contains:
+
+* `type` -
+  (Output)
+  Defines the type of maintenance.
+
+* `can_reschedule` -
+  (Output)
+  Indicates if the maintenance can be customer triggered.
+
+* `window_start_time` -
+  (Output)
+  The current start time of the maintenance window. This timestamp value is in RFC3339 text format.
+
+* `window_end_time` -
+  (Output)
+  The time by which the maintenance disruption will be completed. This timestamp value is in RFC3339 text format.
+
+* `latest_window_start_time` -
+  (Output)
+  The latest time for the planned maintenance window to start. This timestamp value is in RFC3339 text format.
+
+* `maintenance_status` -
+  (Output)
+  Status of the maintenance.
+
+* `maintenance_on_shutdown` -
+  (Output)
+  Indicates whether the UpcomingMaintenance will be triggered on VM shutdown.
+
+* `maintenance_reasons` -
+  (Output)
+  The reasons for the maintenance. Only valid for vms.
+
+<a name="nested_resource_status_health_info"></a>The `health_info` block contains:
+
+* `health_status` -
+  (Output)
+  The health status of the reservation.
+
+* `healthy_block_count` -
+  (Output)
+  The number of reservation blocks that are healthy.
+
+* `degraded_block_count` -
+  (Output)
+  The number of reservation blocks that are degraded.
 
 ## Timeouts
 
@@ -232,6 +569,18 @@ Reservation can be imported using any of these accepted formats:
 * `{{zone}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Reservation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    zone = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_reservation.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Reservation using one of the formats above. For example:
 

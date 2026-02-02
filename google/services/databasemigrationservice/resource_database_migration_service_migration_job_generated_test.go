@@ -19,15 +19,35 @@ package databasemigrationservice_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccDatabaseMigrationServiceMigrationJob_databaseMigrationServiceMigrationJobMysqlToMysqlExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccDatabaseMigrationServiceMigrationJob_databaseMigrationServiceMigrati
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "migration_job_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_database_migration_service_migration_job.mysqltomysql",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -186,6 +212,12 @@ func TestAccDatabaseMigrationServiceMigrationJob_databaseMigrationServiceMigrati
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "migration_job_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_database_migration_service_migration_job.psqltopsql",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -306,6 +338,12 @@ func TestAccDatabaseMigrationServiceMigrationJob_databaseMigrationServiceMigrati
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "migration_job_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_database_migration_service_migration_job.psqltoalloydb",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -376,6 +414,8 @@ resource "google_alloydb_cluster" "destination_alloydb" {
     user     = "tf-test-destination-alloydb%{random_suffix}"
     password = "tf-test-destination-alloydb%{random_suffix}"
   }
+
+  deletion_protection = false
 }
 
 resource "google_alloydb_instance" "destination_alloydb_primary" {

@@ -106,15 +106,13 @@ The following arguments are supported:
   The name of the instance group.
 
 
-- - -
-
-
 * `zone` -
   (Optional)
   The zone of the instance group.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -142,6 +140,20 @@ InstanceGroupNamedPort can be imported using any of these accepted formats:
 * `{{zone}}/{{group}}/{{port}}/{{name}}`
 * `{{group}}/{{port}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InstanceGroupNamedPort using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    port = "<-required value->"
+    group = "<-required value->"
+    zone = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_instance_group_named_port.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InstanceGroupNamedPort using one of the formats above. For example:
 

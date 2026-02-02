@@ -63,7 +63,8 @@ resource "google_service_networking_connection" "private_service_connection" {
 resource "google_memcache_instance" "instance" {
   name = "test-instance"
   authorized_network = google_service_networking_connection.private_service_connection.network
-
+  deletion_protection = false
+  
   labels = {
     env = "test"
   }
@@ -107,19 +108,6 @@ The following arguments are supported:
   (Required)
   Configuration for memcache nodes.
   Structure is [documented below](#nested_node_config).
-
-
-<a name="nested_node_config"></a>The `node_config` block supports:
-
-* `cpu_count` -
-  (Required)
-  Number of CPUs per node.
-
-* `memory_size_mb` -
-  (Required)
-  Memory size in Mebibytes for each memcache node.
-
-- - -
 
 
 * `display_name` -
@@ -174,6 +162,24 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+* `deletion_protection` - (Optional) Whether Terraform will be prevented from destroying the instance.
+When a `terraform destroy` or `terraform apply` would delete the instance,
+the command will fail if this field is not set to false in Terraform state.
+When the field is set to true or unset in Terraform state, a `terraform apply`
+or `terraform destroy` that would delete the instance will fail.
+When the field is set to false, deleting the instance is allowed.
+
+
+
+<a name="nested_node_config"></a>The `node_config` block supports:
+
+* `cpu_count` -
+  (Required)
+  Number of CPUs per node.
+
+* `memory_size_mb` -
+  (Required)
+  Memory size in Mebibytes for each memcache node.
 
 <a name="nested_memcache_parameters"></a>The `memcache_parameters` block supports:
 
@@ -237,10 +243,10 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Required. Start time of the window in UTC time.
-  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time).
+  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_start_time).
 
 
-<a name="nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_policy_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -353,6 +359,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_memcache_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

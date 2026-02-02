@@ -35,6 +35,9 @@ To get more information about VpnTunnel, see:
 values will be stored in the raw state as plain text: `shared_secret`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
+~> **Note:**  All arguments marked as write-only values will not be stored in the state: `shared_secret_wo`.
+[Read more about Write-only Arguments](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
+
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=vpn_tunnel_basic&open_in_editor=main.tf" target="_blank">
     <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
@@ -50,6 +53,92 @@ resource "google_compute_vpn_tunnel" "tunnel1" {
   shared_secret = "a secret message"
 
   target_vpn_gateway = google_compute_vpn_gateway.target_gateway.id
+
+  depends_on = [
+    google_compute_forwarding_rule.fr_esp,
+    google_compute_forwarding_rule.fr_udp500,
+    google_compute_forwarding_rule.fr_udp4500,
+  ]
+
+  labels = {
+    foo = "bar"
+  }
+}
+
+resource "google_compute_vpn_gateway" "target_gateway" {
+  name    = "vpn-1"
+  network = google_compute_network.network1.id
+}
+
+resource "google_compute_network" "network1" {
+  name = "network-1"
+}
+
+resource "google_compute_address" "vpn_static_ip" {
+  name = "vpn-static-ip"
+}
+
+resource "google_compute_forwarding_rule" "fr_esp" {
+  name        = "fr-esp"
+  ip_protocol = "ESP"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.target_gateway.id
+}
+
+resource "google_compute_forwarding_rule" "fr_udp500" {
+  name        = "fr-udp500"
+  ip_protocol = "UDP"
+  port_range  = "500"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.target_gateway.id
+}
+
+resource "google_compute_forwarding_rule" "fr_udp4500" {
+  name        = "fr-udp4500"
+  ip_protocol = "UDP"
+  port_range  = "4500"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.target_gateway.id
+}
+
+resource "google_compute_route" "route1" {
+  name       = "route1"
+  network    = google_compute_network.network1.name
+  dest_range = "15.0.0.0/24"
+  priority   = 1000
+
+  next_hop_vpn_tunnel = google_compute_vpn_tunnel.tunnel1.id
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=vpn_tunnel_cipher_suite&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Vpn Tunnel Cipher Suite
+
+
+```hcl
+resource "google_compute_vpn_tunnel" "tunnel1" {
+  name          = "tunnel-cipher"
+  peer_ip       = "15.0.0.120"
+  shared_secret = "a secret message"
+
+  target_vpn_gateway = google_compute_vpn_gateway.target_gateway.id
+
+  cipher_suite {
+    phase1 {
+      encryption = ["AES-CBC-256"]
+      integrity  = ["HMAC-SHA2-256-128"]
+      prf        = ["PRF-HMAC-SHA2-256"]
+      dh         = ["Group-14"]
+    }
+    phase2 {
+      encryption = ["AES-CBC-128"]
+      integrity  = ["HMAC-SHA2-256-128"]
+      pfs        = ["Group-14"]
+    }
+  }
 
   depends_on = [
     google_compute_forwarding_rule.fr_esp,
@@ -123,15 +212,6 @@ The following arguments are supported:
   be a dash, lowercase letter, or digit,
   except the last character, which cannot be a dash.
 
-* `shared_secret` -
-  (Required)
-  Shared secret used to set the secure session between the Cloud VPN
-  gateway and the peer VPN gateway.
-  **Note**: This property is sensitive and will not be displayed in the plan.
-
-
-- - -
-
 
 * `description` -
   (Optional)
@@ -175,6 +255,12 @@ The following arguments are supported:
   (Optional)
   IP address of the peer VPN gateway. Only IPv4 is supported.
 
+* `shared_secret` -
+  (Optional)
+  Shared secret used to set the secure session between the Cloud VPN
+  gateway and the peer VPN gateway.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
 * `ike_version` -
   (Optional)
   IKE protocol version to use when establishing the VPN tunnel with
@@ -201,6 +287,23 @@ The following arguments are supported:
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
 
+* `cipher_suite` -
+  (Optional)
+  User specified list of ciphers to use for the phase 1 and phase 2 of the IKE protocol.
+  Structure is [documented below](#nested_cipher_suite).
+
+* `shared_secret_wo` -
+  (Optional, Write-Only)
+  Shared secret used to set the secure session between the Cloud VPN
+  gateway and the peer VPN gateway.
+  **Note**: This property is write-only and will not be read from the API.
+
+  ~> **Note:** One of `shared_secret` or `shared_secret_wo` can only be set.
+
+* `shared_secret_wo_version` -
+  (Optional)
+  Triggers update of `shared_secret_wo` write-only. Increment this value when an update to `shared_secret_wo` is needed. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+
 * `region` -
   (Optional)
   The region where the tunnel is located. If unset, is set to the region of `target_vpn_gateway`.
@@ -208,6 +311,52 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_cipher_suite"></a>The `cipher_suite` block supports:
+
+* `phase1` -
+  (Optional)
+  Cipher configuration for phase 1 of the IKE protocol.
+  Structure is [documented below](#nested_cipher_suite_phase1).
+
+* `phase2` -
+  (Optional)
+  Cipher configuration for phase 2 of the IKE protocol.
+  Structure is [documented below](#nested_cipher_suite_phase2).
+
+
+<a name="nested_cipher_suite_phase1"></a>The `phase1` block supports:
+
+* `encryption` -
+  (Optional)
+  Encryption algorithms.
+
+* `integrity` -
+  (Optional)
+  Integrity algorithms.
+
+* `prf` -
+  (Optional)
+  Pseudo-random functions.
+
+* `dh` -
+  (Optional)
+  Diffie-Hellman groups.
+
+<a name="nested_cipher_suite_phase2"></a>The `phase2` block supports:
+
+* `encryption` -
+  (Optional)
+  Encryption algorithms.
+
+* `integrity` -
+  (Optional)
+  Integrity algorithms.
+
+* `pfs` -
+  (Optional)
+  Perfect forward secrecy groups.
 
 ## Attributes Reference
 
@@ -259,6 +408,18 @@ VpnTunnel can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import VpnTunnel using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_vpn_tunnel.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import VpnTunnel using one of the formats above. For example:
 

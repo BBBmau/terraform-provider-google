@@ -19,15 +19,35 @@ package oracledatabase_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccOracleDatabaseCloudExadataInfrastructure_oracledatabaseCloudExadataInfrastructureBasicExample(t *testing.T) {
@@ -36,7 +56,7 @@ func TestAccOracleDatabaseCloudExadataInfrastructure_oracledatabaseCloudExadataI
 	context := map[string]interface{}{
 		"cloud_exadata_infrastructure_id": fmt.Sprintf("ofake-tf-test-exadata-basic-%s", acctest.RandString(t, 10)),
 		"deletion_protection":             false,
-		"project":                         "oci-terraform-testing",
+		"project":                         "oci-terraform-testing-prod",
 		"random_suffix":                   acctest.RandString(t, 10),
 	}
 
@@ -53,6 +73,12 @@ func TestAccOracleDatabaseCloudExadataInfrastructure_oracledatabaseCloudExadataI
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"cloud_exadata_infrastructure_id", "deletion_protection", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_oracle_database_cloud_exadata_infrastructure.my-cloud-exadata",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -82,7 +108,7 @@ func TestAccOracleDatabaseCloudExadataInfrastructure_oracledatabaseCloudExadataI
 	context := map[string]interface{}{
 		"cloud_exadata_infrastructure_id": fmt.Sprintf("ofake-tf-test-exadata-full-%s", acctest.RandString(t, 10)),
 		"deletion_protection":             false,
-		"project":                         "oci-terraform-testing",
+		"project":                         "oci-terraform-testing-prod",
 		"random_suffix":                   acctest.RandString(t, 10),
 	}
 
@@ -99,6 +125,12 @@ func TestAccOracleDatabaseCloudExadataInfrastructure_oracledatabaseCloudExadataI
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"cloud_exadata_infrastructure_id", "deletion_protection", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_oracle_database_cloud_exadata_infrastructure.my-cloud-exadata",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

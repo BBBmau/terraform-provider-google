@@ -52,6 +52,8 @@ resource "google_database_migration_service_private_connection" "default" {
 		vpc_name = resource.google_compute_network.default.id
 		subnet = "10.0.0.0/29"
 	}
+
+	create_without_validation = false
 }
 
 resource "google_compute_network" "default" {
@@ -80,20 +82,6 @@ The following arguments are supported:
   The name of the location this private connection is located in.
 
 
-<a name="nested_vpc_peering_config"></a>The `vpc_peering_config` block supports:
-
-* `vpc_name` -
-  (Required)
-  Fully qualified name of the VPC that Database Migration Service will peer to.
-  Format: projects/{project}/global/{networks}/{name}
-
-* `subnet` -
-  (Required)
-  A free subnet for peering. (CIDR of /29)
-
-- - -
-
-
 * `labels` -
   (Optional)
   Labels.
@@ -104,9 +92,25 @@ The following arguments are supported:
   (Optional)
   Display name.
 
+* `create_without_validation` -
+  (Optional)
+  If set to true, will skip validations.
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_vpc_peering_config"></a>The `vpc_peering_config` block supports:
+
+* `vpc_name` -
+  (Required)
+  Fully qualified name of the VPC that Database Migration Service will peer to.
+  Format: projects/{project}/global/{networks}/{name}
+
+* `subnet` -
+  (Required)
+  A free subnet for peering. (CIDR of /29)
 
 ## Attributes Reference
 
@@ -160,6 +164,18 @@ PrivateConnection can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{private_connection_id}}`
 * `{{location}}/{{private_connection_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PrivateConnection using identity values. For example:
+
+```tf
+import {
+  identity = {
+    privateConnectionId = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_database_migration_service_private_connection.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PrivateConnection using one of the formats above. For example:
 

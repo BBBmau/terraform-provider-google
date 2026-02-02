@@ -111,6 +111,9 @@ resource "google_compute_packet_mirroring" "foobar" {
     instances {
       url = google_compute_instance.mirror.id
     }
+    subnetworks {
+      url = google_compute_subnetwork.default.id
+      }
   }
   filter {
     ip_protocols = ["tcp"]
@@ -148,6 +151,31 @@ The following arguments are supported:
   (Required)
   A means of specifying which resources to mirror.
   Structure is [documented below](#nested_mirrored_resources).
+
+
+* `description` -
+  (Optional)
+  A human-readable description of the rule.
+
+* `region` -
+  (Optional)
+  The Region in which the created address should reside.
+  If it is not provided, the provider region is used.
+
+* `priority` -
+  (Optional)
+  Since only one rule can be active at a time, priority is
+  used to break ties in the case of two rules that apply to
+  the same instances.
+
+* `filter` -
+  (Optional)
+  A filter for mirrored traffic.  If unset, all traffic is mirrored.
+  Structure is [documented below](#nested_filter).
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_network"></a>The `network` block supports:
@@ -190,33 +218,6 @@ The following arguments are supported:
 * `url` -
   (Required)
   The URL of the instances where this rule should be active.
-
-- - -
-
-
-* `description` -
-  (Optional)
-  A human-readable description of the rule.
-
-* `region` -
-  (Optional)
-  The Region in which the created address should reside.
-  If it is not provided, the provider region is used.
-
-* `priority` -
-  (Optional)
-  Since only one rule can be active at a time, priority is
-  used to break ties in the case of two rules that apply to
-  the same instances.
-
-* `filter` -
-  (Optional)
-  A filter for mirrored traffic.  If unset, all traffic is mirrored.
-  Structure is [documented below](#nested_filter).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 <a name="nested_filter"></a>The `filter` block supports:
 
@@ -261,6 +262,18 @@ PacketMirroring can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PacketMirroring using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_packet_mirroring.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PacketMirroring using one of the formats above. For example:
 

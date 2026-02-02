@@ -91,9 +91,6 @@ The following arguments are supported:
   User provided name of this Tensorboard.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Description of this Tensorboard.
@@ -116,6 +113,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_encryption_spec"></a>The `encryption_spec` block supports:
@@ -173,6 +171,18 @@ Tensorboard can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Tensorboard using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_tensorboard.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Tensorboard using one of the formats above. For example:
 

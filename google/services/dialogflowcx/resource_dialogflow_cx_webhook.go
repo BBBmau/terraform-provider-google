@@ -20,18 +20,70 @@
 package dialogflowcx
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceDialogflowCXWebhook() *schema.Resource {
@@ -51,6 +103,22 @@ func ResourceDialogflowCXWebhook() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"parent": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -65,39 +133,180 @@ func ResourceDialogflowCXWebhook() *schema.Resource {
 			"enable_spell_correction": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: `Indicates if automatic spell correction is enabled in detect intent requests.`,
+				Description: `Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.`,
 			},
 			"enable_stackdriver_logging": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: `Determines whether this agent should log conversation queries.`,
+				Description: `Deprecated. Determines whether this agent should log conversation queries.`,
 			},
 			"generic_web_service": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: `Configuration for a generic web service.`,
+				Description: `Represents configuration for a generic web service.`,
 				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"uri": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: `Whether to use speech adaptation for speech recognition.`,
+							Description: `The webhook URI for receiving POST requests. It must use https protocol.`,
 						},
 						"allowed_ca_certs": {
-							Type:        schema.TypeList,
-							Optional:    true,
-							Description: `Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification.`,
+							Type:     schema.TypeList,
+							Optional: true,
+							Description: `Specifies a list of allowed custom CA certificates (in DER format) for
+HTTPS verification. This overrides the default SSL trust store. If this
+is empty or unspecified, Dialogflow will use Google's default trust store
+to verify certificates.
+N.B. Make sure the HTTPS server certificates are signed with "subject alt
+name". For instance a certificate can be self-signed using the following
+command,
+openssl x509 -req -days 200 -in example.com.csr \
+-signkey example.com.key \
+-out example.com.crt \
+-extfile <(printf "\nsubjectAltName='DNS:www.example.com'")`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
 						},
+						"http_method": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS", ""}),
+							Description: `HTTP method for the flexible webhook calls. Standard webhook always uses
+POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"]`,
+						},
+						"oauth_config": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Description: `Represents configuration of OAuth client credential flow for 3rd party
+API authentication.`,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"client_id": {
+										Type:        schema.TypeString,
+										Required:    true,
+										Description: `The client ID provided by the 3rd party platform.`,
+									},
+									"token_endpoint": {
+										Type:     schema.TypeString,
+										Required: true,
+										Description: `The token endpoint provided by the 3rd party platform to exchange an
+access token.`,
+									},
+									"client_secret": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Description: `The client secret provided by the 3rd party platform.  If the
+'secret_version_for_client_secret' field is set, this field will be
+ignored.`,
+									},
+									"scopes": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										Description: `The OAuth scopes to grant.`,
+										Elem: &schema.Schema{
+											Type: schema.TypeString,
+										},
+									},
+									"secret_version_for_client_secret": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Description: `The name of the SecretManager secret version resource storing the
+client secret. If this field is set, the 'client_secret' field will be
+ignored.
+Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+									},
+								},
+							},
+						},
+						"parameter_mapping": {
+							Type:     schema.TypeMap,
+							Optional: true,
+							Description: `Maps the values extracted from specific fields of the flexible webhook
+response into session parameters.
+- Key: session parameter name
+- Value: field path in the webhook response`,
+							Elem: &schema.Schema{Type: schema.TypeString},
+						},
+						"request_body": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `Defines a custom JSON object as request body to send to flexible webhook.`,
+						},
 						"request_headers": {
 							Type:        schema.TypeMap,
 							Optional:    true,
-							ForceNew:    true,
 							Description: `The HTTP request headers to send together with webhook requests.`,
 							Elem:        &schema.Schema{Type: schema.TypeString},
+						},
+						"secret_version_for_username_password": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Description: `The SecretManager secret version resource storing the username:password
+pair for HTTP Basic authentication.
+Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+						},
+						"secret_versions_for_request_headers": {
+							Type:     schema.TypeSet,
+							Optional: true,
+							Description: `The HTTP request headers to send together with webhook requests. Header
+values are stored in SecretManager secret versions.
+
+When the same header name is specified in both 'request_headers' and
+'secret_versions_for_request_headers', the value in
+'secret_versions_for_request_headers' will be used.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"key": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"secret_version": {
+										Type:     schema.TypeString,
+										Required: true,
+										Description: `The SecretManager secret version resource storing the header value.
+Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+									},
+								},
+							},
+						},
+						"service_account_auth_config": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `Configuration for authentication using a service account.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"service_account": {
+										Type:     schema.TypeString,
+										Required: true,
+										Description: `The email address of the service account used to authenticate the webhook call.
+Dialogflow uses this service account to exchange an access token and the access
+token is then sent in the **Authorization** header of the webhook request.
+
+The service account must have the **roles/iam.serviceAccountTokenCreator** role
+granted to the
+[Dialogflow service agent](https://cloud.google.com/iam/docs/service-agents?_gl=1*1jsujvh*_ga*NjYxMzU3OTg2LjE3Njc3MzQ4NjM.*_ga_WH2QY8WWF5*czE3Njc3MzQ2MjgkbzIkZzEkdDE3Njc3MzQ3NzQkajYwJGwwJGgw#dialogflow-service-agent).`,
+									},
+								},
+							},
+						},
+						"service_agent_auth": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"NONE", "ID_TOKEN", "ACCESS_TOKEN", ""}),
+							Description: `Indicate the auth token type generated from the [Diglogflow service
+agent](https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent).
+The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]`,
+						},
+						"webhook_type": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"STANDARD", "FLEXIBLE", ""}),
+							Description:  `Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]`,
 						},
 					},
 				},
@@ -112,7 +321,7 @@ Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.`,
 			"security_settings": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: `Name of the SecuritySettings reference for the agent. Format: projects/<Project ID>/locations/<Location ID>/securitySettings/<Security Settings ID>.`,
+				Description: `Deprecated. Name of the SecuritySettings reference for the agent. Format: projects/<Project ID>/locations/<Location ID>/securitySettings/<Security Settings ID>.`,
 			},
 			"service_directory": {
 				Type:        schema.TypeList,
@@ -121,40 +330,181 @@ Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>.`,
 				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"generic_web_service": {
-							Type:        schema.TypeList,
+						"service": {
+							Type:        schema.TypeString,
 							Required:    true,
 							Description: `The name of Service Directory service.`,
+						},
+						"generic_web_service": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `Represents configuration for a generic web service.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"uri": {
 										Type:        schema.TypeString,
 										Required:    true,
-										Description: `Whether to use speech adaptation for speech recognition.`,
+										Description: `The webhook URI for receiving POST requests. It must use https protocol.`,
 									},
 									"allowed_ca_certs": {
-										Type:        schema.TypeList,
-										Optional:    true,
-										Description: `Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification.`,
+										Type:     schema.TypeList,
+										Optional: true,
+										Description: `Specifies a list of allowed custom CA certificates (in DER format) for
+HTTPS verification. This overrides the default SSL trust store. If this
+is empty or unspecified, Dialogflow will use Google's default trust store
+to verify certificates.
+N.B. Make sure the HTTPS server certificates are signed with "subject alt
+name". For instance a certificate can be self-signed using the following
+command,
+openssl x509 -req -days 200 -in example.com.csr \
+-signkey example.com.key \
+-out example.com.crt \
+-extfile <(printf "\nsubjectAltName='DNS:www.example.com'")`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
 									},
+									"http_method": {
+										Type:         schema.TypeString,
+										Optional:     true,
+										ValidateFunc: verify.ValidateEnum([]string{"POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS", ""}),
+										Description: `HTTP method for the flexible webhook calls. Standard webhook always uses
+POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"]`,
+									},
+									"oauth_config": {
+										Type:     schema.TypeList,
+										Optional: true,
+										Description: `Represents configuration of OAuth client credential flow for 3rd party
+API authentication.`,
+										MaxItems: 1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"client_id": {
+													Type:        schema.TypeString,
+													Required:    true,
+													Description: `The client ID provided by the 3rd party platform.`,
+												},
+												"token_endpoint": {
+													Type:     schema.TypeString,
+													Required: true,
+													Description: `The token endpoint provided by the 3rd party platform to exchange an
+access token.`,
+												},
+												"client_secret": {
+													Type:     schema.TypeString,
+													Optional: true,
+													Description: `The client secret provided by the 3rd party platform.  If the
+'secret_version_for_client_secret' field is set, this field will be
+ignored.`,
+												},
+												"scopes": {
+													Type:        schema.TypeList,
+													Optional:    true,
+													Description: `The OAuth scopes to grant.`,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+													},
+												},
+												"secret_version_for_client_secret": {
+													Type:     schema.TypeString,
+													Optional: true,
+													Description: `The name of the SecretManager secret version resource storing the
+client secret. If this field is set, the 'client_secret' field will be
+ignored.
+Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+												},
+											},
+										},
+									},
+									"parameter_mapping": {
+										Type:     schema.TypeMap,
+										Optional: true,
+										Description: `Maps the values extracted from specific fields of the flexible webhook
+response into session parameters.
+- Key: session parameter name
+- Value: field path in the webhook response`,
+										Elem: &schema.Schema{Type: schema.TypeString},
+									},
+									"request_body": {
+										Type:        schema.TypeString,
+										Optional:    true,
+										Description: `Defines a custom JSON object as request body to send to flexible webhook.`,
+									},
 									"request_headers": {
 										Type:        schema.TypeMap,
 										Optional:    true,
-										ForceNew:    true,
 										Description: `The HTTP request headers to send together with webhook requests.`,
 										Elem:        &schema.Schema{Type: schema.TypeString},
 									},
+									"secret_version_for_username_password": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Description: `The SecretManager secret version resource storing the username:password
+pair for HTTP Basic authentication.
+Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+									},
+									"secret_versions_for_request_headers": {
+										Type:     schema.TypeSet,
+										Optional: true,
+										Description: `The HTTP request headers to send together with webhook requests. Header
+values are stored in SecretManager secret versions.
+
+When the same header name is specified in both 'request_headers' and
+'secret_versions_for_request_headers', the value in
+'secret_versions_for_request_headers' will be used.`,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"key": {
+													Type:     schema.TypeString,
+													Required: true,
+												},
+												"secret_version": {
+													Type:     schema.TypeString,
+													Required: true,
+													Description: `The SecretManager secret version resource storing the header value.
+Format: 'projects/{project}/secrets/{secret}/versions/{version}'`,
+												},
+											},
+										},
+									},
+									"service_account_auth_config": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										Description: `Configuration for authentication using a service account.`,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"service_account": {
+													Type:     schema.TypeString,
+													Required: true,
+													Description: `The email address of the service account used to authenticate the webhook call.
+Dialogflow uses this service account to exchange an access token and the access
+token is then sent in the **Authorization** header of the webhook request.
+
+The service account must have the **roles/iam.serviceAccountTokenCreator** role
+granted to the
+[Dialogflow service agent](https://cloud.google.com/iam/docs/service-agents?_gl=1*1jsujvh*_ga*NjYxMzU3OTg2LjE3Njc3MzQ4NjM.*_ga_WH2QY8WWF5*czE3Njc3MzQ2MjgkbzIkZzEkdDE3Njc3MzQ3NzQkajYwJGwwJGgw#dialogflow-service-agent).`,
+												},
+											},
+										},
+									},
+									"service_agent_auth": {
+										Type:         schema.TypeString,
+										Optional:     true,
+										ValidateFunc: verify.ValidateEnum([]string{"NONE", "ID_TOKEN", "ACCESS_TOKEN", ""}),
+										Description: `Indicate the auth token type generated from the [Diglogflow service
+agent](https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent).
+The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]`,
+									},
+									"webhook_type": {
+										Type:         schema.TypeString,
+										Optional:     true,
+										ValidateFunc: verify.ValidateEnum([]string{"STANDARD", "FLEXIBLE", ""}),
+										Description:  `Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]`,
+									},
 								},
 							},
-						},
-						"service": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: `The name of Service Directory service.`,
 						},
 					},
 				},
@@ -173,7 +523,7 @@ Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/webhooks
 			"start_flow": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: `Name of the start flow in this agent. A start flow will be automatically created when the agent is created, and can only be deleted by deleting the agent. Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/flows/<Flow ID>.`,
+				Description: `Deprecated. Name of the start flow in this agent. A start flow will be automatically created when the agent is created, and can only be deleted by deleting the agent. Format: projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/flows/<Flow ID>.`,
 			},
 		},
 		UseJSONNumber: true,
@@ -264,7 +614,13 @@ func resourceDialogflowCXWebhookCreate(d *schema.ResourceData, meta interface{})
 		)
 	}
 
-	url = strings.Replace(url, "-dialogflow", fmt.Sprintf("%s-dialogflow", location), 1)
+	// only insert location into url if the base_url in products/dialogflowcx/product.yaml is used
+	if strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3beta1/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3beta1/") {
+		url = strings.Replace(url, "https://-dialogflow", fmt.Sprintf("https://%s-dialogflow", location), 1)
+	}
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "POST",
@@ -291,6 +647,22 @@ func resourceDialogflowCXWebhookCreate(d *schema.ResourceData, meta interface{})
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {
+			if err = identity.Set("parent", parentValue.(string)); err != nil {
+				return fmt.Errorf("Error setting parent: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	log.Printf("[DEBUG] Finished creating Webhook %q: %#v", d.Id(), res)
 
@@ -330,7 +702,13 @@ func resourceDialogflowCXWebhookRead(d *schema.ResourceData, meta interface{}) e
 		)
 	}
 
-	url = strings.Replace(url, "-dialogflow", fmt.Sprintf("%s-dialogflow", location), 1)
+	// only insert location into url if the base_url in products/dialogflowcx/product.yaml is used
+	if strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3beta1/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3beta1/") {
+		url = strings.Replace(url, "https://-dialogflow", fmt.Sprintf("https://%s-dialogflow", location), 1)
+	}
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "GET",
@@ -374,6 +752,24 @@ func resourceDialogflowCXWebhookRead(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error reading Webhook: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("parent"); !ok && v == "" {
+			err = identity.Set("parent", d.Get("parent").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting parent: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -382,6 +778,21 @@ func resourceDialogflowCXWebhookUpdate(d *schema.ResourceData, meta interface{})
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {
+			if err = identity.Set("parent", parentValue.(string)); err != nil {
+				return fmt.Errorf("Error setting parent: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -495,7 +906,13 @@ func resourceDialogflowCXWebhookUpdate(d *schema.ResourceData, meta interface{})
 		)
 	}
 
-	url = strings.Replace(url, "-dialogflow", fmt.Sprintf("%s-dialogflow", location), 1)
+	// only insert location into url if the base_url in products/dialogflowcx/product.yaml is used
+	if strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3beta1/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3beta1/") {
+		url = strings.Replace(url, "https://-dialogflow", fmt.Sprintf("https://%s-dialogflow", location), 1)
+	}
 
 	// err == nil indicates that the billing_project value was found
 	if bp, err := tpgresource.GetBillingProject(d, config); err == nil {
@@ -561,7 +978,13 @@ func resourceDialogflowCXWebhookDelete(d *schema.ResourceData, meta interface{})
 		)
 	}
 
-	url = strings.Replace(url, "-dialogflow", fmt.Sprintf("%s-dialogflow", location), 1)
+	// only insert location into url if the base_url in products/dialogflowcx/product.yaml is used
+	if strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3/") ||
+		strings.HasPrefix(url, "https://-dialogflow.googleapis.com/v3beta1/") ||
+		strings.HasPrefix(url, "https://-dialogflow."+config.UniverseDomain+"/v3beta1/") {
+		url = strings.Replace(url, "https://-dialogflow", fmt.Sprintf("https://%s-dialogflow", location), 1)
+	}
 
 	log.Printf("[DEBUG] Deleting Webhook %q", d.Id())
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
@@ -607,7 +1030,7 @@ func flattenDialogflowCXWebhookName(v interface{}, d *schema.ResourceData, confi
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func flattenDialogflowCXWebhookDisplayName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -631,15 +1054,86 @@ func flattenDialogflowCXWebhookGenericWebService(v interface{}, d *schema.Resour
 		return nil
 	}
 	transformed := make(map[string]interface{})
-	transformed["uri"] =
-		flattenDialogflowCXWebhookGenericWebServiceUri(original["uri"], d, config)
-	transformed["request_headers"] =
-		flattenDialogflowCXWebhookGenericWebServiceRequestHeaders(original["requestHeaders"], d, config)
 	transformed["allowed_ca_certs"] =
 		flattenDialogflowCXWebhookGenericWebServiceAllowedCaCerts(original["allowedCaCerts"], d, config)
+	transformed["http_method"] =
+		flattenDialogflowCXWebhookGenericWebServiceHttpMethod(original["httpMethod"], d, config)
+	transformed["oauth_config"] =
+		flattenDialogflowCXWebhookGenericWebServiceOauthConfig(original["oauthConfig"], d, config)
+	transformed["parameter_mapping"] =
+		flattenDialogflowCXWebhookGenericWebServiceParameterMapping(original["parameterMapping"], d, config)
+	transformed["request_body"] =
+		flattenDialogflowCXWebhookGenericWebServiceRequestBody(original["requestBody"], d, config)
+	transformed["request_headers"] =
+		flattenDialogflowCXWebhookGenericWebServiceRequestHeaders(original["requestHeaders"], d, config)
+	transformed["secret_version_for_username_password"] =
+		flattenDialogflowCXWebhookGenericWebServiceSecretVersionForUsernamePassword(original["secretVersionForUsernamePassword"], d, config)
+	transformed["secret_versions_for_request_headers"] =
+		flattenDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeaders(original["secretVersionsForRequestHeaders"], d, config)
+	transformed["service_agent_auth"] =
+		flattenDialogflowCXWebhookGenericWebServiceServiceAgentAuth(original["serviceAgentAuth"], d, config)
+	transformed["service_account_auth_config"] =
+		flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(original["serviceAccountAuthConfig"], d, config)
+	transformed["uri"] =
+		flattenDialogflowCXWebhookGenericWebServiceUri(original["uri"], d, config)
+	transformed["webhook_type"] =
+		flattenDialogflowCXWebhookGenericWebServiceWebhookType(original["webhookType"], d, config)
 	return []interface{}{transformed}
 }
-func flattenDialogflowCXWebhookGenericWebServiceUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenDialogflowCXWebhookGenericWebServiceAllowedCaCerts(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceHttpMethod(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceOauthConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["client_id"] =
+		flattenDialogflowCXWebhookGenericWebServiceOauthConfigClientId(original["clientId"], d, config)
+	transformed["client_secret"] =
+		flattenDialogflowCXWebhookGenericWebServiceOauthConfigClientSecret(original["clientSecret"], d, config)
+	transformed["scopes"] =
+		flattenDialogflowCXWebhookGenericWebServiceOauthConfigScopes(original["scopes"], d, config)
+	transformed["secret_version_for_client_secret"] =
+		flattenDialogflowCXWebhookGenericWebServiceOauthConfigSecretVersionForClientSecret(original["secretVersionForClientSecret"], d, config)
+	transformed["token_endpoint"] =
+		flattenDialogflowCXWebhookGenericWebServiceOauthConfigTokenEndpoint(original["tokenEndpoint"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDialogflowCXWebhookGenericWebServiceOauthConfigClientId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceOauthConfigClientSecret(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return d.Get("generic_web_service.0.oauth_config.0.client_secret")
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceOauthConfigScopes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceOauthConfigSecretVersionForClientSecret(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceOauthConfigTokenEndpoint(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceParameterMapping(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceRequestBody(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -647,7 +1141,55 @@ func flattenDialogflowCXWebhookGenericWebServiceRequestHeaders(v interface{}, d 
 	return v
 }
 
-func flattenDialogflowCXWebhookGenericWebServiceAllowedCaCerts(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenDialogflowCXWebhookGenericWebServiceSecretVersionForUsernamePassword(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeaders(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.(map[string]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for k, raw := range l {
+		original := raw.(map[string]interface{})
+		transformed = append(transformed, map[string]interface{}{
+			"key":            k,
+			"secret_version": flattenDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(original["secretVersion"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceServiceAgentAuth(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["service_account"] =
+		flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(original["serviceAccount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookGenericWebServiceWebhookType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -679,15 +1221,86 @@ func flattenDialogflowCXWebhookServiceDirectoryGenericWebService(v interface{}, 
 		return nil
 	}
 	transformed := make(map[string]interface{})
-	transformed["uri"] =
-		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(original["uri"], d, config)
-	transformed["request_headers"] =
-		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestHeaders(original["requestHeaders"], d, config)
 	transformed["allowed_ca_certs"] =
 		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(original["allowedCaCerts"], d, config)
+	transformed["http_method"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceHttpMethod(original["httpMethod"], d, config)
+	transformed["oauth_config"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfig(original["oauthConfig"], d, config)
+	transformed["parameter_mapping"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceParameterMapping(original["parameterMapping"], d, config)
+	transformed["request_body"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestBody(original["requestBody"], d, config)
+	transformed["request_headers"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestHeaders(original["requestHeaders"], d, config)
+	transformed["secret_version_for_username_password"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionForUsernamePassword(original["secretVersionForUsernamePassword"], d, config)
+	transformed["secret_versions_for_request_headers"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders(original["secretVersionsForRequestHeaders"], d, config)
+	transformed["service_agent_auth"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(original["serviceAgentAuth"], d, config)
+	transformed["service_account_auth_config"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(original["serviceAccountAuthConfig"], d, config)
+	transformed["uri"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(original["uri"], d, config)
+	transformed["webhook_type"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceWebhookType(original["webhookType"], d, config)
 	return []interface{}{transformed}
 }
-func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceHttpMethod(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["client_id"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientId(original["clientId"], d, config)
+	transformed["client_secret"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientSecret(original["clientSecret"], d, config)
+	transformed["scopes"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigScopes(original["scopes"], d, config)
+	transformed["secret_version_for_client_secret"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigSecretVersionForClientSecret(original["secretVersionForClientSecret"], d, config)
+	transformed["token_endpoint"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigTokenEndpoint(original["tokenEndpoint"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientSecret(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return d.Get("service_directory.0.generic_web_service.0.oauth_config.0.client_secret")
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigScopes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigSecretVersionForClientSecret(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigTokenEndpoint(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceParameterMapping(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestBody(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -695,7 +1308,55 @@ func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestHeaders(v
 	return v
 }
 
-func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionForUsernamePassword(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.(map[string]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for k, raw := range l {
+		original := raw.(map[string]interface{})
+		transformed = append(transformed, map[string]interface{}{
+			"key":            k,
+			"secret_version": flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(original["secretVersion"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["service_account"] =
+		flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(original["serviceAccount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDialogflowCXWebhookServiceDirectoryGenericWebServiceWebhookType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -728,6 +1389,9 @@ func expandDialogflowCXWebhookDisabled(v interface{}, d tpgresource.TerraformRes
 }
 
 func expandDialogflowCXWebhookGenericWebService(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -736,11 +1400,39 @@ func expandDialogflowCXWebhookGenericWebService(v interface{}, d tpgresource.Ter
 	original := raw.(map[string]interface{})
 	transformed := make(map[string]interface{})
 
-	transformedUri, err := expandDialogflowCXWebhookGenericWebServiceUri(original["uri"], d, config)
+	transformedAllowedCaCerts, err := expandDialogflowCXWebhookGenericWebServiceAllowedCaCerts(original["allowed_ca_certs"], d, config)
 	if err != nil {
 		return nil, err
-	} else if val := reflect.ValueOf(transformedUri); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-		transformed["uri"] = transformedUri
+	} else if val := reflect.ValueOf(transformedAllowedCaCerts); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["allowedCaCerts"] = transformedAllowedCaCerts
+	}
+
+	transformedHttpMethod, err := expandDialogflowCXWebhookGenericWebServiceHttpMethod(original["http_method"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedHttpMethod); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["httpMethod"] = transformedHttpMethod
+	}
+
+	transformedOauthConfig, err := expandDialogflowCXWebhookGenericWebServiceOauthConfig(original["oauth_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedOauthConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["oauthConfig"] = transformedOauthConfig
+	}
+
+	transformedParameterMapping, err := expandDialogflowCXWebhookGenericWebServiceParameterMapping(original["parameter_mapping"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedParameterMapping); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["parameterMapping"] = transformedParameterMapping
+	}
+
+	transformedRequestBody, err := expandDialogflowCXWebhookGenericWebServiceRequestBody(original["request_body"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedRequestBody); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["requestBody"] = transformedRequestBody
 	}
 
 	transformedRequestHeaders, err := expandDialogflowCXWebhookGenericWebServiceRequestHeaders(original["request_headers"], d, config)
@@ -750,17 +1442,141 @@ func expandDialogflowCXWebhookGenericWebService(v interface{}, d tpgresource.Ter
 		transformed["requestHeaders"] = transformedRequestHeaders
 	}
 
-	transformedAllowedCaCerts, err := expandDialogflowCXWebhookGenericWebServiceAllowedCaCerts(original["allowed_ca_certs"], d, config)
+	transformedSecretVersionForUsernamePassword, err := expandDialogflowCXWebhookGenericWebServiceSecretVersionForUsernamePassword(original["secret_version_for_username_password"], d, config)
 	if err != nil {
 		return nil, err
-	} else if val := reflect.ValueOf(transformedAllowedCaCerts); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-		transformed["allowedCaCerts"] = transformedAllowedCaCerts
+	} else if val := reflect.ValueOf(transformedSecretVersionForUsernamePassword); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretVersionForUsernamePassword"] = transformedSecretVersionForUsernamePassword
+	}
+
+	transformedSecretVersionsForRequestHeaders, err := expandDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeaders(original["secret_versions_for_request_headers"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretVersionsForRequestHeaders); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretVersionsForRequestHeaders"] = transformedSecretVersionsForRequestHeaders
+	}
+
+	transformedServiceAgentAuth, err := expandDialogflowCXWebhookGenericWebServiceServiceAgentAuth(original["service_agent_auth"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAgentAuth); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAgentAuth"] = transformedServiceAgentAuth
+	}
+
+	transformedServiceAccountAuthConfig, err := expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(original["service_account_auth_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccountAuthConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccountAuthConfig"] = transformedServiceAccountAuthConfig
+	}
+
+	transformedUri, err := expandDialogflowCXWebhookGenericWebServiceUri(original["uri"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedUri); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["uri"] = transformedUri
+	}
+
+	transformedWebhookType, err := expandDialogflowCXWebhookGenericWebServiceWebhookType(original["webhook_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedWebhookType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["webhookType"] = transformedWebhookType
 	}
 
 	return transformed, nil
 }
 
-func expandDialogflowCXWebhookGenericWebServiceUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandDialogflowCXWebhookGenericWebServiceAllowedCaCerts(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceHttpMethod(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceOauthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedClientId, err := expandDialogflowCXWebhookGenericWebServiceOauthConfigClientId(original["client_id"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedClientId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["clientId"] = transformedClientId
+	}
+
+	transformedClientSecret, err := expandDialogflowCXWebhookGenericWebServiceOauthConfigClientSecret(original["client_secret"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedClientSecret); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["clientSecret"] = transformedClientSecret
+	}
+
+	transformedScopes, err := expandDialogflowCXWebhookGenericWebServiceOauthConfigScopes(original["scopes"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedScopes); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["scopes"] = transformedScopes
+	}
+
+	transformedSecretVersionForClientSecret, err := expandDialogflowCXWebhookGenericWebServiceOauthConfigSecretVersionForClientSecret(original["secret_version_for_client_secret"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretVersionForClientSecret); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretVersionForClientSecret"] = transformedSecretVersionForClientSecret
+	}
+
+	transformedTokenEndpoint, err := expandDialogflowCXWebhookGenericWebServiceOauthConfigTokenEndpoint(original["token_endpoint"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedTokenEndpoint); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["tokenEndpoint"] = transformedTokenEndpoint
+	}
+
+	return transformed, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceOauthConfigClientId(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceOauthConfigClientSecret(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceOauthConfigScopes(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceOauthConfigSecretVersionForClientSecret(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceOauthConfigTokenEndpoint(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceParameterMapping(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
+	if v == nil {
+		return map[string]string{}, nil
+	}
+	m := make(map[string]string)
+	for k, val := range v.(map[string]interface{}) {
+		m[k] = val.(string)
+	}
+	return m, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceRequestBody(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
@@ -775,11 +1591,81 @@ func expandDialogflowCXWebhookGenericWebServiceRequestHeaders(v interface{}, d t
 	return m, nil
 }
 
-func expandDialogflowCXWebhookGenericWebServiceAllowedCaCerts(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandDialogflowCXWebhookGenericWebServiceSecretVersionForUsernamePassword(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeaders(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]interface{}, error) {
+	if v == nil {
+		return map[string]interface{}{}, nil
+	}
+	m := make(map[string]interface{})
+	for _, raw := range v.(*schema.Set).List() {
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedSecretVersion, err := expandDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(original["secret_version"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedSecretVersion); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+			transformed["secretVersion"] = transformedSecretVersion
+		}
+
+		transformedKey, err := tpgresource.ExpandString(original["key"], d, config)
+		if err != nil {
+			return nil, err
+		}
+		m[transformedKey] = transformed
+	}
+	return m, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceServiceAgentAuth(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedServiceAccount, err := expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(original["service_account"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccount"] = transformedServiceAccount
+	}
+
+	return transformed, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookGenericWebServiceWebhookType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
 func expandDialogflowCXWebhookServiceDirectory(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -810,6 +1696,9 @@ func expandDialogflowCXWebhookServiceDirectoryService(v interface{}, d tpgresour
 }
 
 func expandDialogflowCXWebhookServiceDirectoryGenericWebService(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -818,11 +1707,39 @@ func expandDialogflowCXWebhookServiceDirectoryGenericWebService(v interface{}, d
 	original := raw.(map[string]interface{})
 	transformed := make(map[string]interface{})
 
-	transformedUri, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(original["uri"], d, config)
+	transformedAllowedCaCerts, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(original["allowed_ca_certs"], d, config)
 	if err != nil {
 		return nil, err
-	} else if val := reflect.ValueOf(transformedUri); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-		transformed["uri"] = transformedUri
+	} else if val := reflect.ValueOf(transformedAllowedCaCerts); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["allowedCaCerts"] = transformedAllowedCaCerts
+	}
+
+	transformedHttpMethod, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceHttpMethod(original["http_method"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedHttpMethod); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["httpMethod"] = transformedHttpMethod
+	}
+
+	transformedOauthConfig, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfig(original["oauth_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedOauthConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["oauthConfig"] = transformedOauthConfig
+	}
+
+	transformedParameterMapping, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceParameterMapping(original["parameter_mapping"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedParameterMapping); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["parameterMapping"] = transformedParameterMapping
+	}
+
+	transformedRequestBody, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestBody(original["request_body"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedRequestBody); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["requestBody"] = transformedRequestBody
 	}
 
 	transformedRequestHeaders, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestHeaders(original["request_headers"], d, config)
@@ -832,17 +1749,141 @@ func expandDialogflowCXWebhookServiceDirectoryGenericWebService(v interface{}, d
 		transformed["requestHeaders"] = transformedRequestHeaders
 	}
 
-	transformedAllowedCaCerts, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(original["allowed_ca_certs"], d, config)
+	transformedSecretVersionForUsernamePassword, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionForUsernamePassword(original["secret_version_for_username_password"], d, config)
 	if err != nil {
 		return nil, err
-	} else if val := reflect.ValueOf(transformedAllowedCaCerts); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-		transformed["allowedCaCerts"] = transformedAllowedCaCerts
+	} else if val := reflect.ValueOf(transformedSecretVersionForUsernamePassword); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretVersionForUsernamePassword"] = transformedSecretVersionForUsernamePassword
+	}
+
+	transformedSecretVersionsForRequestHeaders, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders(original["secret_versions_for_request_headers"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretVersionsForRequestHeaders); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretVersionsForRequestHeaders"] = transformedSecretVersionsForRequestHeaders
+	}
+
+	transformedServiceAgentAuth, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(original["service_agent_auth"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAgentAuth); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAgentAuth"] = transformedServiceAgentAuth
+	}
+
+	transformedServiceAccountAuthConfig, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(original["service_account_auth_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccountAuthConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccountAuthConfig"] = transformedServiceAccountAuthConfig
+	}
+
+	transformedUri, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(original["uri"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedUri); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["uri"] = transformedUri
+	}
+
+	transformedWebhookType, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceWebhookType(original["webhook_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedWebhookType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["webhookType"] = transformedWebhookType
 	}
 
 	return transformed, nil
 }
 
-func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceHttpMethod(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedClientId, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientId(original["client_id"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedClientId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["clientId"] = transformedClientId
+	}
+
+	transformedClientSecret, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientSecret(original["client_secret"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedClientSecret); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["clientSecret"] = transformedClientSecret
+	}
+
+	transformedScopes, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigScopes(original["scopes"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedScopes); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["scopes"] = transformedScopes
+	}
+
+	transformedSecretVersionForClientSecret, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigSecretVersionForClientSecret(original["secret_version_for_client_secret"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretVersionForClientSecret); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretVersionForClientSecret"] = transformedSecretVersionForClientSecret
+	}
+
+	transformedTokenEndpoint, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigTokenEndpoint(original["token_endpoint"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedTokenEndpoint); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["tokenEndpoint"] = transformedTokenEndpoint
+	}
+
+	return transformed, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientId(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigClientSecret(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigScopes(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigSecretVersionForClientSecret(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceOauthConfigTokenEndpoint(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceParameterMapping(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
+	if v == nil {
+		return map[string]string{}, nil
+	}
+	m := make(map[string]string)
+	for k, val := range v.(map[string]interface{}) {
+		m[k] = val.(string)
+	}
+	return m, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestBody(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
@@ -857,7 +1898,74 @@ func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceRequestHeaders(v 
 	return m, nil
 }
 
-func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceAllowedCaCerts(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionForUsernamePassword(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]interface{}, error) {
+	if v == nil {
+		return map[string]interface{}{}, nil
+	}
+	m := make(map[string]interface{})
+	for _, raw := range v.(*schema.Set).List() {
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedSecretVersion, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(original["secret_version"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedSecretVersion); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+			transformed["secretVersion"] = transformedSecretVersion
+		}
+
+		transformedKey, err := tpgresource.ExpandString(original["key"], d, config)
+		if err != nil {
+			return nil, err
+		}
+		m[transformedKey] = transformed
+	}
+	return m, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeadersSecretVersion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAgentAuth(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedServiceAccount, err := expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(original["service_account"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceAccount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceAccount"] = transformedServiceAccount
+	}
+
+	return transformed, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceServiceAccountAuthConfigServiceAccount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandDialogflowCXWebhookServiceDirectoryGenericWebServiceWebhookType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

@@ -19,8 +19,11 @@ package clouddeploy_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccClouddeployAutomation_clouddeployAutomationBasicExample(t *testing.T) {
@@ -53,6 +72,12 @@ func TestAccClouddeployAutomation_clouddeployAutomationBasicExample(t *testing.T
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "delivery_pipeline", "labels", "location", "name", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_clouddeploy_automation.b-automation",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -70,11 +95,35 @@ resource "google_clouddeploy_automation" "b-automation" {
       id = "*"
     }
   }
-  suspended = false
   rules {
     promote_release_rule {
       id = "promote-release"
     }
+  }
+  rules {
+      advance_rollout_rule {
+        id                    = "advance-rollout"
+      }
+    }
+  rules {
+    repair_rollout_rule {
+      id                    = "repair-rollout"
+      repair_phases {
+      retry  {
+                      attempts = "1"
+                  }
+       }
+      repair_phases {
+             rollback {}
+          }
+      }
+  }
+  rules {
+    timed_promote_release_rule {
+      id                    = "timed-promote-release"
+      schedule              = "0 9 * * 1"
+      time_zone              = "America/New_York"
+     }
   }
 }
 
@@ -112,6 +161,12 @@ func TestAccClouddeployAutomation_clouddeployAutomationFullExample(t *testing.T)
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "delivery_pipeline", "labels", "location", "name", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_clouddeploy_automation.f-automation",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

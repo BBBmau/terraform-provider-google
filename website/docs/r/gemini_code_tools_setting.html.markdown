@@ -61,6 +61,21 @@ The following arguments are supported:
   Id of the Code Tools Setting.
 
 
+* `labels` -
+  (Optional)
+  Labels as key value pairs.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `location` -
+  (Optional)
+  Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_enabled_tool"></a>The `enabled_tool` block supports:
 
 * `account_connector` -
@@ -79,14 +94,14 @@ The following arguments are supported:
 * `config` -
   (Optional)
   Configuration parameters for the tool.
-  Structure is [documented below](#nested_enabled_tool_enabled_tool_config).
+  Structure is [documented below](#nested_enabled_tool_config).
 
 * `uri_override` -
   (Optional)
   Overridden URI, if allowed by Tool.
 
 
-<a name="nested_enabled_tool_enabled_tool_config"></a>The `config` block supports:
+<a name="nested_enabled_tool_config"></a>The `config` block supports:
 
 * `key` -
   (Required)
@@ -95,23 +110,6 @@ The following arguments are supported:
 * `value` -
   (Required)
   Value of the configuration item.
-
-- - -
-
-
-* `labels` -
-  (Optional)
-  Labels as key value pairs.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `location` -
-  (Optional)
-  Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -155,6 +153,18 @@ CodeToolsSetting can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{code_tools_setting_id}}`
 * `{{location}}/{{code_tools_setting_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CodeToolsSetting using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    codeToolsSettingId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gemini_code_tools_setting.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CodeToolsSetting using one of the formats above. For example:
 

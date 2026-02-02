@@ -29,7 +29,7 @@ To get more information about ClusterUserCreatedConnections, see:
 * [API documentation](https://cloud.google.com/memorystore/docs/cluster/reference/rest/v1/projects.locations.clusters)
 
 ~> **Note:** Please ensure your connections meet the requirements outlined at
-https://cloud.devsite.corp.google.com/memorystore/docs/cluster/about-multiple-vpc-networking#application_connection_requirements.
+https://cloud.google.com/memorystore/docs/cluster/about-multiple-vpc-networking.
 If you remove a connections item from the resource, the corresponding forwarding rule will no longer be functioning.
 If the corresponding forwarding rule is represented in your terraform configuration it is recommended to delete that
 `google_compute_forwarding_rule` resource at the same time.
@@ -326,9 +326,6 @@ The following arguments are supported:
   The name of the region of the Redis cluster these endpoints should be added to.
 
 
-- - -
-
-
 * `cluster_endpoints` -
   (Optional)
   A list of cluster endpoints
@@ -338,23 +335,24 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_cluster_endpoints"></a>The `cluster_endpoints` block supports:
 
 * `connections` -
   (Optional)
-  Structure is [documented below](#nested_cluster_endpoints_cluster_endpoints_connections).
+  Structure is [documented below](#nested_cluster_endpoints_connections).
 
 
-<a name="nested_cluster_endpoints_cluster_endpoints_connections"></a>The `connections` block supports:
+<a name="nested_cluster_endpoints_connections"></a>The `connections` block supports:
 
 * `psc_connection` -
   (Optional)
   Detailed information of a PSC connection that is created by the customer
   who owns the cluster.
-  Structure is [documented below](#nested_cluster_endpoints_cluster_endpoints_connections_connections_psc_connection).
+  Structure is [documented below](#nested_cluster_endpoints_connections_psc_connection).
 
 
-<a name="nested_cluster_endpoints_cluster_endpoints_connections_connections_psc_connection"></a>The `psc_connection` block supports:
+<a name="nested_cluster_endpoints_connections_psc_connection"></a>The `psc_connection` block supports:
 
 * `psc_connection_id` -
   (Required)
@@ -425,6 +423,18 @@ ClusterUserCreatedConnections can be imported using any of these accepted format
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ClusterUserCreatedConnections using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_redis_cluster_user_created_connections.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ClusterUserCreatedConnections using one of the formats above. For example:
 

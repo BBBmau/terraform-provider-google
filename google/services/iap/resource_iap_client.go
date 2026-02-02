@@ -20,17 +20,70 @@
 package iap
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceIapClient() *schema.Resource {
@@ -46,6 +99,24 @@ func ResourceIapClient() *schema.Resource {
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(20 * time.Minute),
 			Delete: schema.DefaultTimeout(20 * time.Minute),
+		},
+
+		DeprecationMessage: "This resource is deprecated on Jan 22, 2025. After Jan 19, 2026 the `google_iap_client` Terraform resource will no longer function as intended due to the deprecation of the IAP OAuth Admin APIs. New projects will not be able to use these APIs. March 19, 2026 The IAP OAuth Admin APIs will be permanently shut down. Access to this feature will no longer be available.",
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"client_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"brand": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -136,13 +207,21 @@ func resourceIapClientCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 	d.SetId(id)
 
-	brand := d.Get("brand")
-	clientId := flattenIapClientClientId(res["name"], d, config)
-
-	if err := d.Set("client_id", clientId); err != nil {
-		return fmt.Errorf("Error setting client_id: %s", err)
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if clientIdValue, ok := d.GetOk("client_id"); ok && clientIdValue.(string) != "" {
+			if err = identity.Set("client_id", clientIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting client_id: %s", err)
+			}
+		}
+		if brandValue, ok := d.GetOk("brand"); ok && brandValue.(string) != "" {
+			if err = identity.Set("brand", brandValue.(string)); err != nil {
+				return fmt.Errorf("Error setting brand: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
 	}
-	d.SetId(fmt.Sprintf("%s/identityAwareProxyClients/%s", brand, clientId))
 
 	log.Printf("[DEBUG] Finished creating Client %q: %#v", d.Id(), res)
 
@@ -190,6 +269,24 @@ func resourceIapClientRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	if err := d.Set("client_id", flattenIapClientClientId(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Client: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("client_id"); !ok && v == "" {
+			err = identity.Set("client_id", d.Get("client_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting client_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("brand"); !ok && v == "" {
+			err = identity.Set("brand", d.Get("brand").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting brand: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -276,7 +373,7 @@ func flattenIapClientClientId(v interface{}, d *schema.ResourceData, config *tra
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func expandIapClientDisplayName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {

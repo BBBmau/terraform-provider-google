@@ -76,9 +76,6 @@ The following arguments are supported:
   3 and 50 characters.
 
 
-- - -
-
-
 * `worker_config` -
   (Optional)
   Describes how the autoscaler will operate for primary workers.
@@ -101,6 +98,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_worker_config"></a>The `worker_config` block supports:
@@ -240,6 +238,18 @@ AutoscalingPolicy can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{policy_id}}`
 * `{{location}}/{{policy_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AutoscalingPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    policy_id = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_dataproc_autoscaling_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AutoscalingPolicy using one of the formats above. For example:
 

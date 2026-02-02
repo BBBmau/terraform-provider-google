@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Identity-Aware Proxy WebTypeAppEngine
+
 Three different resources help you manage your IAM policy for Identity-Aware Proxy WebTypeAppEngine. Each of these resources serves a different use case:
 
 * `google_iap_web_type_app_engine_iam_policy`: Authoritative. Sets the IAM policy for the webtypeappengine and replaces any existing policy already attached.
@@ -143,7 +144,7 @@ resource "google_iap_web_type_app_engine_iam_member" "member" {
 
 The following arguments are supported:
 
-* `app_id` - (Required) Id of the App Engine application. Used to find the parent resource to bind the IAM policy to
+* `app_id` - (Required) Used to find the parent resource to bind the IAM policy to
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the project will be parsed from the identifier of the parent resource. If no project is provided in the parent identifier and no project is specified, the provider project is used.
@@ -159,6 +160,7 @@ The following arguments are supported:
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_iap_web_type_app_engine_iam_binding` can be used per role. Note that custom roles must be of the format

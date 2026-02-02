@@ -225,6 +225,42 @@ The following arguments are supported:
   Structure is [documented below](#nested_destination).
 
 
+* `description` -
+  (Optional)
+  The user-supplied description of the Connectivity Test.
+  Maximum of 512 characters.
+
+* `protocol` -
+  (Optional)
+  IP Protocol of the test. When not provided, "TCP" is assumed.
+
+* `related_projects` -
+  (Optional)
+  Other projects that may be relevant for reachability analysis.
+  This is applicable to scenarios where a test can cross project
+  boundaries.
+
+* `labels` -
+  (Optional)
+  Resource labels to represent user-provided metadata.
+
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `round_trip` -
+  (Optional)
+  Whether run analysis for the return path from destination to source.
+  Default value is false.
+
+* `bypass_firewall_checks` -
+  (Optional)
+  Whether the analysis should skip firewall checking. Default value is false.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_source"></a>The `source` block supports:
 
 * `ip_address` -
@@ -361,44 +397,6 @@ The following arguments are supported:
   from the service project. In this case, the network that the IP address
   resides in is defined in the host project.
 
-- - -
-
-
-* `description` -
-  (Optional)
-  The user-supplied description of the Connectivity Test.
-  Maximum of 512 characters.
-
-* `protocol` -
-  (Optional)
-  IP Protocol of the test. When not provided, "TCP" is assumed.
-
-* `related_projects` -
-  (Optional)
-  Other projects that may be relevant for reachability analysis.
-  This is applicable to scenarios where a test can cross project
-  boundaries.
-
-* `labels` -
-  (Optional)
-  Resource labels to represent user-provided metadata.
-
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `round_trip` -
-  (Optional)
-  Whether run analysis for the return path from destination to source.
-  Default value is false.
-
-* `bypass_firewall_checks` -
-  (Optional)
-  Whether the analysis should skip firewall checking. Default value is false.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -431,6 +429,17 @@ ConnectivityTest can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ConnectivityTest using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_management_connectivity_test.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ConnectivityTest using one of the formats above. For example:
 

@@ -131,9 +131,6 @@ The following arguments are supported:
   in the format `organizations/{{org_name}}/environments/{{env_name}}`.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A human-readable description of this TargetServer.
@@ -151,6 +148,7 @@ The following arguments are supported:
   (Optional)
   Immutable. The protocol used by this TargetServer.
   Possible values are: `HTTP`, `HTTP2`, `GRPC_TARGET`, `GRPC`, `EXTERNAL_CALLOUT`.
+
 
 
 <a name="nested_s_sl_info"></a>The `s_sl_info` block supports:
@@ -192,6 +190,10 @@ The following arguments are supported:
   The TLS Common Name of the certificate.
   Structure is [documented below](#nested_s_sl_info_common_name).
 
+* `enforce` -
+  (Optional)
+  If true, TLS is strictly enforced.
+
 
 <a name="nested_s_sl_info_common_name"></a>The `common_name` block supports:
 
@@ -227,6 +229,17 @@ TargetServer can be imported using any of these accepted formats:
 * `{{env_id}}/targetservers/{{name}}`
 * `{{env_id}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TargetServer using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    envId = "<-required value->"
+  }
+  to = google_apigee_target_server.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TargetServer using one of the formats above. For example:
 

@@ -310,9 +310,6 @@ The following arguments are supported:
   Healthcare Dataset under which the Pipeline Job is to run
 
 
-- - -
-
-
 * `disable_lineage` -
   (Optional)
   If true, disables writing lineage for the pipeline.
@@ -347,6 +344,7 @@ The following arguments are supported:
   (Optional)
   Specifies the backfill configuration.
   Structure is [documented below](#nested_backfill_pipeline_job).
+
 
 
 <a name="nested_mapping_pipeline_job"></a>The `mapping_pipeline_job` block supports:
@@ -501,6 +499,17 @@ PipelineJob can be imported using any of these accepted formats:
 * `{{dataset}}/pipelineJobs?pipelineJobId={{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PipelineJob using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    dataset = "<-required value->"
+  }
+  to = google_healthcare_pipeline_job.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PipelineJob using one of the formats above. For example:
 

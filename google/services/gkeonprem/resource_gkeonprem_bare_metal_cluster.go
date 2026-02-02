@@ -20,19 +20,70 @@
 package gkeonprem
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceGkeonpremBareMetalCluster() *schema.Resource {
@@ -56,6 +107,26 @@ func ResourceGkeonpremBareMetalCluster() *schema.Resource {
 			tpgresource.SetAnnotationsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"admin_cluster_membership": {
@@ -278,7 +349,7 @@ IngressVIP must be included in the pools.`,
 This avoids buggy consumer devices mistakenly dropping IPv4 traffic for those special IP addresses.`,
 												},
 												"manual_assign": {
-													Type:        schema.TypeString,
+													Type:        schema.TypeBool,
 													Optional:    true,
 													Description: `If true, prevent IP addresses from being automatically assigned.`,
 												},
@@ -466,7 +537,7 @@ Example: 192.168.0.1`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"load_balancer.0.metal_lb_config", "load_balancer.0.manual_lb_config", "load_balancer.0.bgp_lb_config"},
+							ExactlyOneOf: []string{"load_balancer.0.bgp_lb_config", "load_balancer.0.manual_lb_config", "load_balancer.0.metal_lb_config"},
 						},
 						"manual_lb_config": {
 							Type:        schema.TypeList,
@@ -482,7 +553,7 @@ Example: 192.168.0.1`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"load_balancer.0.metal_lb_config", "load_balancer.0.manual_lb_config", "load_balancer.0.bgp_lb_config"},
+							ExactlyOneOf: []string{"load_balancer.0.bgp_lb_config", "load_balancer.0.manual_lb_config", "load_balancer.0.metal_lb_config"},
 						},
 						"metal_lb_config": {
 							Type:        schema.TypeList,
@@ -626,7 +697,7 @@ Example: 192.168.0.1`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"load_balancer.0.metal_lb_config", "load_balancer.0.manual_lb_config", "load_balancer.0.bgp_lb_config"},
+							ExactlyOneOf: []string{"load_balancer.0.bgp_lb_config", "load_balancer.0.manual_lb_config", "load_balancer.0.metal_lb_config"},
 						},
 					},
 				},
@@ -1313,11 +1384,11 @@ func resourceGkeonpremBareMetalClusterCreate(d *schema.ResourceData, meta interf
 	} else if v, ok := d.GetOkExists("upgrade_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(upgradePolicyProp)) && (ok || !reflect.DeepEqual(v, upgradePolicyProp)) {
 		obj["upgradePolicy"] = upgradePolicyProp
 	}
-	annotationsProp, err := expandGkeonpremBareMetalClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandGkeonpremBareMetalClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(annotationsProp)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveAnnotationsProp)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{GkeonpremBasePath}}projects/{{project}}/locations/{{location}}/bareMetalClusters?bare_metal_cluster_id={{name}}")
@@ -1361,22 +1432,35 @@ func resourceGkeonpremBareMetalClusterCreate(d *schema.ResourceData, meta interf
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = GkeonpremOperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating BareMetalCluster", userAgent,
-		d.Timeout(schema.TimeoutCreate))
-	if err != nil {
-		return fmt.Errorf("Error waiting to create BareMetalCluster: %s", err)
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
 	}
 
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/bareMetalClusters/{{name}}")
+	err = GkeonpremOperationWaitTime(
+		config, res, project, "Creating BareMetalCluster", userAgent,
+		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
+
+		return fmt.Errorf("Error waiting to create BareMetalCluster: %s", err)
 	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating BareMetalCluster %q: %#v", d.Id(), res)
 
@@ -1516,6 +1600,30 @@ func resourceGkeonpremBareMetalClusterRead(d *schema.ResourceData, meta interfac
 		return fmt.Errorf("Error reading BareMetalCluster: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1524,6 +1632,26 @@ func resourceGkeonpremBareMetalClusterUpdate(d *schema.ResourceData, meta interf
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1625,11 +1753,11 @@ func resourceGkeonpremBareMetalClusterUpdate(d *schema.ResourceData, meta interf
 	} else if v, ok := d.GetOkExists("upgrade_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, upgradePolicyProp)) {
 		obj["upgradePolicy"] = upgradePolicyProp
 	}
-	annotationsProp, err := expandGkeonpremBareMetalClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandGkeonpremBareMetalClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{GkeonpremBasePath}}projects/{{project}}/locations/{{location}}/bareMetalClusters/{{name}}")
@@ -3100,6 +3228,9 @@ func expandGkeonpremBareMetalClusterBareMetalVersion(v interface{}, d tpgresourc
 }
 
 func expandGkeonpremBareMetalClusterNetworkConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3140,6 +3271,9 @@ func expandGkeonpremBareMetalClusterNetworkConfig(v interface{}, d tpgresource.T
 }
 
 func expandGkeonpremBareMetalClusterNetworkConfigIslandModeCidr(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3178,6 +3312,9 @@ func expandGkeonpremBareMetalClusterNetworkConfigAdvancedNetworking(v interface{
 }
 
 func expandGkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3201,6 +3338,9 @@ func expandGkeonpremBareMetalClusterNetworkConfigMultipleNetworkInterfacesConfig
 }
 
 func expandGkeonpremBareMetalClusterNetworkConfigSrIovConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3224,6 +3364,9 @@ func expandGkeonpremBareMetalClusterNetworkConfigSrIovConfigEnabled(v interface{
 }
 
 func expandGkeonpremBareMetalClusterControlPlane(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3250,6 +3393,9 @@ func expandGkeonpremBareMetalClusterControlPlane(v interface{}, d tpgresource.Te
 }
 
 func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3269,6 +3415,9 @@ func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfig(v int
 }
 
 func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3309,6 +3458,9 @@ func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePo
 }
 
 func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigNodeConfigs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3357,6 +3509,9 @@ func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePo
 }
 
 func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePoolConfigTaints(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3416,6 +3571,9 @@ func expandGkeonpremBareMetalClusterControlPlaneControlPlaneNodePoolConfigNodePo
 }
 
 func expandGkeonpremBareMetalClusterControlPlaneApiServerArgs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3453,6 +3611,9 @@ func expandGkeonpremBareMetalClusterControlPlaneApiServerArgsValue(v interface{}
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancer(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3500,6 +3661,9 @@ func expandGkeonpremBareMetalClusterLoadBalancer(v interface{}, d tpgresource.Te
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerVipConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3534,6 +3698,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerVipConfigIngressVip(v interface{
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerPortConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3557,6 +3724,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerPortConfigControlPlaneLoadBalanc
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3583,6 +3753,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfig(v interface{}, d t
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPools(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3642,6 +3815,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigAddressPoolsManualA
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3661,6 +3837,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoo
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3701,6 +3880,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoo
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigNodeConfigs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3749,6 +3931,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoo
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3808,6 +3993,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerMetalLbConfigLoadBalancerNodePoo
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerManualLbConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3831,6 +4019,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerManualLbConfigEnabled(v interfac
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3875,6 +4066,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigAsn(v interface{}, d 
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3923,6 +4117,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigBgpPeerConfigsControl
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPools(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3982,6 +4179,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigAddressPoolsManualAss
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4001,6 +4201,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolC
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4048,6 +4251,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolC
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigNodeConfigs(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -4096,6 +4302,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolC
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigTaints(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -4155,6 +4364,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolC
 }
 
 func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolConfigNodePoolConfigKubeletConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4200,6 +4412,9 @@ func expandGkeonpremBareMetalClusterLoadBalancerBgpLbConfigLoadBalancerNodePoolC
 }
 
 func expandGkeonpremBareMetalClusterStorage(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4226,6 +4441,9 @@ func expandGkeonpremBareMetalClusterStorage(v interface{}, d tpgresource.Terrafo
 }
 
 func expandGkeonpremBareMetalClusterStorageLvpShareConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4252,6 +4470,9 @@ func expandGkeonpremBareMetalClusterStorageLvpShareConfig(v interface{}, d tpgre
 }
 
 func expandGkeonpremBareMetalClusterStorageLvpShareConfigLvpConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4290,6 +4511,9 @@ func expandGkeonpremBareMetalClusterStorageLvpShareConfigSharedPathPvCount(v int
 }
 
 func expandGkeonpremBareMetalClusterStorageLvpNodeMountsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4324,6 +4548,9 @@ func expandGkeonpremBareMetalClusterStorageLvpNodeMountsConfigStorageClass(v int
 }
 
 func expandGkeonpremBareMetalClusterProxy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4358,6 +4585,9 @@ func expandGkeonpremBareMetalClusterProxyNoProxy(v interface{}, d tpgresource.Te
 }
 
 func expandGkeonpremBareMetalClusterClusterOperations(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4381,6 +4611,9 @@ func expandGkeonpremBareMetalClusterClusterOperationsEnableApplicationLogs(v int
 }
 
 func expandGkeonpremBareMetalClusterMaintenanceConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4404,6 +4637,9 @@ func expandGkeonpremBareMetalClusterMaintenanceConfigMaintenanceAddressCidrBlock
 }
 
 func expandGkeonpremBareMetalClusterNodeConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4438,6 +4674,9 @@ func expandGkeonpremBareMetalClusterNodeConfigContainerRuntime(v interface{}, d 
 }
 
 func expandGkeonpremBareMetalClusterNodeAccessConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4461,6 +4700,9 @@ func expandGkeonpremBareMetalClusterNodeAccessConfigLoginUser(v interface{}, d t
 }
 
 func expandGkeonpremBareMetalClusterOsEnvironmentConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4484,6 +4726,9 @@ func expandGkeonpremBareMetalClusterOsEnvironmentConfigPackageRepoExcluded(v int
 }
 
 func expandGkeonpremBareMetalClusterSecurityConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4503,6 +4748,9 @@ func expandGkeonpremBareMetalClusterSecurityConfig(v interface{}, d tpgresource.
 }
 
 func expandGkeonpremBareMetalClusterSecurityConfigAuthorization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4522,6 +4770,9 @@ func expandGkeonpremBareMetalClusterSecurityConfigAuthorization(v interface{}, d
 }
 
 func expandGkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsers(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -4548,6 +4799,9 @@ func expandGkeonpremBareMetalClusterSecurityConfigAuthorizationAdminUsersUsernam
 }
 
 func expandGkeonpremBareMetalClusterBinaryAuthorization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -4571,6 +4825,9 @@ func expandGkeonpremBareMetalClusterBinaryAuthorizationEvaluationMode(v interfac
 }
 
 func expandGkeonpremBareMetalClusterUpgradePolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

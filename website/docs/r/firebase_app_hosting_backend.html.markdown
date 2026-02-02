@@ -65,8 +65,6 @@ resource "google_project_iam_member" "app_hosting_sa_runner" {
 resource "google_project_service" "fah" {
   project = "my-project-name"
   service = "firebaseapphosting.googleapis.com"
-
-  disable_on_destroy = false
 }
 ###
 ```
@@ -136,8 +134,6 @@ resource "google_project_iam_member" "app_hosting_sa_runner" {
 resource "google_project_service" "fah" {
   project = "my-project-name"
   service = "firebaseapphosting.googleapis.com"
-
-  disable_on_destroy = false
 }
 ###
 ```
@@ -184,7 +180,6 @@ resource "google_developer_connect_git_repository_link" "my-repository" {
 resource "google_project_service_identity" "devconnect-p4sa" {
   provider = google-beta
 
-  provider = google-beta
   project  = "my-project-name"
   service  = "developerconnect.googleapis.com"
 }
@@ -248,9 +243,6 @@ The following arguments are supported:
   of the default domain name.
 
 
-- - -
-
-
 * `annotations` -
   (Optional)
   Unstructured key value map that may be set by external tools to
@@ -283,6 +275,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_codebase"></a>The `codebase` block supports:
@@ -350,10 +343,10 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   A managed Cloud Run
   [`service`](https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#resource:-service).
-  Structure is [documented below](#nested_managed_resources_managed_resources_run_service).
+  Structure is [documented below](#nested_managed_resources_run_service).
 
 
-<a name="nested_managed_resources_managed_resources_run_service"></a>The `run_service` block contains:
+<a name="nested_managed_resources_run_service"></a>The `run_service` block contains:
 
 * `service` -
   (Output)
@@ -380,6 +373,18 @@ Backend can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{backend_id}}`
 * `{{location}}/{{backend_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Backend using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    backendId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_app_hosting_backend.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Backend using one of the formats above. For example:
 

@@ -298,9 +298,6 @@ The following arguments are supported:
   The Service identifier.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   User-defined name for the Service.
@@ -316,6 +313,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_attributes"></a>The `attributes` block supports:
@@ -443,6 +441,67 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Output only. The location that the underlying resource resides in if it is zonal, for example, us-west1-a).
 
+* `functional_type` -
+  (Output)
+  Output only. The type of the service.
+  Structure is [documented below](#nested_service_properties_functional_type).
+
+* `registration_type` -
+  (Output)
+  Output only. The registration type of the service.
+  Structure is [documented below](#nested_service_properties_registration_type).
+
+* `extended_metadata` -
+  (Output)
+  Output only. Additional metadata specific to the resource type.
+  Structure is [documented below](#nested_service_properties_extended_metadata).
+
+* `identity` -
+  (Output)
+  The identity associated with the service.
+  Structure is [documented below](#nested_service_properties_identity).
+
+
+<a name="nested_service_properties_functional_type"></a>The `functional_type` block contains:
+
+* `type` -
+  (Output)
+  Output only. The functional type of a service or workload.
+
+<a name="nested_service_properties_registration_type"></a>The `registration_type` block contains:
+
+* `type` -
+  (Output)
+  Output only. The registration type of a service.
+
+<a name="nested_service_properties_extended_metadata"></a>The `extended_metadata` block contains:
+
+* `key` -
+  (Output)
+  The key of the extended metadata.
+
+* `value` -
+  (Output)
+  The value of the extended metadata.
+  Structure is [documented below](#nested_service_properties_extended_metadata_value).
+
+
+<a name="nested_service_properties_extended_metadata_value"></a>The `value` block contains:
+
+* `metadata_struct` -
+  (Output)
+  The metadata contents as a JSON string.
+
+* `extended_metadata_schema` -
+  (Output)
+  The resource name for the Extended Metadata Schema.
+
+<a name="nested_service_properties_identity"></a>The `identity` block contains:
+
+* `principal` -
+  (Output)
+  The principal of the identity.
+
 ## Timeouts
 
 This resource provides the following
@@ -461,6 +520,19 @@ Service can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{application_id}}/{{service_id}}`
 * `{{location}}/{{application_id}}/{{service_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Service using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    applicationId = "<-required value->"
+    serviceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_apphub_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Service using one of the formats above. For example:
 

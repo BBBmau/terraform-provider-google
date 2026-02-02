@@ -184,17 +184,14 @@ resource "google_service_account" "oauth_service_account" {
 The following arguments are supported:
 
 
+* `name` -
+  (Required)
+  The queue name.
+
 * `location` -
   (Required)
   The location of the queue
 
-
-- - -
-
-
-* `name` -
-  (Optional)
-  The queue name.
 
 * `app_engine_routing_override` -
   (Optional)
@@ -230,6 +227,12 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
+* `desired_state` - (Optional) The desired state of the queue. Use this to pause and resume the queue.
+
+* RUNNING: The queue is running. Tasks can be dispatched.
+* PAUSED: The queue is paused. Tasks are not dispatched but can be added to the queue.
+
 
 
 <a name="nested_app_engine_routing_override"></a>The `app_engine_routing_override` block supports:
@@ -425,10 +428,10 @@ The following arguments are supported:
 * `header` -
   (Required)
   Header embodying a key and a value.
-  Structure is [documented below](#nested_http_target_header_overrides_header_overrides_header).
+  Structure is [documented below](#nested_http_target_header_overrides_header).
 
 
-<a name="nested_http_target_header_overrides_header_overrides_header"></a>The `header` block supports:
+<a name="nested_http_target_header_overrides_header"></a>The `header` block supports:
 
 * `key` -
   (Required)
@@ -469,6 +472,9 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `id` - an identifier for the resource with format `projects/{{project}}/locations/{{location}}/queues/{{name}}`
 
+* `state` -
+  The current state of the queue.
+
 
 ## Timeouts
 
@@ -488,6 +494,18 @@ Queue can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Queue using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloud_tasks_queue.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Queue using one of the formats above. For example:
 

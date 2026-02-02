@@ -24,6 +24,11 @@ description: |-
 A Managed Lustre instance
 
 
+To get more information about Instance, see:
+
+* [API documentation](https://cloud.google.com/managed-lustre/docs/reference/rest/v1/projects.locations.instances)
+* How-to Guides
+    * [Official Documentation](https://cloud.google.com/managed-lustre/docs/create-instance)
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=lustre_instance_basic&open_in_editor=main.tf" target="_blank">
@@ -35,13 +40,14 @@ A Managed Lustre instance
 
 ```hcl
 resource "google_lustre_instance" "instance" {
-  instance_id  = "my-instance"
-  location     = "us-central1-a"
-  description  = "test lustre instance"
-  filesystem   = "testfs"
-  capacity_gib = 18000
-  network      = data.google_compute_network.lustre-network.id
-  labels       = {
+  instance_id                 = "my-instance"
+  location                    = "us-central1-a"
+  description                 = "test lustre instance"
+  filesystem                  = "testfs"
+  capacity_gib                = 18000
+  network                     = data.google_compute_network.lustre-network.id
+  per_unit_storage_throughput = 1000
+  labels                      = {
     test = "value"
   }
   timeouts {
@@ -69,20 +75,25 @@ The following arguments are supported:
 
 * `capacity_gib` -
   (Required)
-  Required. The storage capacity of the instance in gibibytes (GiB). Allowed values
-  are from 18000 to 954000, in increments of 9000.
+  The storage capacity of the instance in gibibytes (GiB). Allowed values
+  are from `18000` to `954000`, in increments of 9000.
 
 * `filesystem` -
   (Required)
-  Required. Immutable. The filesystem name for this instance. This name is used by client-side
-  tools, including when mounting the instance. Must be 8 characters or less
-  and may only contain letters and numbers.
+  The filesystem name for this instance. This name is used by client-side
+  tools, including when mounting the instance. Must be eight characters or
+  less and can only contain letters and numbers.
 
 * `network` -
   (Required)
-  Required. Immutable. The full name of the VPC network to which the instance is connected.
+  The full name of the VPC network to which the instance is connected.
   Must be in the format
   `projects/{project_id}/global/networks/{network_name}`.
+
+* `per_unit_storage_throughput` -
+  (Required)
+  The throughput of the instance in MB/s/TiB.
+  Valid values are 125, 250, 500, 1000.
 
 * `location` -
   (Required)
@@ -90,34 +101,88 @@ The following arguments are supported:
 
 * `instance_id` -
   (Required)
-  Required. The name of the Managed Lustre instance.
+  The name of the Managed Lustre instance.
   * Must contain only lowercase letters, numbers, and hyphens.
   * Must start with a letter.
   * Must be between 1-63 characters.
   * Must end with a number or a letter.
 
 
-- - -
-
-
-* `labels` -
+* `gke_support_enabled` -
   (Optional)
-  Optional. Labels as key value pairs.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
+  Indicates whether you want to enable support for GKE clients. By default,
+  GKE clients are not supported.
 
 * `description` -
   (Optional)
-  Optional. A user-readable description of the instance.
+  A user-readable description of the instance.
 
-* `gke_support_enabled` -
+* `labels` -
   (Optional)
-  Optional. Indicates whether you want to enable support for GKE clients. By default,
-  GKE clients are not supported.
+  Labels as key value pairs.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `placement_policy` -
+  (Optional)
+  The placement policy name for the instance in the format of
+  projects/{project}/locations/{location}/resourcePolicies/{resource_policy}
+
+* `kms_key` -
+  (Optional)
+  The KMS key id to use for encryption of the Lustre instance.
+
+* `access_rules_options` -
+  (Optional)
+  Access control rules for the Lustre instance. Configures default root
+  squashing behavior and specific access rules based on IP addresses.
+  Structure is [documented below](#nested_access_rules_options).
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_access_rules_options"></a>The `access_rules_options` block supports:
+
+* `default_squash_mode` -
+  (Required)
+  Set to "ROOT_SQUASH" to enable root squashing by default.
+  Other values include "NO_SQUASH".
+  Possible values are: `ROOT_SQUASH`, `NO_SQUASH`.
+
+* `default_squash_uid` -
+  (Optional)
+  The UID to map the root user to when root squashing is enabled
+  (e.g., 65534 for nobody).
+
+* `default_squash_gid` -
+  (Optional)
+  The GID to map the root user to when root squashing is enabled
+  (e.g., 65534 for nobody).
+
+* `access_rules` -
+  (Optional)
+  An array of access rule exceptions. Each rule defines IP address ranges
+  that should have different squash behavior than the default.
+  Structure is [documented below](#nested_access_rules_options_access_rules).
+
+
+<a name="nested_access_rules_options_access_rules"></a>The `access_rules` block supports:
+
+* `name` -
+  (Required)
+  A unique identifier for the access rule.
+
+* `ip_address_ranges` -
+  (Required)
+  An array of IP address strings or CIDR ranges that this rule applies to.
+
+* `squash_mode` -
+  (Required)
+  The squash mode for this specific rule. Currently, only "NO_SQUASH"
+  is supported for exceptions.
+  Possible values are: `NO_SQUASH`.
 
 ## Attributes Reference
 
@@ -125,28 +190,24 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `id` - an identifier for the resource with format `projects/{{project}}/locations/{{location}}/instances/{{instance_id}}`
 
+* `update_time` -
+  Timestamp when the instance was last updated.
+
 * `state` -
-  Output only. The state of the instance.
-  Possible values:
-  STATE_UNSPECIFIED
-  ACTIVE
-  CREATING
-  DELETING
-  UPGRADING
-  REPAIRING
-  STOPPED
+  The state of the instance.
+  Please see https://cloud.google.com/managed-lustre/docs/reference/rest/v1/projects.locations.instances#state for values
 
 * `mount_point` -
-  Output only. Mount point of the instance in the format `IP_ADDRESS@tcp:/FILESYSTEM`.
+  Mount point of the instance in the format `IP_ADDRESS@tcp:/FILESYSTEM`.
 
 * `create_time` -
-  Output only. Timestamp when the instance was created.
-
-* `update_time` -
-  Output only. Timestamp when the instance was last updated.
+  Timestamp when the instance was created.
 
 * `name` -
   Identifier. The name of the instance.
+
+* `state_reason` -
+  The reason why the instance is in a certain state.
 
 * `terraform_labels` -
   The combination of labels configured directly on the resource
@@ -161,9 +222,9 @@ In addition to the arguments listed above, the following computed attributes are
 This resource provides the following
 [Timeouts](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/retries-and-customizable-timeouts) configuration options:
 
-- `create` - Default is 20 minutes.
-- `update` - Default is 20 minutes.
-- `delete` - Default is 20 minutes.
+- `create` - Default is 120 minutes.
+- `update` - Default is 60 minutes.
+- `delete` - Default is 60 minutes.
 
 ## Import
 
@@ -174,6 +235,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance_id}}`
 * `{{location}}/{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instanceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_lustre_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

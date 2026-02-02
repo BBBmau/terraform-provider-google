@@ -19,15 +19,35 @@ package bigqueryanalyticshub_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccBigqueryAnalyticsHubListingSubscription_bigqueryAnalyticshubListingSubscriptionBasicExample(t *testing.T) {
@@ -49,7 +69,13 @@ func TestAccBigqueryAnalyticsHubListingSubscription_bigqueryAnalyticshubListingS
 				ResourceName:            "google_bigquery_analytics_hub_listing_subscription.subscription",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"data_exchange_id", "destination_dataset", "listing_id", "location"},
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing_subscription.subscription",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -61,7 +87,7 @@ resource "google_bigquery_analytics_hub_data_exchange" "subscription" {
   location         = "US"
   data_exchange_id = "tf_test_my_data_exchange%{random_suffix}"
   display_name     = "tf_test_my_data_exchange%{random_suffix}"
-  description      = ""
+  description      = "Test Description"
 }
 
 resource "google_bigquery_analytics_hub_listing" "subscription" {
@@ -69,7 +95,7 @@ resource "google_bigquery_analytics_hub_listing" "subscription" {
   data_exchange_id = google_bigquery_analytics_hub_data_exchange.subscription.data_exchange_id
   listing_id       = "tf_test_my_listing%{random_suffix}"
   display_name     = "tf_test_my_listing%{random_suffix}"
-  description      = ""
+  description      = "Test Description"
 
   bigquery_dataset {
     dataset = google_bigquery_dataset.subscription.id
@@ -79,7 +105,7 @@ resource "google_bigquery_analytics_hub_listing" "subscription" {
 resource "google_bigquery_dataset" "subscription" {
   dataset_id                  = "tf_test_my_listing%{random_suffix}"
   friendly_name               = "tf_test_my_listing%{random_suffix}"
-  description                 = ""
+  description                 = "Test Description"
   location                    = "US"
 }
 

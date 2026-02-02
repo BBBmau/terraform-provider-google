@@ -19,15 +19,35 @@ package bigqueryanalyticshub_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingBasicExample(
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -105,6 +131,12 @@ func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingRestrictedExa
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -165,6 +197,12 @@ func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingDcrExample(t 
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -231,6 +269,257 @@ resource "google_bigquery_table" "listing" {
   }
 ]
 EOF
+}
+`, context)
+}
+
+func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingLogLinkedDatasetQueryUserExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBigqueryAnalyticsHubListingDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingLogLinkedDatasetQueryUserExample(context),
+			},
+			{
+				ResourceName:            "google_bigquery_analytics_hub_listing.listing",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingLogLinkedDatasetQueryUserExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_bigquery_analytics_hub_data_exchange" "listing_log_email" {
+  location         = "US"
+  data_exchange_id = "tf_test_tf_test_log_email_de%{random_suffix}" 
+  display_name     = "tf_test_tf_test_log_email_de%{random_suffix}" 
+  description      = "Example for log email test%{random_suffix}"
+}
+
+resource "google_bigquery_analytics_hub_listing" "listing" {
+  location         = "US"
+  data_exchange_id = google_bigquery_analytics_hub_data_exchange.listing_log_email.data_exchange_id
+  listing_id       = "tf_test_tf_test_log_email_listing%{random_suffix}" 
+  display_name     = "tf_test_tf_test_log_email_listing%{random_suffix}" 
+  description      = "Example for log email test%{random_suffix}"
+  log_linked_dataset_query_user_email = true
+
+  bigquery_dataset {
+    dataset = google_bigquery_dataset.listing_log_email.id
+  }
+}
+
+resource "google_bigquery_dataset" "listing_log_email" {
+  dataset_id                  = "tf_test_tf_test_log_email_ds%{random_suffix}" 
+  friendly_name               = "tf_test_tf_test_log_email_ds%{random_suffix}" 
+  description                 = "Example for log email test%{random_suffix}"
+  location                    = "US"
+}
+`, context)
+}
+
+func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingPubsubExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBigqueryAnalyticsHubListingDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingPubsubExample(context),
+			},
+			{
+				ResourceName:            "google_bigquery_analytics_hub_listing.listing",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingPubsubExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_bigquery_analytics_hub_data_exchange" "listing" {
+  location         = "US"
+  data_exchange_id = "tf_test_tf_test_pubsub_data_exchange%{random_suffix}"
+  display_name     = "tf_test_tf_test_pubsub_data_exchange%{random_suffix}"
+  description      = "Example for pubsub topic source%{random_suffix}"
+}
+
+resource "google_pubsub_topic" "tf_test_pubsub_topic" { 
+  name    = "tf_test_test_pubsub%{random_suffix}" 
+}
+
+resource "google_bigquery_analytics_hub_listing" "listing" {
+  location         = "US"
+  data_exchange_id = google_bigquery_analytics_hub_data_exchange.listing.data_exchange_id
+  listing_id       = "tf_test_tf_test_pubsub_listing%{random_suffix}"
+  display_name     = "tf_test_tf_test_pubsub_listing%{random_suffix}"
+  description      = "Example for pubsub topic source%{random_suffix}"
+
+  pubsub_topic {
+    topic = google_pubsub_topic.tf_test_pubsub_topic.id
+    data_affinity_regions = [
+      "us-central1",
+      "europe-west1"
+    ]
+  }
+}
+`, context)
+}
+
+func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubPublicListingExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBigqueryAnalyticsHubListingDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubPublicListingExample(context),
+			},
+			{
+				ResourceName:            "google_bigquery_analytics_hub_listing.listing",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubPublicListingExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_bigquery_analytics_hub_data_exchange" "listing" {
+  location         = "US"
+  data_exchange_id = "tf_test_my_data_exchange%{random_suffix}"
+  display_name     = "tf_test_my_data_exchange%{random_suffix}"
+  description      = "example public listing%{random_suffix}"
+  discovery_type   = "DISCOVERY_TYPE_PUBLIC"
+}
+
+resource "google_bigquery_analytics_hub_listing" "listing" {
+  location         = "US"
+  data_exchange_id = google_bigquery_analytics_hub_data_exchange.listing.data_exchange_id
+  listing_id       = "tf_test_my_listing%{random_suffix}"
+  display_name     = "tf_test_my_listing%{random_suffix}"
+  description      = "example public listing%{random_suffix}"
+  discovery_type   = "DISCOVERY_TYPE_PUBLIC"
+  allow_only_metadata_sharing= false
+
+  bigquery_dataset {
+    dataset = google_bigquery_dataset.listing.id
+  }
+}
+
+resource "google_bigquery_dataset" "listing" {
+  dataset_id                  = "tf_test_my_listing%{random_suffix}"
+  friendly_name               = "tf_test_my_listing%{random_suffix}"
+  description                 = "example public listing%{random_suffix}"
+  location                    = "US"
+}
+`, context)
+}
+
+func TestAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingMarketplaceExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBigqueryAnalyticsHubListingDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingMarketplaceExample(context),
+			},
+			{
+				ResourceName:            "google_bigquery_analytics_hub_listing.listing",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "delete_commercial", "listing_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_listing.listing",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBigqueryAnalyticsHubListing_bigqueryAnalyticshubListingMarketplaceExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_bigquery_analytics_hub_data_exchange" "listing" {
+  location         = "US"
+  data_exchange_id = "tf_test_my_data_exchange%{random_suffix}"
+  display_name     = "tf_test_my_data_exchange%{random_suffix}"
+  description      = "example data exchange%{random_suffix}"
+}
+
+resource "google_bigquery_analytics_hub_listing" "listing" {
+  location         = "US"
+  data_exchange_id = google_bigquery_analytics_hub_data_exchange.listing.data_exchange_id
+  listing_id       = "tf_test_my_listing%{random_suffix}"
+  display_name     = "tf_test_my_listing%{random_suffix}"
+  description      = "example data exchange%{random_suffix}"
+  delete_commercial = true
+
+  bigquery_dataset {
+    dataset = google_bigquery_dataset.listing.id
+  }
+
+}
+
+resource "google_bigquery_dataset" "listing" {
+  dataset_id                  = "tf_test_my_listing%{random_suffix}"
+  friendly_name               = "tf_test_my_listing%{random_suffix}"
+  description                 = "example data exchange%{random_suffix}"
+  location                    = "US"
 }
 `, context)
 }

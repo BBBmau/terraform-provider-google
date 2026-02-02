@@ -20,18 +20,70 @@
 package integrations
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceIntegrationsAuthConfig() *schema.Resource {
@@ -54,6 +106,22 @@ func ResourceIntegrationsAuthConfig() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"display_name": {
@@ -125,7 +193,7 @@ Note that 'passphrase' is not the password for web server, but an extra layer of
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.username_and_password", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.jwt", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.oidc_token"},
+							ConflictsWith: []string{"decrypted_credential.0.jwt", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.oidc_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.username_and_password"},
 						},
 						"jwt": {
 							Type:        schema.TypeList,
@@ -156,7 +224,7 @@ Note that 'passphrase' is not the password for web server, but an extra layer of
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.username_and_password", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.auth_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.oidc_token"},
+							ConflictsWith: []string{"decrypted_credential.0.auth_token", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.oidc_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.username_and_password"},
 						},
 						"oauth2_authorization_code": {
 							Type:        schema.TypeList,
@@ -192,7 +260,7 @@ Note that 'passphrase' is not the password for web server, but an extra layer of
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.username_and_password", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.jwt", "decrypted_credential.0.auth_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.oidc_token"},
+							ConflictsWith: []string{"decrypted_credential.0.auth_token", "decrypted_credential.0.jwt", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.oidc_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.username_and_password"},
 						},
 						"oauth2_client_credentials": {
 							Type:        schema.TypeList,
@@ -298,7 +366,7 @@ Note that 'passphrase' is not the password for web server, but an extra layer of
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.username_and_password", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.jwt", "decrypted_credential.0.auth_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.oidc_token"},
+							ConflictsWith: []string{"decrypted_credential.0.auth_token", "decrypted_credential.0.jwt", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oidc_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.username_and_password"},
 						},
 						"oidc_token": {
 							Type:        schema.TypeList,
@@ -331,7 +399,7 @@ A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to n
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.username_and_password", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.jwt", "decrypted_credential.0.auth_token", "decrypted_credential.0.service_account_credentials"},
+							ConflictsWith: []string{"decrypted_credential.0.auth_token", "decrypted_credential.0.jwt", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.username_and_password"},
 						},
 						"service_account_credentials": {
 							Type:        schema.TypeList,
@@ -352,7 +420,7 @@ A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to n
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.username_and_password", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.jwt", "decrypted_credential.0.auth_token", "decrypted_credential.0.oidc_token"},
+							ConflictsWith: []string{"decrypted_credential.0.auth_token", "decrypted_credential.0.jwt", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.oidc_token", "decrypted_credential.0.username_and_password"},
 						},
 						"username_and_password": {
 							Type:        schema.TypeList,
@@ -373,7 +441,7 @@ A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to n
 									},
 								},
 							},
-							ConflictsWith: []string{"decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.jwt", "decrypted_credential.0.auth_token", "decrypted_credential.0.service_account_credentials", "decrypted_credential.0.oidc_token"},
+							ConflictsWith: []string{"decrypted_credential.0.auth_token", "decrypted_credential.0.jwt", "decrypted_credential.0.oauth2_authorization_code", "decrypted_credential.0.oauth2_client_credentials", "decrypted_credential.0.oidc_token", "decrypted_credential.0.service_account_credentials"},
 						},
 					},
 				},
@@ -524,11 +592,11 @@ func resourceIntegrationsAuthConfigCreate(d *schema.ResourceData, meta interface
 	} else if v, ok := d.GetOkExists("decrypted_credential"); !tpgresource.IsEmptyValue(reflect.ValueOf(decryptedCredentialProp)) && (ok || !reflect.DeepEqual(v, decryptedCredentialProp)) {
 		obj["decryptedCredential"] = decryptedCredentialProp
 	}
-	client_certificateProp, err := expandIntegrationsAuthConfigClientCertificate(d.Get("client_certificate"), d, config)
+	clientCertificateProp, err := expandIntegrationsAuthConfigClientCertificate(d.Get("client_certificate"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("client_certificate"); !tpgresource.IsEmptyValue(reflect.ValueOf(client_certificateProp)) && (ok || !reflect.DeepEqual(v, client_certificateProp)) {
-		obj["client_certificate"] = client_certificateProp
+	} else if v, ok := d.GetOkExists("client_certificate"); !tpgresource.IsEmptyValue(reflect.ValueOf(clientCertificateProp)) && (ok || !reflect.DeepEqual(v, clientCertificateProp)) {
+		obj["client_certificate"] = clientCertificateProp
 	}
 
 	lockName, err := tpgresource.ReplaceVars(d, config, "{{name}}")
@@ -601,6 +669,22 @@ func resourceIntegrationsAuthConfigCreate(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	log.Printf("[DEBUG] Finished creating AuthConfig %q: %#v", d.Id(), res)
 
@@ -701,6 +785,24 @@ func resourceIntegrationsAuthConfigRead(d *schema.ResourceData, meta interface{}
 		return fmt.Errorf("Error reading AuthConfig: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -709,6 +811,21 @@ func resourceIntegrationsAuthConfigUpdate(d *schema.ResourceData, meta interface
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -756,11 +873,11 @@ func resourceIntegrationsAuthConfigUpdate(d *schema.ResourceData, meta interface
 	} else if v, ok := d.GetOkExists("decrypted_credential"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, decryptedCredentialProp)) {
 		obj["decryptedCredential"] = decryptedCredentialProp
 	}
-	client_certificateProp, err := expandIntegrationsAuthConfigClientCertificate(d.Get("client_certificate"), d, config)
+	clientCertificateProp, err := expandIntegrationsAuthConfigClientCertificate(d.Get("client_certificate"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("client_certificate"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, client_certificateProp)) {
-		obj["client_certificate"] = client_certificateProp
+	} else if v, ok := d.GetOkExists("client_certificate"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, clientCertificateProp)) {
+		obj["client_certificate"] = clientCertificateProp
 	}
 
 	lockName, err := tpgresource.ReplaceVars(d, config, "{{name}}")
@@ -1325,6 +1442,9 @@ func expandIntegrationsAuthConfigOverrideValidTime(v interface{}, d tpgresource.
 }
 
 func expandIntegrationsAuthConfigDecryptedCredential(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1397,6 +1517,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialCredentialType(v interface{}
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialUsernameAndPassword(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1431,6 +1554,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialUsernameAndPasswordPassword(
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCode(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1498,6 +1624,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2AuthorizationCodeToken
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentials(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1568,6 +1697,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsScope
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParams(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1587,6 +1719,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsToken
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntries(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1616,6 +1751,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsToken
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKey(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1635,6 +1773,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsToken
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesKeyLiteralValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1658,6 +1799,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsToken
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1677,6 +1821,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsToken
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsTokenParamsEntriesValueLiteralValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1704,6 +1851,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOauth2ClientCredentialsReque
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialJwt(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1760,6 +1910,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialJwtJwt(v interface{}, d tpgr
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialAuthToken(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1794,6 +1947,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialAuthTokenToken(v interface{}
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialServiceAccountCredentials(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1828,6 +1984,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialServiceAccountCredentialsSco
 }
 
 func expandIntegrationsAuthConfigDecryptedCredentialOidcToken(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1884,6 +2043,9 @@ func expandIntegrationsAuthConfigDecryptedCredentialOidcTokenTokenExpireTime(v i
 }
 
 func expandIntegrationsAuthConfigClientCertificate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

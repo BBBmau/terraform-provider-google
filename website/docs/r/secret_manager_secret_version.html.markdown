@@ -37,11 +37,11 @@ this, use the `create_before_destroy` field within the lifecycle block.
 For more details, refer to the [Terraform lifecycle documentation](https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle#the-lifecycle-meta-argument).
 
 ~> **Warning:** All arguments including the following potentially sensitive
-values will be stored in the raw state as plain text: `payload.secret_data`.
+values will be stored in the raw state as plain text: `secret_data`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
-~> **Note:**  All arguments marked as write-only values will not be stored in the state: `payload.secret_data_wo`.
-[Read more about Write-only Attributes](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
+~> **Note:**  All arguments marked as write-only values will not be stored in the state: `secret_data_wo`.
+[Read more about Write-only Arguments](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=secret_version_basic&open_in_editor=main.tf" target="_blank">
@@ -223,9 +223,6 @@ The following arguments are supported:
   Secret Manager secret resource
 
 
-- - -
-
-
 * `enabled` -
   (Optional)
   The current state of the SecretVersion.
@@ -235,9 +232,21 @@ The following arguments are supported:
   The secret data. Must be no larger than 64KiB.
   **Note**: This property is sensitive and will not be displayed in the plan.
 
+* `secret_data_wo` -
+  (Optional, Write-Only)
+  The secret data. Must be no larger than 64KiB. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+  **Note**: This property is write-only and will not be read from the API.
+
+  ~> **Note:** One of `secret_data` or `secret_data_wo` can only be set.
+
 * `secret_data_wo_version` -
   (Optional)
-  Triggers update of secret data write-only. For more info see [updating write-only attributes](/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)
+  Triggers update of secret data write-only. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+
+* `project` -
+  (Optional)
+  The ID of the project in which the resource belongs. If it is not provided,
+  the provider project is used
 
 * `deletion_policy` - (Optional) The deletion policy for the secret version. Setting `ABANDON` allows the resource
 to be abandoned rather than deleted. Setting `DISABLE` allows the resource to be
@@ -248,22 +257,6 @@ disabled rather than deleted. Default is `DELETE`. Possible values are:
 
 * `is_secret_data_base64` - (Optional) If set to 'true', the secret data is expected to be base64-encoded string and would be sent as is.
 
-## Ephemeral Attributes Reference
-
-The following write-only attributes are supported:
-
-* `secret_data_wo` -
-  (Optional)
-  The secret data. Must be no larger than 64KiB. For more info see [updating write-only attributes](/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)
-  **Note**: This property is write-only and will not be read from the API.
-
-
-<a name="nested_payload"></a>The `payload` block supports:
-
-* `secret_data_wo` -
-  (Optional)
-  The secret data. Must be no larger than 64KiB. For more info see [updating write-only attributes](/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)
-  **Note**: This property is write-only and will not be read from the API.
 
 ## Attributes Reference
 
@@ -301,6 +294,17 @@ SecretVersion can be imported using any of these accepted formats:
 
 * `projects/{{project}}/secrets/{{secret_id}}/versions/{{version}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecretVersion using identity values. For example:
+
+```tf
+import {
+  identity = {
+    version = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_secret_manager_secret_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecretVersion using one of the formats above. For example:
 

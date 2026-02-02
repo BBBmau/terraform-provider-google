@@ -141,6 +141,16 @@ The following arguments are supported:
   Structure is [documented below](#nested_attestation_authority_note).
 
 
+* `description` -
+  (Optional)
+  A descriptive comment. This field may be updated. The field may be
+  displayed in chooser dialogs.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_attestation_authority_note"></a>The `attestation_authority_note` block supports:
 
 * `note_reference` -
@@ -211,10 +221,10 @@ The following arguments are supported:
   type of public key, but it MUST be a valid RFC3986 URI. If id is left
   blank, a default one will be computed based on the digest of the DER
   encoding of the public key.
-  Structure is [documented below](#nested_attestation_authority_note_public_keys_public_keys_pkix_public_key).
+  Structure is [documented below](#nested_attestation_authority_note_public_keys_pkix_public_key).
 
 
-<a name="nested_attestation_authority_note_public_keys_public_keys_pkix_public_key"></a>The `pkix_public_key` block supports:
+<a name="nested_attestation_authority_note_public_keys_pkix_public_key"></a>The `pkix_public_key` block supports:
 
 * `public_key_pem` -
   (Optional)
@@ -228,18 +238,6 @@ The following arguments are supported:
   match the structure and any object identifiers encoded in
   publicKeyPem (i.e. this algorithm must match that of the
   public key).
-
-- - -
-
-
-* `description` -
-  (Optional)
-  A descriptive comment. This field may be updated. The field may be
-  displayed in chooser dialogs.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -266,6 +264,17 @@ Attestor can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Attestor using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_binary_authorization_attestor.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Attestor using one of the formats above. For example:
 

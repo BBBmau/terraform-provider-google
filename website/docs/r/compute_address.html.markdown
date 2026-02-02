@@ -159,6 +159,28 @@ resource "google_compute_network" "network" {
   auto_create_subnetworks = false
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=compute_address_enhanced_byoip&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Compute Address Enhanced Byoip
+
+
+```hcl
+resource "google_compute_address" "default" {
+  name             = "test-address"
+  region           = "us-central1"
+  ip_collection    = google_compute_public_delegated_prefix.sub_pdp.self_link
+}
+
+resource "google_compute_public_delegated_prefix" "sub_pdp" {
+  name             = "test-sub-pdp"
+  region           = "us-central1"
+  ip_cidr_range    = ""136.124.3.120/32""
+  parent_prefix    = ""projects/tf-static-byoip/regions/us-central1/publicDelegatedPrefixes/tf-enhanced-pdp-136-124-3-120-29""
+}
+```
 
 ## Argument Reference
 
@@ -173,9 +195,6 @@ The following arguments are supported:
   which means the first character must be a lowercase letter, and all
   following characters must be a dash, lowercase letter, or digit,
   except the last character, which cannot be a dash.
-
-
-- - -
 
 
 * `address` -
@@ -254,6 +273,17 @@ The following arguments are supported:
   the external IPv6 address reservation.
   Possible values are: `VM`, `NETLB`.
 
+* `ip_collection` -
+  (Optional)
+  Reference to the source of external IPv4 addresses, like a PublicDelegatedPrefix(PDP) for BYOIP.
+  The PDP must support enhanced IPv4 allocations.
+  Use one of the following formats to specify a PDP when reserving an external IPv4 address using BYOIP.
+  Full resource URL, as in:
+    * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{pdp-name}}`
+  Partial URL, as in:
+    * `projects/{{projectId}}/regions/region/publicDelegatedPrefixes/{{pdp-name}}`
+    * `regions/{{region}}/publicDelegatedPrefixes/{{pdp-name}}`
+
 * `region` -
   (Optional)
   The Region in which the created address should reside.
@@ -261,6 +291,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -307,6 +338,18 @@ Address can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Address using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_address.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Address using one of the formats above. For example:
 

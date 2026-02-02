@@ -19,15 +19,35 @@ package clouddeploy_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccClouddeployDeployPolicy_clouddeployDeployPolicyBasicExample(t *testing.T) {
@@ -51,6 +71,12 @@ func TestAccClouddeployDeployPolicy_clouddeployDeployPolicyBasicExample(t *testi
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "name", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_clouddeploy_deploy_policy.b-deploy-policy",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -72,11 +98,11 @@ resource "google_clouddeploy_deploy_policy" "b-deploy-policy" {
         time_zone = "America/Los_Angeles"
         weekly_windows {
             start_time {
-                hours = "12"
-                minutes = "00"
+                hours = 0
+                minutes = 0
             }
             end_time {
-                hours = "13"
+                hours = "24"
                 minutes = "00"
             }
         }
@@ -107,6 +133,12 @@ func TestAccClouddeployDeployPolicy_clouddeployDeployPolicyFullExample(t *testin
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "name", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_clouddeploy_deploy_policy.f-deploy-policy",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -150,16 +182,12 @@ resource "google_clouddeploy_deploy_policy" "f-deploy-policy" {
         time_zone = "America/Los_Angeles"
         weekly_windows {
             start_time {
-                hours = "12"
-                minutes = "00"
-                seconds = "00"
-                nanos = "00"
+                hours = 0
+                minutes = 0
             }
             end_time {
                 hours = "13"
                 minutes = "00"
-                seconds = "00"
-                nanos = "00"
             }
         }
       }
@@ -176,8 +204,6 @@ resource "google_clouddeploy_deploy_policy" "f-deploy-policy" {
             start_time {
                 hours = "13"
                 minutes = "00"
-                seconds = "00"
-                nanos = "00"
             }
             end_time {
                 hours = "14"
@@ -190,16 +216,12 @@ resource "google_clouddeploy_deploy_policy" "f-deploy-policy" {
 
         one_time_windows {
         start_time {
-            hours = "15"
+            hours = "00"
             minutes = "00"
-            seconds = "00"
-            nanos = "00"
         }
         end_time {
             hours = "16"
             minutes = "00"
-            seconds = "00"
-            nanos = "00"
         }
         start_date {
             year = "2019"

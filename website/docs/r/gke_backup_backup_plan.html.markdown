@@ -148,6 +148,43 @@ resource "google_kms_key_ring" "key_ring" {
   location = "us-central1"
 }
 ```
+## Example Usage - Gkebackup Backupplan Nslabels
+
+
+```hcl
+resource "google_container_cluster" "primary" {
+  name               = "nslabels-cluster"
+  location           = "us-central1"
+  initial_node_count = 1
+  workload_identity_config {
+    workload_pool = "my-project-name.svc.id.goog"
+  }
+  addons_config {
+    gke_backup_agent_config {
+      enabled = true
+    }
+  }
+  deletion_protection  = true
+  network       = "default"
+  subnetwork    = "default"
+}
+
+resource "google_gke_backup_backup_plan" "nslabels" {
+  name = "nslabels-plan"
+  cluster = google_container_cluster.primary.id
+  location = "us-central1"
+  backup_config {
+    include_volume_data = true
+    include_secrets = true
+    selected_namespace_labels {
+      resource_labels {
+        key = "key1"
+        value ="value1"
+     }
+    }
+  }
+}
+```
 ## Example Usage - Gkebackup Backupplan Full
 
 
@@ -402,9 +439,6 @@ The following arguments are supported:
   The region of the Backup Plan.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   User specified descriptive string for this BackupPlan.
@@ -442,6 +476,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_retention_policy"></a>The `retention_policy` block supports:
@@ -523,7 +558,7 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Specifies the start time of the window using time of the day in UTC.
-  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_start_time).
+  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_start_time).
 
 * `duration` -
   (Required)
@@ -540,7 +575,7 @@ The following arguments are supported:
   (Optional)
   No recurrence. The exclusion window occurs only once and on this date in UTC.
   Only one of singleOccurrenceDate, daily and daysOfWeek may be set.
-  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_single_occurrence_date).
+  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_single_occurrence_date).
 
 * `daily` -
   (Optional)
@@ -552,10 +587,10 @@ The following arguments are supported:
   (Optional)
   The exclusion window occurs on these days of each week in UTC.
   Only one of singleOccurrenceDate, daily and daysOfWeek may be set.
-  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_days_of_week).
+  Structure is [documented below](#nested_backup_schedule_rpo_config_exclusion_windows_days_of_week).
 
 
-<a name="nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_start_time"></a>The `start_time` block supports:
+<a name="nested_backup_schedule_rpo_config_exclusion_windows_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -573,7 +608,7 @@ The following arguments are supported:
   (Optional)
   Fractions of seconds in nanoseconds.
 
-<a name="nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_single_occurrence_date"></a>The `single_occurrence_date` block supports:
+<a name="nested_backup_schedule_rpo_config_exclusion_windows_single_occurrence_date"></a>The `single_occurrence_date` block supports:
 
 * `year` -
   (Optional)
@@ -587,7 +622,7 @@ The following arguments are supported:
   (Optional)
   Day of a month.
 
-<a name="nested_backup_schedule_rpo_config_exclusion_windows_exclusion_windows_days_of_week"></a>The `days_of_week` block supports:
+<a name="nested_backup_schedule_rpo_config_exclusion_windows_days_of_week"></a>The `days_of_week` block supports:
 
 * `days_of_week` -
   (Optional)
@@ -626,6 +661,11 @@ The following arguments are supported:
   A list of namespaced Kubernetes Resources.
   Structure is [documented below](#nested_backup_config_selected_applications).
 
+* `selected_namespace_labels` -
+  (Optional)
+  If set, include just the resources in the listed namespace Labels.
+  Structure is [documented below](#nested_backup_config_selected_namespace_labels).
+
 * `permissive_mode` -
   (Optional)
   This flag specifies whether Backups will not fail when
@@ -662,6 +702,24 @@ The following arguments are supported:
 * `name` -
   (Required)
   The name of a Kubernetes Resource.
+
+<a name="nested_backup_config_selected_namespace_labels"></a>The `selected_namespace_labels` block supports:
+
+* `resource_labels` -
+  (Required)
+  A list of Kubernetes Namespace labels.
+  Structure is [documented below](#nested_backup_config_selected_namespace_labels_resource_labels).
+
+
+<a name="nested_backup_config_selected_namespace_labels_resource_labels"></a>The `resource_labels` block supports:
+
+* `key` -
+  (Required)
+  The key of the kubernetes label.
+
+* `value` -
+  (Required)
+  The value of the Label.
 
 ## Attributes Reference
 
@@ -715,6 +773,18 @@ BackupPlan can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupPlan using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gke_backup_backup_plan.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupPlan using one of the formats above. For example:
 

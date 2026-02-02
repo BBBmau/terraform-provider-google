@@ -19,22 +19,42 @@ package securesourcemanager_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccSecureSourceManagerBranchRule_secureSourceManagerBranchRuleBasicExample(t *testing.T) {
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -50,7 +70,13 @@ func TestAccSecureSourceManagerBranchRule_secureSourceManagerBranchRuleBasicExam
 				ResourceName:            "google_secure_source_manager_branch_rule.basic",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"branch_rule_id", "location", "repository_id"},
+				ImportStateVerifyIgnore: []string{"branch_rule_id", "deletion_policy", "location", "repository_id"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_branch_rule.basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -61,20 +87,18 @@ func testAccSecureSourceManagerBranchRule_secureSourceManagerBranchRuleBasicExam
 resource "google_secure_source_manager_instance" "instance" {
     location = "us-central1"
     instance_id = "tf-test-my-basic-instance%{random_suffix}"
+    
     # Prevent accidental deletions.
-    lifecycle {
-        prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "repository" {
     repository_id = "tf-test-my-basic-repository%{random_suffix}"
     location = google_secure_source_manager_instance.instance.location
     instance = google_secure_source_manager_instance.instance.name
+
     # Prevent accidental deletions.
-    lifecycle {
-        prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_branch_rule" "basic" {
@@ -91,7 +115,7 @@ func TestAccSecureSourceManagerBranchRule_secureSourceManagerBranchRuleWithField
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -107,7 +131,13 @@ func TestAccSecureSourceManagerBranchRule_secureSourceManagerBranchRuleWithField
 				ResourceName:            "google_secure_source_manager_branch_rule.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"branch_rule_id", "location", "repository_id"},
+				ImportStateVerifyIgnore: []string{"branch_rule_id", "deletion_policy", "location", "repository_id"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_branch_rule.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -118,20 +148,18 @@ func testAccSecureSourceManagerBranchRule_secureSourceManagerBranchRuleWithField
 resource "google_secure_source_manager_instance" "instance" {
     location = "us-central1"
     instance_id = "tf-test-my-initial-instance%{random_suffix}"
+
     # Prevent accidental deletions.
-    lifecycle {
-        prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "repository" {
     repository_id = "tf-test-my-initial-repository%{random_suffix}"
     instance = google_secure_source_manager_instance.instance.name
     location = google_secure_source_manager_instance.instance.location
+
     # Prevent accidental deletions.
-    lifecycle {
-        prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_branch_rule" "default" {

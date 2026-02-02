@@ -51,9 +51,6 @@ The following arguments are supported:
 
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   A user-assigned display name of the Fleet. When present, it must be between 4 to 30 characters.
@@ -66,6 +63,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_default_cluster_config"></a>The `default_cluster_config` block supports:
@@ -162,6 +160,16 @@ Fleet can be imported using any of these accepted formats:
 * `projects/{{project}}/locations/global/fleets/default`
 * `{{project}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Fleet using identity values. For example:
+
+```tf
+import {
+  identity = {
+    project = "<-optional value->"
+  }
+  to = google_gke_hub_fleet.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Fleet using one of the formats above. For example:
 

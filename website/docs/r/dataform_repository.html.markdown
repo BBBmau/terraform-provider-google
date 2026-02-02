@@ -117,9 +117,6 @@ The following arguments are supported:
   The repository's name.
 
 
-- - -
-
-
 * `git_remote_settings` -
   (Optional)
   Optional. If set, configures this repository to be linked to a Git remote.
@@ -163,6 +160,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 * `deletion_policy` - (Optional) Policy to control how the repository and its child resources are deleted. When set to `FORCE`, any child resources of this repository will also be deleted. Possible values: `DELETE`, `FORCE`. Defaults to `DELETE`.
+
 
 
 <a name="nested_git_remote_settings"></a>The `git_remote_settings` block supports:
@@ -246,6 +244,18 @@ Repository can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Repository using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_dataform_repository.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Repository using one of the formats above. For example:
 

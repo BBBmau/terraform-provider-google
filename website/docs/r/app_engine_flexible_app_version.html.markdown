@@ -176,70 +176,6 @@ The following arguments are supported:
   AppEngine service resource. Can contain numbers, letters, and hyphens.
 
 
-<a name="nested_readiness_check"></a>The `readiness_check` block supports:
-
-* `path` -
-  (Required)
-  The request path.
-
-* `host` -
-  (Optional)
-  Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com"
-
-* `failure_threshold` -
-  (Optional)
-  Number of consecutive failed checks required before removing traffic. Default: 2.
-
-* `success_threshold` -
-  (Optional)
-  Number of consecutive successful checks required before receiving traffic. Default: 2.
-
-* `check_interval` -
-  (Optional)
-  Interval between health checks.  Default: "5s".
-
-* `timeout` -
-  (Optional)
-  Time before the check is considered failed. Default: "4s"
-
-* `app_start_timeout` -
-  (Optional)
-  A maximum time limit on application initialization, measured from moment the application successfully
-  replies to a healthcheck until it is ready to serve traffic. Default: "300s"
-
-<a name="nested_liveness_check"></a>The `liveness_check` block supports:
-
-* `path` -
-  (Required)
-  The request path.
-
-* `host` -
-  (Optional)
-  Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com"
-
-* `failure_threshold` -
-  (Optional)
-  Number of consecutive failed checks required before considering the VM unhealthy. Default: 4.
-
-* `success_threshold` -
-  (Optional)
-  Number of consecutive successful checks required before considering the VM healthy. Default: 2.
-
-* `check_interval` -
-  (Optional)
-  Interval between health checks.
-
-* `timeout` -
-  (Optional)
-  Time before the check is considered failed. Default: "4s"
-
-* `initial_delay` -
-  (Optional)
-  The initial delay before starting to execute the checks. Default: "300s"
-
-- - -
-
-
 * `version_id` -
   (Optional)
   Relative name of the version within the service. For example, `v1`. Version names can contain only lowercase letters, numbers, or hyphens.
@@ -363,6 +299,68 @@ The following arguments are supported:
 * `delete_service_on_destroy` - (Optional) If set to `true`, the service will be deleted if it is the last version.
 
 
+
+<a name="nested_readiness_check"></a>The `readiness_check` block supports:
+
+* `path` -
+  (Required)
+  The request path.
+
+* `host` -
+  (Optional)
+  Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com"
+
+* `failure_threshold` -
+  (Optional)
+  Number of consecutive failed checks required before removing traffic. Default: 2.
+
+* `success_threshold` -
+  (Optional)
+  Number of consecutive successful checks required before receiving traffic. Default: 2.
+
+* `check_interval` -
+  (Optional)
+  Interval between health checks.  Default: "5s".
+
+* `timeout` -
+  (Optional)
+  Time before the check is considered failed. Default: "4s"
+
+* `app_start_timeout` -
+  (Optional)
+  A maximum time limit on application initialization, measured from moment the application successfully
+  replies to a healthcheck until it is ready to serve traffic. Default: "300s"
+
+<a name="nested_liveness_check"></a>The `liveness_check` block supports:
+
+* `path` -
+  (Required)
+  The request path.
+
+* `host` -
+  (Optional)
+  Host header to send when performing a HTTP Readiness check. Example: "myapp.appspot.com"
+
+* `failure_threshold` -
+  (Optional)
+  Number of consecutive failed checks required before considering the VM unhealthy. Default: 4.
+
+* `success_threshold` -
+  (Optional)
+  Number of consecutive successful checks required before considering the VM healthy. Default: 2.
+
+* `check_interval` -
+  (Optional)
+  Interval between health checks.
+
+* `timeout` -
+  (Optional)
+  Time before the check is considered failed. Default: "4s"
+
+* `initial_delay` -
+  (Optional)
+  The initial delay before starting to execute the checks. Default: "300s"
+
 <a name="nested_network"></a>The `network` block supports:
 
 * `forwarded_ports` -
@@ -469,22 +467,22 @@ The following arguments are supported:
   (Optional)
   Executes a script to handle the requests that match this URL pattern.
   Only the auto value is supported for Node.js in the App Engine standard environment, for example "script:" "auto".
-  Structure is [documented below](#nested_handlers_handlers_script).
+  Structure is [documented below](#nested_handlers_script).
 
 * `static_files` -
   (Optional)
   Files served directly to the user for a given URL, such as images, CSS stylesheets, or JavaScript source files.
   Static file handlers describe which files in the application directory are static files, and which URLs serve them.
-  Structure is [documented below](#nested_handlers_handlers_static_files).
+  Structure is [documented below](#nested_handlers_static_files).
 
 
-<a name="nested_handlers_handlers_script"></a>The `script` block supports:
+<a name="nested_handlers_script"></a>The `script` block supports:
 
 * `script_path` -
   (Required)
   Path to the script from the application root directory.
 
-<a name="nested_handlers_handlers_static_files"></a>The `static_files` block supports:
+<a name="nested_handlers_static_files"></a>The `static_files` block supports:
 
 * `path` -
   (Optional)
@@ -800,6 +798,18 @@ FlexibleAppVersion can be imported using any of these accepted formats:
 * `{{project}}/{{service}}/{{version_id}}`
 * `{{service}}/{{version_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FlexibleAppVersion using identity values. For example:
+
+```tf
+import {
+  identity = {
+    version_id = "<-optional value->"
+    service = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_app_engine_flexible_app_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FlexibleAppVersion using one of the formats above. For example:
 

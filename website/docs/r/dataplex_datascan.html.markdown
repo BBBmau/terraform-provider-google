@@ -92,6 +92,7 @@ resource "google_dataplex_datascan" "full_profile" {
         results_table = "//bigquery.googleapis.com/projects/my-project-name/datasets/dataplex_dataset/tables/profile_export"
       }
     }
+    catalog_publishing_enabled = true
   }
 
   project = "my-project-name"
@@ -107,6 +108,31 @@ resource "google_bigquery_dataset" "source" {
   description                 = "This is a test description"
   location                    = "US"
   delete_contents_on_destroy = true
+}
+```
+## Example Usage - Dataplex Datascan Onetime Profile
+
+
+```hcl
+resource "google_dataplex_datascan" "onetime_profile" {
+  location     = "us-central1"
+  data_scan_id = "dataprofile-onetime"
+
+  data {
+	  resource = "//bigquery.googleapis.com/projects/bigquery-public-data/datasets/samples/tables/shakespeare"
+  }
+
+  execution_spec {
+    trigger {
+      one_time {
+        ttl_after_scan_completion = "120s"
+      }
+    }
+  }
+
+data_profile_spec {}
+
+  project = "my-project-name"
 }
 ```
 ## Example Usage - Dataplex Datascan Basic Quality
@@ -170,6 +196,7 @@ resource "google_dataplex_datascan" "full_quality" {
   data_quality_spec {
     sampling_percent = 5
     row_filter = "station_id > 1000"
+    catalog_publishing_enabled = true
     post_scan_actions {
       notification_report {
         recipients {
@@ -265,6 +292,345 @@ resource "google_dataplex_datascan" "full_quality" {
   project = "my-project-name"
 }
 ```
+## Example Usage - Dataplex Datascan Onetime Quality
+
+
+```hcl
+resource "google_dataplex_datascan" "onetime_quality" {
+  location     = "us-central1"
+  data_scan_id = "dataquality-onetime"
+
+  data {
+    resource = "//bigquery.googleapis.com/projects/bigquery-public-data/datasets/samples/tables/shakespeare"
+  }
+
+  execution_spec {
+    trigger {
+      one_time {
+        ttl_after_scan_completion = "120s"
+      }
+    }
+  }
+
+  data_quality_spec {
+    rules {
+      dimension = "VALIDITY"
+      name = "rule1"
+      description = "rule 1 for validity dimension"
+      table_condition_expectation {
+        sql_expression = "COUNT(*) > 0"
+      }
+    }
+  }
+
+  project = "my-project-name"
+}
+```
+## Example Usage - Dataplex Datascan Basic Discovery
+
+
+```hcl
+resource "google_dataplex_datascan" "basic_discovery" {
+  location     = "us-central1"
+  data_scan_id = "datadiscovery-basic"
+
+  data {
+    resource = "//storage.googleapis.com/projects/${google_storage_bucket.tf_test_bucket.project}/buckets/${google_storage_bucket.tf_test_bucket.name}"
+  }
+
+  execution_spec {
+    trigger {
+      on_demand {}
+    }
+  }
+
+  data_discovery_spec {}
+
+  project = "my-project-name"
+}
+
+resource "google_storage_bucket" "tf_test_bucket" {
+  name     = "tf-test-bucket-name-%{random_suffix}"
+  location = "us-west1"
+  uniform_bucket_level_access = true
+}
+```
+## Example Usage - Dataplex Datascan Full Discovery
+
+
+```hcl
+resource "google_dataplex_datascan" "full_discovery" {
+  location     = "us-central1"
+  display_name = "Full Datascan Discovery"
+  data_scan_id = "datadiscovery-full"
+  description  = "Example resource - Full Datascan Discovery"
+  labels = {
+    author = "billing"
+  }
+
+  data {
+    resource = "//storage.googleapis.com/projects/${google_storage_bucket.tf_test_bucket.project}/buckets/${google_storage_bucket.tf_test_bucket.name}"
+  }
+
+  execution_spec {
+    trigger {
+      schedule {
+        cron = "TZ=America/New_York 1 1 * * *"
+      }
+    }
+  }
+  
+  data_discovery_spec {
+    bigquery_publishing_config {
+      table_type = "BIGLAKE"
+      connection = "projects/${google_bigquery_connection.tf_test_connection.project}/locations/${google_bigquery_connection.tf_test_connection.location}/connections/${google_bigquery_connection.tf_test_connection.connection_id}"
+      location = "${google_storage_bucket.tf_test_bucket.location}"
+      project = "projects/${google_storage_bucket.tf_test_bucket.project}"
+    }
+
+    storage_config {
+      include_patterns = [
+        "ai*",
+        "ml*",
+      ]
+      exclude_patterns = [
+        "doc*",
+        "gen*",
+      ]
+      csv_options {
+        header_rows = 5
+        delimiter = ","
+        encoding = "UTF-8"
+        type_inference_disabled = false
+        quote = "'"
+      }
+      json_options {
+        encoding = "UTF-8"
+        type_inference_disabled = false
+      }
+    }
+  }
+
+  project = "my-project-name"
+}
+
+resource "google_storage_bucket" "tf_test_bucket" {
+  name     = "tf-test-bucket-name-%{random_suffix}"
+  location = "us-west1"
+  uniform_bucket_level_access = true
+}
+
+resource "google_bigquery_connection" "tf_test_connection" {
+   connection_id = "tf-test-connection-%{random_suffix}"
+   location      = "us-central1"
+   friendly_name = "tf-test-connection-%{random_suffix}"
+   description   = "a bigquery connection for tf test"
+   cloud_resource {}
+}
+```
+## Example Usage - Dataplex Datascan Onetime Discovery
+
+
+```hcl
+resource "google_dataplex_datascan" "onetime_discovery" {
+  location     = "us-central1"
+  data_scan_id = "datadiscovery-onetime"
+
+  data {
+    resource = "//storage.googleapis.com/projects/${google_storage_bucket.tf_test_bucket.project}/buckets/${google_storage_bucket.tf_test_bucket.name}"
+  }
+
+  execution_spec {
+    trigger {
+      one_time {
+        ttl_after_scan_completion = "120s"
+      }
+    }
+  }
+
+  data_discovery_spec {}
+
+  project = "my-project-name"
+}
+
+resource "google_storage_bucket" "tf_test_bucket" {
+  name     = "tf-test-bucket-name-%{random_suffix}"
+  location = "us-west1"
+  uniform_bucket_level_access = true
+}
+```
+## Example Usage - Dataplex Datascan Documentation
+
+
+```hcl
+resource "google_bigquery_dataset" "tf_dataplex_test_dataset" {
+  dataset_id = "tf_dataplex_test_dataset_id_%{random_suffix}"
+  default_table_expiration_ms = 3600000
+}
+
+resource "google_bigquery_table" "tf_dataplex_test_table" {
+  dataset_id          = google_bigquery_dataset.tf_dataplex_test_dataset.dataset_id
+  table_id            = "tf_dataplex_test_table_id_%{random_suffix}"
+  deletion_protection = false
+  schema              = <<EOF
+    [
+    {
+      "name": "name",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "station_id",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The id of the bike station"
+    },
+    {
+      "name": "address",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The address of the bike station"
+    },
+    {
+      "name": "power_type",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The powert type of the bike station"
+    },
+    {
+      "name": "property_type",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The type of the property"
+    },
+    {
+      "name": "number_of_docks",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The number of docks the property have"
+    },
+    {
+      "name": "footprint_length",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The footpring lenght of the property"
+    },
+    {
+      "name": "council_district",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The council district the property is in"
+    }
+    ]
+  EOF
+}
+
+resource "google_dataplex_datascan" "documentation" {
+  location     = "us-central1"
+  data_scan_id = "datadocumentation"
+
+  data {
+    resource = "//bigquery.googleapis.com/projects/my-project-name/datasets/${google_bigquery_dataset.tf_dataplex_test_dataset.dataset_id}/tables/${google_bigquery_table.tf_dataplex_test_table.table_id}"
+  }
+
+  execution_spec {
+    trigger {
+      on_demand {}
+    }
+  }
+
+  data_documentation_spec {}
+
+  project = "my-project-name"
+}
+```
+## Example Usage - Dataplex Datascan Onetime Documentation
+
+
+```hcl
+resource "google_bigquery_dataset" "tf_dataplex_test_dataset" {
+  dataset_id = "tf_dataplex_test_dataset_id_%{random_suffix}"
+  default_table_expiration_ms = 3600000
+}
+
+resource "google_bigquery_table" "tf_dataplex_test_table" {
+  dataset_id          = google_bigquery_dataset.tf_dataplex_test_dataset.dataset_id
+  table_id            = "tf_dataplex_test_table_id_%{random_suffix}"
+  deletion_protection = false
+  schema              = <<EOF
+    [
+    {
+      "name": "name",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "station_id",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The id of the bike station"
+    },
+    {
+      "name": "address",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The address of the bike station"
+    },
+    {
+      "name": "power_type",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The powert type of the bike station"
+    },
+    {
+      "name": "property_type",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The type of the property"
+    },
+    {
+      "name": "number_of_docks",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The number of docks the property have"
+    },
+    {
+      "name": "footprint_length",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The footpring lenght of the property"
+    },
+    {
+      "name": "council_district",
+      "type": "INTEGER",
+      "mode": "NULLABLE",
+      "description": "The council district the property is in"
+    }
+    ]
+  EOF
+}
+
+resource "google_dataplex_datascan" "onetime_documentation" {
+  location     = "us-central1"
+  data_scan_id = "datadocumentation-onetime"
+
+  data {
+    resource = "//bigquery.googleapis.com/projects/my-project-name/datasets/${google_bigquery_dataset.tf_dataplex_test_dataset.dataset_id}/tables/${google_bigquery_table.tf_dataplex_test_table.table_id}"
+  }
+
+  execution_spec {
+    trigger {
+      one_time {
+        ttl_after_scan_completion = "120s"
+      }
+    }
+  }
+
+  data_documentation_spec {}
+
+  project = "my-project-name"
+}
+```
 
 ## Argument Reference
 
@@ -288,50 +654,6 @@ The following arguments are supported:
 * `data_scan_id` -
   (Required)
   DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
-
-
-<a name="nested_data"></a>The `data` block supports:
-
-* `entity` -
-  (Optional)
-  The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan.
-
-* `resource` -
-  (Optional)
-  The service-qualified full resource name of the cloud resource for a DataScan job to scan against. The field could be:
-  (Cloud Storage bucket for DataDiscoveryScan)BigQuery table of type "TABLE" for DataProfileScan/DataQualityScan.
-
-<a name="nested_execution_spec"></a>The `execution_spec` block supports:
-
-* `trigger` -
-  (Required)
-  Spec related to how often and when a scan should be triggered.
-  Structure is [documented below](#nested_execution_spec_trigger).
-
-* `field` -
-  (Optional)
-  The unnested field (of type Date or Timestamp) that contains values which monotonically increase over time. If not specified, a data scan will run for all data in the table.
-
-
-<a name="nested_execution_spec_trigger"></a>The `trigger` block supports:
-
-* `on_demand` -
-  (Optional)
-  The scan runs once via dataScans.run API.
-
-* `schedule` -
-  (Optional)
-  The scan is scheduled to run periodically.
-  Structure is [documented below](#nested_execution_spec_trigger_schedule).
-
-
-<a name="nested_execution_spec_trigger_schedule"></a>The `schedule` block supports:
-
-* `cron` -
-  (Required)
-  Cron schedule for running scans periodically. This field is required for Schedule scans.
-
-- - -
 
 
 * `description` -
@@ -359,9 +681,71 @@ The following arguments are supported:
   DataProfileScan related setting.
   Structure is [documented below](#nested_data_profile_spec).
 
+* `data_discovery_spec` -
+  (Optional)
+  DataDiscoveryScan related setting.
+  Structure is [documented below](#nested_data_discovery_spec).
+
+* `data_documentation_spec` -
+  (Optional)
+  DataDocumentationScan related setting.
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_data"></a>The `data` block supports:
+
+* `entity` -
+  (Optional)
+  The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan.
+
+* `resource` -
+  (Optional)
+  The service-qualified full resource name of the cloud resource for a DataScan job to scan against. The field could be:
+  Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKET_ID) for DataDiscoveryScan OR BigQuery table of type "TABLE" (/bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID) for DataProfileScan/DataQualityScan.
+
+<a name="nested_execution_spec"></a>The `execution_spec` block supports:
+
+* `trigger` -
+  (Required)
+  Spec related to how often and when a scan should be triggered.
+  Structure is [documented below](#nested_execution_spec_trigger).
+
+* `field` -
+  (Optional)
+  The unnested field (of type Date or Timestamp) that contains values which monotonically increase over time. If not specified, a data scan will run for all data in the table.
+
+
+<a name="nested_execution_spec_trigger"></a>The `trigger` block supports:
+
+* `on_demand` -
+  (Optional)
+  The scan runs once via dataScans.run API.
+
+* `schedule` -
+  (Optional)
+  The scan is scheduled to run periodically.
+  Structure is [documented below](#nested_execution_spec_trigger_schedule).
+
+* `one_time` -
+  (Optional)
+  The scan runs once upon DataScan creation.
+  Structure is [documented below](#nested_execution_spec_trigger_one_time).
+
+
+<a name="nested_execution_spec_trigger_schedule"></a>The `schedule` block supports:
+
+* `cron` -
+  (Required)
+  Cron schedule for running scans periodically. This field is required for Schedule scans.
+
+<a name="nested_execution_spec_trigger_one_time"></a>The `one_time` block supports:
+
+* `ttl_after_scan_completion` -
+  (Optional)
+  Time to live for the DataScan and its results after the one-time run completes. Accepts a string with a unit suffix 's' (e.g., '7200s'). Default is 24 hours. Ranges between 0 and 31536000 seconds (1 year).
 
 <a name="nested_data_quality_spec"></a>The `data_quality_spec` block supports:
 
@@ -384,6 +768,10 @@ The following arguments are supported:
   (Optional)
   The list of rules to evaluate against a data source. At least one rule is required.
   Structure is [documented below](#nested_data_quality_spec_rules).
+
+* `catalog_publishing_enabled` -
+  (Optional)
+  If set, the latest DataScan job result will be published to Dataplex Catalog.
 
 
 <a name="nested_data_quality_spec_post_scan_actions"></a>The `post_scan_actions` block supports:
@@ -451,7 +839,7 @@ The following arguments are supported:
 
 * `dimension` -
   (Required)
-  The dimension a rule belongs to. Results are also aggregated at the dimension level. Supported dimensions are ["COMPLETENESS", "ACCURACY", "CONSISTENCY", "VALIDITY", "UNIQUENESS", "INTEGRITY"]
+  The dimension name a rule belongs to. Custom dimension name is supported with all uppercase letters and maximum length of 30 characters.
 
 * `threshold` -
   (Optional)
@@ -465,6 +853,10 @@ The following arguments are supported:
   Must start with a letter.
   Must end with a number or a letter.
 
+* `suspended` -
+  (Optional)
+  Whether the Rule is active or suspended. Default = false.
+
 * `description` -
   (Optional)
   Description of the rule.
@@ -473,7 +865,7 @@ The following arguments are supported:
 * `range_expectation` -
   (Optional)
   ColumnMap rule which evaluates whether each column value lies between a specified range.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_range_expectation).
+  Structure is [documented below](#nested_data_quality_spec_rules_range_expectation).
 
 * `non_null_expectation` -
   (Optional)
@@ -482,12 +874,12 @@ The following arguments are supported:
 * `set_expectation` -
   (Optional)
   ColumnMap rule which evaluates whether each column value is contained by a specified set.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_set_expectation).
+  Structure is [documented below](#nested_data_quality_spec_rules_set_expectation).
 
 * `regex_expectation` -
   (Optional)
   ColumnMap rule which evaluates whether each column value matches a specified regex.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_regex_expectation).
+  Structure is [documented below](#nested_data_quality_spec_rules_regex_expectation).
 
 * `uniqueness_expectation` -
   (Optional)
@@ -496,25 +888,25 @@ The following arguments are supported:
 * `statistic_range_expectation` -
   (Optional)
   ColumnAggregate rule which evaluates whether the column aggregate statistic lies between a specified range.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_statistic_range_expectation).
+  Structure is [documented below](#nested_data_quality_spec_rules_statistic_range_expectation).
 
 * `row_condition_expectation` -
   (Optional)
   Table rule which evaluates whether each row passes the specified condition.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_row_condition_expectation).
+  Structure is [documented below](#nested_data_quality_spec_rules_row_condition_expectation).
 
 * `table_condition_expectation` -
   (Optional)
   Table rule which evaluates whether the provided expression is true.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_table_condition_expectation).
+  Structure is [documented below](#nested_data_quality_spec_rules_table_condition_expectation).
 
 * `sql_assertion` -
   (Optional)
   Table rule which evaluates whether any row matches invalid state.
-  Structure is [documented below](#nested_data_quality_spec_rules_rules_sql_assertion).
+  Structure is [documented below](#nested_data_quality_spec_rules_sql_assertion).
 
 
-<a name="nested_data_quality_spec_rules_rules_range_expectation"></a>The `range_expectation` block supports:
+<a name="nested_data_quality_spec_rules_range_expectation"></a>The `range_expectation` block supports:
 
 * `min_value` -
   (Optional)
@@ -534,19 +926,19 @@ The following arguments are supported:
   Whether each value needs to be strictly lesser than ('<') the maximum, or if equality is allowed.
   Only relevant if a maxValue has been defined. Default = false.
 
-<a name="nested_data_quality_spec_rules_rules_set_expectation"></a>The `set_expectation` block supports:
+<a name="nested_data_quality_spec_rules_set_expectation"></a>The `set_expectation` block supports:
 
 * `values` -
   (Required)
   Expected values for the column value.
 
-<a name="nested_data_quality_spec_rules_rules_regex_expectation"></a>The `regex_expectation` block supports:
+<a name="nested_data_quality_spec_rules_regex_expectation"></a>The `regex_expectation` block supports:
 
 * `regex` -
   (Required)
   A regular expression the column value is expected to match.
 
-<a name="nested_data_quality_spec_rules_rules_statistic_range_expectation"></a>The `statistic_range_expectation` block supports:
+<a name="nested_data_quality_spec_rules_statistic_range_expectation"></a>The `statistic_range_expectation` block supports:
 
 * `statistic` -
   (Required)
@@ -573,19 +965,19 @@ The following arguments are supported:
   Whether column statistic needs to be strictly lesser than ('<') the maximum, or if equality is allowed.
   Only relevant if a maxValue has been defined. Default = false.
 
-<a name="nested_data_quality_spec_rules_rules_row_condition_expectation"></a>The `row_condition_expectation` block supports:
+<a name="nested_data_quality_spec_rules_row_condition_expectation"></a>The `row_condition_expectation` block supports:
 
 * `sql_expression` -
   (Required)
   The SQL expression.
 
-<a name="nested_data_quality_spec_rules_rules_table_condition_expectation"></a>The `table_condition_expectation` block supports:
+<a name="nested_data_quality_spec_rules_table_condition_expectation"></a>The `table_condition_expectation` block supports:
 
 * `sql_expression` -
   (Required)
   The SQL expression.
 
-<a name="nested_data_quality_spec_rules_rules_sql_assertion"></a>The `sql_assertion` block supports:
+<a name="nested_data_quality_spec_rules_sql_assertion"></a>The `sql_assertion` block supports:
 
 * `sql_statement` -
   (Required)
@@ -620,6 +1012,10 @@ The following arguments are supported:
   If specified, the fields will be excluded from data profile, regardless of `include_fields` value.
   Structure is [documented below](#nested_data_profile_spec_exclude_fields).
 
+* `catalog_publishing_enabled` -
+  (Optional)
+  If set, the latest DataScan job result will be published to Dataplex Catalog.
+
 
 <a name="nested_data_profile_spec_post_scan_actions"></a>The `post_scan_actions` block supports:
 
@@ -651,6 +1047,91 @@ The following arguments are supported:
   Expected input is a list of fully qualified names of fields as in the schema.
   Only top-level field names for nested fields are supported.
   For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'.
+
+<a name="nested_data_discovery_spec"></a>The `data_discovery_spec` block supports:
+
+* `bigquery_publishing_config` -
+  (Optional)
+  Configuration for metadata publishing.
+  Structure is [documented below](#nested_data_discovery_spec_bigquery_publishing_config).
+
+* `storage_config` -
+  (Optional)
+  Configurations related to Cloud Storage as the data source.
+  Structure is [documented below](#nested_data_discovery_spec_storage_config).
+
+
+<a name="nested_data_discovery_spec_bigquery_publishing_config"></a>The `bigquery_publishing_config` block supports:
+
+* `table_type` -
+  (Optional)
+  Determines whether to publish discovered tables as BigLake external tables or non-BigLake external tables.
+  Possible values are: `TABLE_TYPE_UNSPECIFIED`, `EXTERNAL`, `BIGLAKE`.
+
+* `connection` -
+  (Optional)
+  The BigQuery connection used to create BigLake tables. Must be in the form `projects/{projectId}/locations/{locationId}/connections/{connection_id}`.
+
+* `location` -
+  (Optional)
+  The location of the BigQuery dataset to publish BigLake external or non-BigLake external tables to.
+
+* `project` -
+  (Optional)
+  The project of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. If not specified, the project of the Cloud Storage bucket will be used. The format is "projects/{project_id_or_number}".
+
+<a name="nested_data_discovery_spec_storage_config"></a>The `storage_config` block supports:
+
+* `include_patterns` -
+  (Optional)
+  Defines the data to include during discovery when only a subset of the data should be considered. Provide a list of patterns that identify the data to include. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names.
+
+* `exclude_patterns` -
+  (Optional)
+  Defines the data to exclude during discovery. Provide a list of patterns that identify the data to exclude. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names.
+
+* `csv_options` -
+  (Optional)
+  Configuration for CSV data.
+  Structure is [documented below](#nested_data_discovery_spec_storage_config_csv_options).
+
+* `json_options` -
+  (Optional)
+  Configuration for JSON data.
+  Structure is [documented below](#nested_data_discovery_spec_storage_config_json_options).
+
+
+<a name="nested_data_discovery_spec_storage_config_csv_options"></a>The `csv_options` block supports:
+
+* `header_rows` -
+  (Optional)
+  The number of rows to interpret as header rows that should be skipped when reading data rows.
+
+* `delimiter` -
+  (Optional)
+  The delimiter that is used to separate values. The default is `,` (comma).
+
+* `encoding` -
+  (Optional)
+  The character encoding of the data. The default is UTF-8.
+
+* `type_inference_disabled` -
+  (Optional)
+  Whether to disable the inference of data types for CSV data. If true, all columns are registered as strings.
+
+* `quote` -
+  (Optional)
+  The character used to quote column values. Accepts `"` (double quotation mark) or `'` (single quotation mark). If unspecified, defaults to `"` (double quotation mark).
+
+<a name="nested_data_discovery_spec_storage_config_json_options"></a>The `json_options` block supports:
+
+* `encoding` -
+  (Optional)
+  The character encoding of the data. The default is UTF-8.
+
+* `type_inference_disabled` -
+  (Optional)
+  Whether to disable the inference of data types for JSON data. If true, all columns are registered as their primitive types (strings, number, or boolean).
 
 ## Attributes Reference
 
@@ -717,6 +1198,18 @@ Datascan can be imported using any of these accepted formats:
 * `{{location}}/{{data_scan_id}}`
 * `{{data_scan_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Datascan using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    dataScanId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_dataplex_datascan.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Datascan using one of the formats above. For example:
 

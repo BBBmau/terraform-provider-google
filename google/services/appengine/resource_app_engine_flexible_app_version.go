@@ -20,18 +20,70 @@
 package appengine
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceAppEngineFlexibleAppVersion() *schema.Resource {
@@ -54,6 +106,26 @@ func ResourceAppEngineFlexibleAppVersion() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"version_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"service": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"liveness_check": {
@@ -254,25 +326,25 @@ during which the collected usage would not be reliable. Default: 120s`,
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target bytes read per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second"},
 									},
 									"target_read_ops_per_second": {
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target ops read per seconds.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second"},
 									},
 									"target_write_bytes_per_second": {
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target bytes written per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second"},
 									},
 									"target_write_ops_per_second": {
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target ops written per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.disk_utilization.0.target_read_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_read_ops_per_second", "automatic_scaling.0.disk_utilization.0.target_write_bytes_per_second", "automatic_scaling.0.disk_utilization.0.target_write_ops_per_second"},
 									},
 								},
 							},
@@ -328,25 +400,25 @@ Defaults to a runtime-specific value.`,
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target bytes received per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second", "automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second", "automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second"},
 									},
 									"target_received_packets_per_second": {
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target packets received per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second", "automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second", "automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second"},
 									},
 									"target_sent_bytes_per_second": {
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target bytes sent per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second", "automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second", "automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second"},
 									},
 									"target_sent_packets_per_second": {
 										Type:         schema.TypeInt,
 										Optional:     true,
 										Description:  `Target packets sent per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second", "automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second"},
+										AtLeastOneOf: []string{"automatic_scaling.0.network_utilization.0.target_received_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_received_packets_per_second", "automatic_scaling.0.network_utilization.0.target_sent_bytes_per_second", "automatic_scaling.0.network_utilization.0.target_sent_packets_per_second"},
 									},
 								},
 							},
@@ -362,13 +434,13 @@ Defaults to a runtime-specific value.`,
 										Type:         schema.TypeFloat,
 										Optional:     true,
 										Description:  `Target number of concurrent requests.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.request_utilization.0.target_request_count_per_second", "automatic_scaling.0.request_utilization.0.target_concurrent_requests"},
+										AtLeastOneOf: []string{"automatic_scaling.0.request_utilization.0.target_concurrent_requests", "automatic_scaling.0.request_utilization.0.target_request_count_per_second"},
 									},
 									"target_request_count_per_second": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										Description:  `Target requests per second.`,
-										AtLeastOneOf: []string{"automatic_scaling.0.request_utilization.0.target_request_count_per_second", "automatic_scaling.0.request_utilization.0.target_concurrent_requests"},
+										AtLeastOneOf: []string{"automatic_scaling.0.request_utilization.0.target_concurrent_requests", "automatic_scaling.0.request_utilization.0.target_request_count_per_second"},
 									},
 								},
 							},
@@ -417,7 +489,7 @@ A duration in seconds with up to nine fractional digits, terminated by 's'. Exam
 									},
 								},
 							},
-							AtLeastOneOf: []string{"deployment.0.zip", "deployment.0.files", "deployment.0.container"},
+							AtLeastOneOf: []string{"deployment.0.container", "deployment.0.files", "deployment.0.zip"},
 						},
 						"container": {
 							Type:        schema.TypeList,
@@ -435,7 +507,7 @@ Examples: "gcr.io/my-project/image:tag" or "gcr.io/my-project/image@digest"`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"deployment.0.zip", "deployment.0.files", "deployment.0.container"},
+							AtLeastOneOf: []string{"deployment.0.container", "deployment.0.files", "deployment.0.zip"},
 						},
 						"files": {
 							Type:     schema.TypeSet,
@@ -460,7 +532,7 @@ All files must be readable using the credentials supplied with this call.`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"deployment.0.zip", "deployment.0.files", "deployment.0.container"},
+							AtLeastOneOf: []string{"deployment.0.container", "deployment.0.files", "deployment.0.zip"},
 						},
 						"zip": {
 							Type:        schema.TypeList,
@@ -481,7 +553,7 @@ All files must be readable using the credentials supplied with this call.`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"deployment.0.zip", "deployment.0.files", "deployment.0.container"},
+							AtLeastOneOf: []string{"deployment.0.container", "deployment.0.files", "deployment.0.zip"},
 						},
 					},
 				},
@@ -908,11 +980,11 @@ func resourceAppEngineFlexibleAppVersionCreate(d *schema.ResourceData, meta inte
 	}
 
 	obj := make(map[string]interface{})
-	idProp, err := expandAppEngineFlexibleAppVersionVersionId(d.Get("version_id"), d, config)
+	versionIdProp, err := expandAppEngineFlexibleAppVersionVersionId(d.Get("version_id"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("version_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(idProp)) && (ok || !reflect.DeepEqual(v, idProp)) {
-		obj["id"] = idProp
+	} else if v, ok := d.GetOkExists("version_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(versionIdProp)) && (ok || !reflect.DeepEqual(v, versionIdProp)) {
+		obj["id"] = versionIdProp
 	}
 	inboundServicesProp, err := expandAppEngineFlexibleAppVersionInboundServices(d.Get("inbound_services"), d, config)
 	if err != nil {
@@ -1119,6 +1191,27 @@ func resourceAppEngineFlexibleAppVersionCreate(d *schema.ResourceData, meta inte
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if versionIdValue, ok := d.GetOk("version_id"); ok && versionIdValue.(string) != "" {
+			if err = identity.Set("version_id", versionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting version_id: %s", err)
+			}
+		}
+		if serviceValue, ok := d.GetOk("service"); ok && serviceValue.(string) != "" {
+			if err = identity.Set("service", serviceValue.(string)); err != nil {
+				return fmt.Errorf("Error setting service: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = AppEngineOperationWaitTime(
 		config, res, project, "Creating FlexibleAppVersion", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -1258,6 +1351,30 @@ func resourceAppEngineFlexibleAppVersionRead(d *schema.ResourceData, meta interf
 		return fmt.Errorf("Error reading FlexibleAppVersion: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("version_id"); !ok && v == "" {
+			err = identity.Set("version_id", d.Get("version_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting version_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("service"); !ok && v == "" {
+			err = identity.Set("service", d.Get("service").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting service: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1266,6 +1383,26 @@ func resourceAppEngineFlexibleAppVersionUpdate(d *schema.ResourceData, meta inte
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if versionIdValue, ok := d.GetOk("version_id"); ok && versionIdValue.(string) != "" {
+			if err = identity.Set("version_id", versionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting version_id: %s", err)
+			}
+		}
+		if serviceValue, ok := d.GetOk("service"); ok && serviceValue.(string) != "" {
+			if err = identity.Set("service", serviceValue.(string)); err != nil {
+				return fmt.Errorf("Error setting service: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1277,11 +1414,11 @@ func resourceAppEngineFlexibleAppVersionUpdate(d *schema.ResourceData, meta inte
 	billingProject = project
 
 	obj := make(map[string]interface{})
-	idProp, err := expandAppEngineFlexibleAppVersionVersionId(d.Get("version_id"), d, config)
+	versionIdProp, err := expandAppEngineFlexibleAppVersionVersionId(d.Get("version_id"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("version_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, idProp)) {
-		obj["id"] = idProp
+	} else if v, ok := d.GetOkExists("version_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, versionIdProp)) {
+		obj["id"] = versionIdProp
 	}
 	inboundServicesProp, err := expandAppEngineFlexibleAppVersionInboundServices(d.Get("inbound_services"), d, config)
 	if err != nil {
@@ -2528,6 +2665,9 @@ func expandAppEngineFlexibleAppVersionInstanceClass(v interface{}, d tpgresource
 }
 
 func expandAppEngineFlexibleAppVersionNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2595,6 +2735,9 @@ func expandAppEngineFlexibleAppVersionNetworkSessionAffinity(v interface{}, d tp
 }
 
 func expandAppEngineFlexibleAppVersionResources(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2647,6 +2790,9 @@ func expandAppEngineFlexibleAppVersionResourcesMemoryGb(v interface{}, d tpgreso
 }
 
 func expandAppEngineFlexibleAppVersionResourcesVolumes(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2703,6 +2849,9 @@ func expandAppEngineFlexibleAppVersionRuntimeChannel(v interface{}, d tpgresourc
 }
 
 func expandAppEngineFlexibleAppVersionFlexibleRuntimeSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2756,6 +2905,9 @@ func expandAppEngineFlexibleAppVersionRuntimeApiVersion(v interface{}, d tpgreso
 }
 
 func expandAppEngineFlexibleAppVersionHandlers(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2840,6 +2992,9 @@ func expandAppEngineFlexibleAppVersionHandlersRedirectHttpResponseCode(v interfa
 }
 
 func expandAppEngineFlexibleAppVersionHandlersScript(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2863,6 +3018,9 @@ func expandAppEngineFlexibleAppVersionHandlersScriptScriptPath(v interface{}, d 
 }
 
 func expandAppEngineFlexibleAppVersionHandlersStaticFiles(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2967,6 +3125,9 @@ func expandAppEngineFlexibleAppVersionServiceAccount(v interface{}, d tpgresourc
 }
 
 func expandAppEngineFlexibleAppVersionApiConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3049,6 +3210,9 @@ func expandAppEngineFlexibleAppVersionDefaultExpiration(v interface{}, d tpgreso
 }
 
 func expandAppEngineFlexibleAppVersionReadinessCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3138,6 +3302,9 @@ func expandAppEngineFlexibleAppVersionReadinessCheckAppStartTimeout(v interface{
 }
 
 func expandAppEngineFlexibleAppVersionLivenessCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3231,6 +3398,9 @@ func expandAppEngineFlexibleAppVersionNobuildFilesRegex(v interface{}, d tpgreso
 }
 
 func expandAppEngineFlexibleAppVersionDeployment(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3271,6 +3441,9 @@ func expandAppEngineFlexibleAppVersionDeployment(v interface{}, d tpgresource.Te
 }
 
 func expandAppEngineFlexibleAppVersionDeploymentZip(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3345,6 +3518,9 @@ func expandAppEngineFlexibleAppVersionDeploymentFilesSourceUrl(v interface{}, d 
 }
 
 func expandAppEngineFlexibleAppVersionDeploymentContainer(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3368,6 +3544,9 @@ func expandAppEngineFlexibleAppVersionDeploymentContainerImage(v interface{}, d 
 }
 
 func expandAppEngineFlexibleAppVersionDeploymentCloudBuildOptions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3402,6 +3581,9 @@ func expandAppEngineFlexibleAppVersionDeploymentCloudBuildOptionsCloudBuildTimeo
 }
 
 func expandAppEngineFlexibleAppVersionEndpointsApiService(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3458,6 +3640,9 @@ func expandAppEngineFlexibleAppVersionEndpointsApiServiceDisableTraceSampling(v 
 }
 
 func expandAppEngineFlexibleAppVersionEntrypoint(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3481,6 +3666,9 @@ func expandAppEngineFlexibleAppVersionEntrypointShell(v interface{}, d tpgresour
 }
 
 func expandAppEngineFlexibleAppVersionVpcAccessConnector(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3504,6 +3692,9 @@ func expandAppEngineFlexibleAppVersionVpcAccessConnectorName(v interface{}, d tp
 }
 
 func expandAppEngineFlexibleAppVersionAutomaticScaling(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3604,6 +3795,9 @@ func expandAppEngineFlexibleAppVersionAutomaticScalingCoolDownPeriod(v interface
 }
 
 func expandAppEngineFlexibleAppVersionAutomaticScalingCpuUtilization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3666,6 +3860,9 @@ func expandAppEngineFlexibleAppVersionAutomaticScalingMinPendingLatency(v interf
 }
 
 func expandAppEngineFlexibleAppVersionAutomaticScalingRequestUtilization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3700,6 +3897,9 @@ func expandAppEngineFlexibleAppVersionAutomaticScalingRequestUtilizationTargetCo
 }
 
 func expandAppEngineFlexibleAppVersionAutomaticScalingDiskUtilization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3756,6 +3956,9 @@ func expandAppEngineFlexibleAppVersionAutomaticScalingDiskUtilizationTargetReadO
 }
 
 func expandAppEngineFlexibleAppVersionAutomaticScalingNetworkUtilization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3812,6 +4015,9 @@ func expandAppEngineFlexibleAppVersionAutomaticScalingNetworkUtilizationTargetRe
 }
 
 func expandAppEngineFlexibleAppVersionManualScaling(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

@@ -131,6 +131,20 @@ The following arguments are supported:
   The name of the Group to create this membership in.
 
 
+* `member_key` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  EntityKey of the member.
+  Structure is [documented below](#nested_member_key).
+
+* `preferred_member_key` -
+  (Optional)
+  EntityKey of the member.
+  Structure is [documented below](#nested_preferred_member_key).
+
+* `create_ignore_already_exists` - (Optional) If set to true, skip group member creation if a membership with the same name already exists. Defaults to false.
+
+
+
 <a name="nested_roles"></a>The `roles` block supports:
 
 * `name` -
@@ -142,10 +156,10 @@ The following arguments are supported:
   (Optional)
   The MembershipRole expiry details, only supported for MEMBER role.
   Other roles cannot be accompanied with MEMBER role having expiry.
-  Structure is [documented below](#nested_roles_roles_expiry_detail).
+  Structure is [documented below](#nested_roles_expiry_detail).
 
 
-<a name="nested_roles_roles_expiry_detail"></a>The `expiry_detail` block supports:
+<a name="nested_roles_expiry_detail"></a>The `expiry_detail` block supports:
 
 * `expire_time` -
   (Required)
@@ -153,20 +167,6 @@ The following arguments are supported:
   A timestamp in RFC3339 UTC "Zulu" format, with nanosecond
   resolution and up to nine fractional digits.
   Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
-
-- - -
-
-
-* `member_key` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
-  EntityKey of the member.
-  Structure is [documented below](#nested_member_key).
-
-* `preferred_member_key` -
-  (Optional)
-  EntityKey of the member.
-  Structure is [documented below](#nested_preferred_member_key).
-
 
 <a name="nested_member_key"></a>The `member_key` block supports:
 
@@ -243,6 +243,16 @@ GroupMembership can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GroupMembership using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_cloud_identity_group_membership.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GroupMembership using one of the formats above. For example:
 

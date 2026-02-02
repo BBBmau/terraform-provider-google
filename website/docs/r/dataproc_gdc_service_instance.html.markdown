@@ -68,9 +68,6 @@ The following arguments are supported:
   Id of the service instance.
 
 
-- - -
-
-
 * `gdce_cluster` -
   (Optional)
   Gdce cluster information.
@@ -96,6 +93,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_gdce_cluster"></a>The `gdce_cluster` block supports:
@@ -181,6 +179,18 @@ ServiceInstance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{service_instance_id}}`
 * `{{location}}/{{service_instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServiceInstance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    serviceInstanceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_dataproc_gdc_service_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServiceInstance using one of the formats above. For example:
 

@@ -99,9 +99,6 @@ The following arguments are supported:
 
 
 
-- - -
-
-
 * `name` -
   (Optional)
   The name of the Featurestore. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number.
@@ -135,6 +132,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 * `force_destroy` - (Optional) If set to true, any EntityTypes and Features for this Featurestore will also be deleted
+
 
 <a name="nested_online_serving_config"></a>The `online_serving_config` block supports:
 
@@ -206,6 +204,18 @@ Featurestore can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Featurestore using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_featurestore.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Featurestore using one of the formats above. For example:
 

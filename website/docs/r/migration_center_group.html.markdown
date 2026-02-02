@@ -59,9 +59,6 @@ The following arguments are supported:
   Required. User specified ID for the group. It will become the last component of the group name. The ID must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. The ID must match the regular expression: `[a-z]([a-z0-9-]{0,61}[a-z0-9])?`.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels as key value pairs.
@@ -78,6 +75,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -121,6 +119,18 @@ Group can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{group_id}}`
 * `{{location}}/{{group_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Group using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    groupId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_migration_center_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Group using one of the formats above. For example:
 

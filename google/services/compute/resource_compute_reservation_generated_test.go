@@ -19,8 +19,11 @@ package compute_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccComputeReservation_reservationBasicExample(t *testing.T) {
@@ -50,7 +69,7 @@ func TestAccComputeReservation_reservationBasicExample(t *testing.T) {
 				ResourceName:            "google_compute_reservation.gce_reservation",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"share_settings", "zone"},
+				ImportStateVerifyIgnore: []string{"delete_after_duration", "share_settings", "zone"},
 			},
 		},
 	})
@@ -73,8 +92,165 @@ resource "google_compute_reservation" "gce_reservation" {
 `, context)
 }
 
+func TestAccComputeReservation_reservationSourceInstanceTemplateExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckComputeReservationDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccComputeReservation_reservationSourceInstanceTemplateExample(context),
+			},
+			{
+				ResourceName:            "google_compute_reservation.gce_reservation_source_instance_template",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_after_duration", "share_settings", "zone"},
+			},
+		},
+	})
+}
+
+func testAccComputeReservation_reservationSourceInstanceTemplateExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+data "google_compute_image" "my_image" {
+  family  = "debian-11"
+  project = "debian-cloud"
+}
+
+resource "google_compute_instance_template" "foobar" {
+  name           = "tf-test-instance-template%{random_suffix}"
+  machine_type   = "n2-standard-2"
+  can_ip_forward = false
+  tags           = ["foo", "bar"]
+
+  disk {
+    source_image = data.google_compute_image.my_image.self_link
+    auto_delete  = true
+    boot         = true
+  }
+
+  network_interface {
+    network = "default"
+  }
+
+  scheduling {
+    preemptible       = false
+    automatic_restart = true
+  }
+
+  metadata = {
+    foo = "bar"
+  }
+
+  service_account {
+    scopes = ["userinfo-email", "compute-ro", "storage-ro"]
+  }
+
+  labels = {
+    my_label = "foobar"
+  }
+}
+
+resource "google_compute_reservation" "gce_reservation_source_instance_template" {
+  name = "tf-test-gce-reservation-source-instance-template%{random_suffix}"
+  zone = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    source_instance_template = google_compute_instance_template.foobar.self_link
+  }
+}
+`, context)
+}
+
+func TestAccComputeReservation_reservationSharingPolicyExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckComputeReservationDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccComputeReservation_reservationSharingPolicyExample(context),
+			},
+			{
+				ResourceName:            "google_compute_reservation.gce_reservation_sharing_policy",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"delete_after_duration", "share_settings", "zone"},
+			},
+		},
+	})
+}
+
+func testAccComputeReservation_reservationSharingPolicyExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+data "google_compute_image" "my_image" {
+  family = "debian-11"
+  project = "debian-cloud"
+}
+
+resource "google_compute_instance_template" "foobar" {
+  name = "tf-test-instance-template%{random_suffix}"
+  machine_type = "g2-standard-4"
+  can_ip_forward = false
+  tags = ["foo", "bar"]
+
+  disk {
+    source_image = data.google_compute_image.my_image.self_link
+    auto_delete = true
+    boot = true
+  }
+
+  network_interface {
+    network = "default"
+  }
+
+  scheduling {
+    preemptible = false
+    automatic_restart = true
+  }
+
+  metadata = {
+    foo = "bar"
+  }
+  service_account {
+    scopes = ["userinfo-email", "compute-ro", "storage-ro"]
+  }
+  labels = {
+    my_label = "foobar"
+  }
+}
+
+resource "google_compute_reservation" "gce_reservation_sharing_policy" {
+  name = "tf-test-gce-reservation-sharing-policy%{random_suffix}"
+  zone = "us-central1-b"
+
+  specific_reservation {
+    count = 2
+    source_instance_template = google_compute_instance_template.foobar.self_link
+  }
+
+  reservation_sharing_policy {
+    service_share_type = "ALLOW_ALL"
+  }
+}
+`, context)
+}
+
 func TestAccComputeReservation_sharedReservationBasicExample(t *testing.T) {
-	acctest.SkipIfVcr(t)
 	t.Parallel()
 
 	context := map[string]interface{}{
@@ -87,7 +263,10 @@ func TestAccComputeReservation_sharedReservationBasicExample(t *testing.T) {
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
-		CheckDestroy:             testAccCheckComputeReservationDestroyProducer(t),
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"time": {},
+		},
+		CheckDestroy: testAccCheckComputeReservationDestroyProducer(t),
 		Steps: []resource.TestStep{
 			{
 				Config: testAccComputeReservation_sharedReservationBasicExample(context),
@@ -96,7 +275,7 @@ func TestAccComputeReservation_sharedReservationBasicExample(t *testing.T) {
 				ResourceName:            "google_compute_reservation.gce_reservation",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"share_settings", "zone"},
+				ImportStateVerifyIgnore: []string{"delete_after_duration", "share_settings", "zone"},
 			},
 		},
 	})
@@ -116,7 +295,6 @@ resource "google_project" "owner_project" {
 resource "google_project_service" "compute" {
   project = google_project.owner_project.project_id
   service = "compute.googleapis.com"
-  disable_on_destroy = false
 }
 
 resource "google_project" "guest_project" {
@@ -126,14 +304,20 @@ resource "google_project" "guest_project" {
   deletion_policy = "DELETE"
 }
 
-resource "google_organization_policy" "shared_reservation_org_policy" {
-  org_id     = "%{org_id}"
-  constraint = "constraints/compute.sharedReservationsOwnerProjects"
-  list_policy {
-    allow {
-      values = ["projects/${google_project.owner_project.number}"]
+resource "google_org_policy_policy" "shared_reservation_org_policy" {
+  name   = "projects/${google_project.owner_project.project_id}/policies/compute.sharedReservationsOwnerProjects"
+  parent = "projects/${google_project.owner_project.project_id}"
+
+  spec {
+    rules {
+      allow_all = "TRUE"
     }
   }
+}
+
+resource "time_sleep" "wait_orgpolicy" {
+  depends_on = [google_org_policy_policy.shared_reservation_org_policy, google_project_service.compute]
+  create_duration = "120s"
 }
 
 resource "google_compute_reservation" "gce_reservation" {
@@ -155,7 +339,7 @@ resource "google_compute_reservation" "gce_reservation" {
       project_id = google_project.guest_project.project_id
     }
   }
-  depends_on = [google_organization_policy.shared_reservation_org_policy,google_project_service.compute]
+  depends_on = [time_sleep.wait_orgpolicy]
 }
 `, context)
 }

@@ -56,9 +56,6 @@ The following arguments are supported:
   The short name can have a maximum length of 256 characters. The permitted character set for the shortName includes all UTF-8 encoded Unicode characters except single quotes ('), double quotes ("), backslashes (\\), and forward slashes (/).
 
 
-- - -
-
-
 * `description` -
   (Optional)
   User-assigned description of the TagKey. Must not exceed 256 characters.
@@ -67,12 +64,13 @@ The following arguments are supported:
   (Optional)
   Optional. A purpose cannot be changed once set.
   A purpose denotes that this Tag is intended for use in policies of a specific policy engine, and will involve that policy engine in management operations involving this Tag.
-  Possible values are: `GCE_FIREWALL`.
+  Possible values are: `GCE_FIREWALL`, `DATA_GOVERNANCE`.
 
 * `purpose_data` -
   (Optional)
   Optional. Purpose data cannot be changed once set.
   Purpose data corresponds to the policy system that the tag is intended for. For example, the GCE_FIREWALL purpose expects data in the following format: `network = "<project-name>/<vpc-name>"`.
+
 
 
 ## Attributes Reference
@@ -113,6 +111,16 @@ TagKey can be imported using any of these accepted formats:
 * `tagKeys/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TagKey using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_tags_tag_key.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TagKey using one of the formats above. For example:
 

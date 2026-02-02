@@ -20,19 +20,38 @@
 package dataproc
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 /*
@@ -50,6 +69,38 @@ func CloudDataprocBatchRuntimeConfigVersionDiffSuppressFunc(old, new string) boo
 func CloudDataprocBatchRuntimeConfigVersionDiffSuppress(_, old, new string, d *schema.ResourceData) bool {
 	return CloudDataprocBatchRuntimeConfigVersionDiffSuppressFunc(old, new)
 }
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
 
 func ResourceDataprocBatch() *schema.Resource {
 	return &schema.Resource{
@@ -72,6 +123,26 @@ func ResourceDataprocBatch() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"batch_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"batch_id": {
@@ -97,6 +168,24 @@ This value must be 4-63 characters. Valid characters are /[a-z][0-9]-/.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
+									"authentication_config": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `Authentication configuration for a workload is used to set the default identity for the workload execution.`,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"user_workload_authentication_type": {
+													Type:         schema.TypeString,
+													Optional:     true,
+													ForceNew:     true,
+													ValidateFunc: verify.ValidateEnum([]string{"SERVICE_ACCOUNT", "END_USER_CREDENTIALS", ""}),
+													Description:  `Authentication type for the user workload running in containers. Possible values: ["SERVICE_ACCOUNT", "END_USER_CREDENTIALS"]`,
+												},
+											},
+										},
+									},
 									"kms_key": {
 										Type:        schema.TypeString,
 										Optional:    true,
@@ -278,7 +367,7 @@ Supported file types: .py, .egg, and .zip.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_sql_batch", "spark_r_batch"},
+				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_r_batch", "spark_sql_batch"},
 			},
 			"runtime_config": {
 				Type:        schema.TypeList,
@@ -409,7 +498,7 @@ classpath or specified in jarFileUris.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_sql_batch", "spark_r_batch"},
+				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_r_batch", "spark_sql_batch"},
 			},
 			"spark_r_batch": {
 				Type:        schema.TypeList,
@@ -456,7 +545,7 @@ properties, such as --conf, since a collision can occur that causes an incorrect
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_sql_batch", "spark_r_batch"},
+				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_r_batch", "spark_sql_batch"},
 			},
 			"spark_sql_batch": {
 				Type:        schema.TypeList,
@@ -490,7 +579,7 @@ properties, such as --conf, since a collision can occur that causes an incorrect
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_sql_batch", "spark_r_batch"},
+				ExactlyOneOf: []string{"pyspark_batch", "spark_batch", "spark_r_batch", "spark_sql_batch"},
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -723,11 +812,11 @@ func resourceDataprocBatchCreate(d *schema.ResourceData, meta interface{}) error
 	} else if v, ok := d.GetOkExists("spark_sql_batch"); !tpgresource.IsEmptyValue(reflect.ValueOf(sparkSqlBatchProp)) && (ok || !reflect.DeepEqual(v, sparkSqlBatchProp)) {
 		obj["sparkSqlBatch"] = sparkSqlBatchProp
 	}
-	labelsProp, err := expandDataprocBatchEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandDataprocBatchEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{DataprocBasePath}}projects/{{project}}/locations/{{location}}/batches?batchId={{batch_id}}")
@@ -770,6 +859,27 @@ func resourceDataprocBatchCreate(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if batchIdValue, ok := d.GetOk("batch_id"); ok && batchIdValue.(string) != "" {
+			if err = identity.Set("batch_id", batchIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting batch_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = DataprocOperationWaitTime(
 		config, res, project, "Creating Batch", userAgent,
@@ -896,6 +1006,30 @@ func resourceDataprocBatchRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	if err := d.Set("effective_labels", flattenDataprocBatchEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Batch: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("batch_id"); !ok && v == "" {
+			err = identity.Set("batch_id", d.Get("batch_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting batch_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -1244,6 +1378,8 @@ func flattenDataprocBatchEnvironmentConfigExecutionConfig(v interface{}, d *sche
 		flattenDataprocBatchEnvironmentConfigExecutionConfigNetworkUri(original["networkUri"], d, config)
 	transformed["subnetwork_uri"] =
 		flattenDataprocBatchEnvironmentConfigExecutionConfigSubnetworkUri(original["subnetworkUri"], d, config)
+	transformed["authentication_config"] =
+		flattenDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfig(original["authenticationConfig"], d, config)
 	return []interface{}{transformed}
 }
 func flattenDataprocBatchEnvironmentConfigExecutionConfigServiceAccount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1271,6 +1407,23 @@ func flattenDataprocBatchEnvironmentConfigExecutionConfigNetworkUri(v interface{
 }
 
 func flattenDataprocBatchEnvironmentConfigExecutionConfigSubnetworkUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["user_workload_authentication_type"] =
+		flattenDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfigUserWorkloadAuthenticationType(original["userWorkloadAuthenticationType"], d, config)
+	return []interface{}{transformed}
+}
+func flattenDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfigUserWorkloadAuthenticationType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1521,6 +1674,9 @@ func flattenDataprocBatchEffectiveLabels(v interface{}, d *schema.ResourceData, 
 }
 
 func expandDataprocBatchRuntimeConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1605,6 +1761,9 @@ func expandDataprocBatchRuntimeConfigEffectiveProperties(v interface{}, d tpgres
 }
 
 func expandDataprocBatchRuntimeConfigAutotuningConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1632,6 +1791,9 @@ func expandDataprocBatchRuntimeConfigCohort(v interface{}, d tpgresource.Terrafo
 }
 
 func expandDataprocBatchEnvironmentConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1658,6 +1820,9 @@ func expandDataprocBatchEnvironmentConfig(v interface{}, d tpgresource.Terraform
 }
 
 func expandDataprocBatchEnvironmentConfigExecutionConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1715,6 +1880,13 @@ func expandDataprocBatchEnvironmentConfigExecutionConfig(v interface{}, d tpgres
 		transformed["subnetworkUri"] = transformedSubnetworkUri
 	}
 
+	transformedAuthenticationConfig, err := expandDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfig(original["authentication_config"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAuthenticationConfig); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["authenticationConfig"] = transformedAuthenticationConfig
+	}
+
 	return transformed, nil
 }
 
@@ -1746,7 +1918,36 @@ func expandDataprocBatchEnvironmentConfigExecutionConfigSubnetworkUri(v interfac
 	return v, nil
 }
 
+func expandDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedUserWorkloadAuthenticationType, err := expandDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfigUserWorkloadAuthenticationType(original["user_workload_authentication_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedUserWorkloadAuthenticationType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["userWorkloadAuthenticationType"] = transformedUserWorkloadAuthenticationType
+	}
+
+	return transformed, nil
+}
+
+func expandDataprocBatchEnvironmentConfigExecutionConfigAuthenticationConfigUserWorkloadAuthenticationType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandDataprocBatchEnvironmentConfigPeripheralsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 {
 		return nil, nil
@@ -1782,6 +1983,9 @@ func expandDataprocBatchEnvironmentConfigPeripheralsConfigMetastoreService(v int
 }
 
 func expandDataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1805,6 +2009,9 @@ func expandDataprocBatchEnvironmentConfigPeripheralsConfigSparkHistoryServerConf
 }
 
 func expandDataprocBatchPysparkBatch(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1883,6 +2090,9 @@ func expandDataprocBatchPysparkBatchArchiveUris(v interface{}, d tpgresource.Ter
 }
 
 func expandDataprocBatchSparkBatch(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1961,6 +2171,9 @@ func expandDataprocBatchSparkBatchMainClass(v interface{}, d tpgresource.Terrafo
 }
 
 func expandDataprocBatchSparkRBatch(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2017,6 +2230,9 @@ func expandDataprocBatchSparkRBatchArchiveUris(v interface{}, d tpgresource.Terr
 }
 
 func expandDataprocBatchSparkSqlBatch(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2093,11 +2309,14 @@ func resourceDataprocBatchDecoder(d *schema.ResourceData, meta interface{}, res 
 
 					// Update properties back to original client set properties
 					originalPropertiesCopy := make(map[string]interface{})
-					originalProperties := d.Get("runtime_config.0.properties").(interface{}).(map[string]interface{})
-					for k, v := range originalProperties {
-						originalPropertiesCopy[k] = v
+					properties := d.Get("runtime_config.0.properties")
+					if properties != nil {
+						originalProperties := properties.(interface{}).(map[string]interface{})
+						for k, v := range originalProperties {
+							originalPropertiesCopy[k] = v
+						}
+						rconfig["properties"] = originalPropertiesCopy
 					}
-					rconfig["properties"] = originalPropertiesCopy
 					return res, nil
 				}
 			}

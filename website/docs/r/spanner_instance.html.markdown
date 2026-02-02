@@ -109,9 +109,6 @@ The following arguments are supported:
   unique per project and between 4 and 30 characters in length.
 
 
-- - -
-
-
 * `name` -
   (Optional)
   A unique identifier for the instance, which cannot be changed after
@@ -121,13 +118,13 @@ The following arguments are supported:
 
 * `num_nodes` -
   (Optional)
-  The number of nodes allocated to this instance. Exactly one of either node_count or processing_units
-  must be present in terraform.
+  The number of nodes allocated to this instance. Exactly one of either num_nodes, processing_units or
+  autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
 
 * `processing_units` -
   (Optional)
-  The number of processing units allocated to this instance. Exactly one of processing_units
-  or node_count must be present in terraform.
+  The number of processing units allocated to this instance. Exactly one of either num_nodes,
+  processing_units or autoscaling_config must be present in terraform except when instance_type = FREE_INSTANCE.
 
 * `labels` -
   (Optional)
@@ -140,6 +137,8 @@ The following arguments are supported:
 * `autoscaling_config` -
   (Optional)
   The autoscaling configuration. Autoscaling is enabled if this field is set.
+  Exactly one of either num_nodes, processing_units or autoscaling_config must be
+  present in terraform except when instance_type = FREE_INSTANCE.
   When autoscaling is enabled, num_nodes and processing_units are treated as,
   OUTPUT_ONLY fields and reflect the current compute capacity allocated to
   the instance.
@@ -149,6 +148,13 @@ The following arguments are supported:
   (Optional)
   The edition selected for this instance. Different editions provide different capabilities at different price points.
   Possible values are: `EDITION_UNSPECIFIED`, `STANDARD`, `ENTERPRISE`, `ENTERPRISE_PLUS`.
+
+* `instance_type` -
+  (Optional)
+  The type of this instance. The type can be used to distinguish product variants, that can affect aspects like:
+  usage restrictions, quotas and billing. Currently this is used to distinguish FREE_INSTANCE vs PROVISIONED instances.
+  When configured as FREE_INSTANCE, the field `edition` should not be configured.
+  Possible values are: `PROVISIONED`, `FREE_INSTANCE`.
 
 * `default_backup_schedule_type` -
   (Optional)
@@ -162,6 +168,7 @@ The following arguments are supported:
 
 * `force_destroy` - (Optional) When deleting a spanner instance, this boolean option will delete all backups of this instance.
 This must be set to true if you created a backup manually in the console.
+
 
 
 <a name="nested_autoscaling_config"></a>The `autoscaling_config` block supports:
@@ -225,34 +232,41 @@ This must be set to true if you created a backup manually in the console.
   should be trying to achieve for the instance.
   This number is on a scale from 0 (no utilization) to 100 (full utilization).
 
+* `total_cpu_utilization_percent` -
+  (Optional)
+  The target total cpu utilization percentage that the autoscaler should be trying to achieve for the instance.
+  This number is on a scale from 0 (no utilization) to 100 (full utilization). The valid range is [10, 90] inclusive.
+  If not specified or set to 0, the autoscaler will skip scaling based on total cpu utilization.
+  The value should be higher than high_priority_cpu_utilization_percent if present.
+
 <a name="nested_autoscaling_config_asymmetric_autoscaling_options"></a>The `asymmetric_autoscaling_options` block supports:
 
 * `replica_selection` -
   (Required)
   A nested object resource.
-  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_replica_selection).
+  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_replica_selection).
 
 * `overrides` -
   (Required)
   A nested object resource.
-  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides).
+  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_overrides).
 
 
-<a name="nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_replica_selection"></a>The `replica_selection` block supports:
+<a name="nested_autoscaling_config_asymmetric_autoscaling_options_replica_selection"></a>The `replica_selection` block supports:
 
 * `location` -
   (Required)
   The location of the replica to apply asymmetric autoscaling options.
 
-<a name="nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides"></a>The `overrides` block supports:
+<a name="nested_autoscaling_config_asymmetric_autoscaling_options_overrides"></a>The `overrides` block supports:
 
 * `autoscaling_limits` -
   (Required)
   A nested object resource.
-  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides_autoscaling_limits).
+  Structure is [documented below](#nested_autoscaling_config_asymmetric_autoscaling_options_overrides_autoscaling_limits).
 
 
-<a name="nested_autoscaling_config_asymmetric_autoscaling_options_asymmetric_autoscaling_options_overrides_autoscaling_limits"></a>The `autoscaling_limits` block supports:
+<a name="nested_autoscaling_config_asymmetric_autoscaling_options_overrides_autoscaling_limits"></a>The `autoscaling_limits` block supports:
 
 * `min_nodes` -
   (Required)
@@ -297,6 +311,17 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_spanner_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

@@ -93,9 +93,6 @@ The following arguments are supported:
   Identifies the response policy addressed by this request.
 
 
-- - -
-
-
 * `local_data` -
   (Optional)
   Answer this query directly with DNS data. These ResourceRecordSets override any other DNS behavior for the matched name;
@@ -108,6 +105,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_local_data"></a>The `local_data` block supports:
@@ -163,6 +161,18 @@ ResponsePolicyRule can be imported using any of these accepted formats:
 * `{{project}}/{{response_policy}}/{{rule_name}}`
 * `{{response_policy}}/{{rule_name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ResponsePolicyRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    ruleName = "<-required value->"
+    response_policy = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_dns_response_policy_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ResponsePolicyRule using one of the formats above. For example:
 

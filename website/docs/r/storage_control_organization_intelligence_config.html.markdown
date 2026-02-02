@@ -58,9 +58,6 @@ The following arguments are supported:
   Identifier of the GCP Organization. For GCP org, this field should be organization number.
 
 
-- - -
-
-
 * `edition_config` -
   (Optional)
   Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, DISABLED, TRIAL and STANDARD.
@@ -69,6 +66,7 @@ The following arguments are supported:
   (Optional)
   Filter over location and bucket using include or exclude semantics. Resources that match the include or exclude filter are exclusively included or excluded from the Storage Intelligence plan.
   Structure is [documented below](#nested_filter).
+
 
 
 <a name="nested_filter"></a>The `filter` block supports:
@@ -169,6 +167,16 @@ OrganizationIntelligenceConfig can be imported using any of these accepted forma
 * `organizations/{{name}}/locations/global/intelligenceConfig`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationIntelligenceConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+  }
+  to = google_storage_control_organization_intelligence_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationIntelligenceConfig using one of the formats above. For example:
 

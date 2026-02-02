@@ -333,9 +333,6 @@ The following arguments are supported:
   The Workload identifier.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   User-defined name for the Workload.
@@ -351,6 +348,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_attributes"></a>The `attributes` block supports:
@@ -475,6 +473,56 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Output only. The location that the underlying compute resource resides in if it is zonal (e.g us-west1-a).
 
+* `functional_type` -
+  (Output)
+  Output only. The functional type of a service or workload.
+  Structure is [documented below](#nested_workload_properties_functional_type).
+
+* `extended_metadata` -
+  (Output)
+  Output only. Additional metadata specific to the resource type.
+  Structure is [documented below](#nested_workload_properties_extended_metadata).
+
+* `identity` -
+  (Output)
+  The identity associated with the workload.
+  Structure is [documented below](#nested_workload_properties_identity).
+
+
+<a name="nested_workload_properties_functional_type"></a>The `functional_type` block contains:
+
+* `type` -
+  (Output)
+  Output only. The functional type of a service or workload.
+
+<a name="nested_workload_properties_extended_metadata"></a>The `extended_metadata` block contains:
+
+* `key` -
+  (Output)
+  The key of the extended metadata.
+
+* `value` -
+  (Output)
+  The value of the extended metadata.
+  Structure is [documented below](#nested_workload_properties_extended_metadata_value).
+
+
+<a name="nested_workload_properties_extended_metadata_value"></a>The `value` block contains:
+
+* `metadata_struct` -
+  (Output)
+  The metadata contents as a JSON string.
+
+* `extended_metadata_schema` -
+  (Output)
+  The resource name for the Extended Metadata Schema.
+
+<a name="nested_workload_properties_identity"></a>The `identity` block contains:
+
+* `principal` -
+  (Output)
+  The principal of the identity.
+
 ## Timeouts
 
 This resource provides the following
@@ -493,6 +541,19 @@ Workload can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{application_id}}/{{workload_id}}`
 * `{{location}}/{{application_id}}/{{workload_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Workload using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    applicationId = "<-required value->"
+    workloadId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_apphub_workload.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Workload using one of the formats above. For example:
 

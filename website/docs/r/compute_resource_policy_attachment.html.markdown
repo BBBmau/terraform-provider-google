@@ -99,15 +99,13 @@ The following arguments are supported:
   The name of the instance in which the resource policies are attached to.
 
 
-- - -
-
-
 * `zone` -
   (Optional)
   A reference to the zone where the instance resides.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -135,6 +133,19 @@ ResourcePolicyAttachment can be imported using any of these accepted formats:
 * `{{zone}}/{{instance}}/{{name}}`
 * `{{instance}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ResourcePolicyAttachment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    instance = "<-required value->"
+    zone = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_resource_policy_attachment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ResourcePolicyAttachment using one of the formats above. For example:
 

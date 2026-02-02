@@ -57,9 +57,6 @@ The following arguments are supported:
   Identifier to assign to the API. Must be unique within scope of the parent resource(project)
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   A user-visible name for the API.
@@ -78,6 +75,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -118,6 +116,17 @@ Api can be imported using any of these accepted formats:
 * `{{project}}/{{api_id}}`
 * `{{api_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Api using identity values. For example:
+
+```tf
+import {
+  identity = {
+    apiId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_api_gateway_api.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Api using one of the formats above. For example:
 

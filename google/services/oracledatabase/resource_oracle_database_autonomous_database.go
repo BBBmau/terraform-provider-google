@@ -20,17 +20,70 @@
 package oracledatabase
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceOracleDatabaseAutonomousDatabase() *schema.Resource {
@@ -55,6 +108,26 @@ func ResourceOracleDatabaseAutonomousDatabase() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"autonomous_database_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"autonomous_database_id": {
 				Type:     schema.TypeString,
@@ -64,12 +137,6 @@ func ResourceOracleDatabaseAutonomousDatabase() *schema.Resource {
 to (^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$) and must be a maximum of 63
 characters in length. The value must start with a letter and end with
 a letter or a number.`,
-			},
-			"cidr": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: `The subnet CIDR range for the Autonmous Database.`,
 			},
 			"database": {
 				Type:     schema.TypeString,
@@ -84,13 +151,6 @@ contain a maximum of 30 alphanumeric characters.`,
 				Required:    true,
 				ForceNew:    true,
 				Description: `Resource ID segment making up resource 'name'. See documentation for resource type 'oracledatabase.googleapis.com/AutonomousDatabaseBackup'.`,
-			},
-			"network": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
-				Description: `The name of the VPC network used by the Autonomous Database.
-Format: projects/{project}/global/networks/{network}`,
 			},
 			"properties": {
 				Type:        schema.TypeList,
@@ -143,6 +203,13 @@ in days, can range from 1 day to 60 days, and has a default value of
 							Optional:    true,
 							ForceNew:    true,
 							Description: `The number of compute servers for the Autonomous Database.`,
+						},
+						"cpu_core_count": {
+							Type:        schema.TypeInt,
+							Computed:    true,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `The number of CPU cores to be made available to the database.`,
 						},
 						"customer_contacts": {
 							Type:        schema.TypeList,
@@ -258,6 +325,18 @@ FAILED_DISABLING`,
 							Optional:    true,
 							ForceNew:    true,
 							Description: `The private endpoint label for the Autonomous Database.`,
+						},
+						"secret_id": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `The ID of the Oracle Cloud Infrastructure vault secret.`,
+						},
+						"vault_id": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `The ID of the Oracle Cloud Infrastructure vault.`,
 						},
 						"actual_used_data_storage_size_tb": {
 							Type:     schema.TypeFloat,
@@ -884,6 +963,12 @@ gigabytes.`,
 				ForceNew:    true,
 				Description: `The password for the default ADMIN user.`,
 			},
+			"cidr": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Description: `The subnet CIDR range for the Autonmous Database.`,
+			},
 			"display_name": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -900,6 +985,33 @@ be unique within your project.`,
 **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
 Please refer to the field 'effective_labels' for all of the labels present on the resource.`,
 				Elem: &schema.Schema{Type: schema.TypeString},
+			},
+			"network": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+				Description: `The name of the VPC network used by the Autonomous Database.
+Format: projects/{project}/global/networks/{network}`,
+			},
+			"odb_network": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `The name of the OdbNetwork associated with the Autonomous Database.
+Format:
+projects/{project}/locations/{location}/odbNetworks/{odb_network}
+It is optional but if specified, this should match the parent ODBNetwork of
+the odb_subnet and backup_odb_subnet.`,
+			},
+			"odb_subnet": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `The name of the OdbSubnet associated with the Autonomous Database for
+IP allocation. Format:
+projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}`,
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -993,11 +1105,23 @@ func resourceOracleDatabaseAutonomousDatabaseCreate(d *schema.ResourceData, meta
 	} else if v, ok := d.GetOkExists("cidr"); !tpgresource.IsEmptyValue(reflect.ValueOf(cidrProp)) && (ok || !reflect.DeepEqual(v, cidrProp)) {
 		obj["cidr"] = cidrProp
 	}
-	labelsProp, err := expandOracleDatabaseAutonomousDatabaseEffectiveLabels(d.Get("effective_labels"), d, config)
+	odbNetworkProp, err := expandOracleDatabaseAutonomousDatabaseOdbNetwork(d.Get("odb_network"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("odb_network"); !tpgresource.IsEmptyValue(reflect.ValueOf(odbNetworkProp)) && (ok || !reflect.DeepEqual(v, odbNetworkProp)) {
+		obj["odbNetwork"] = odbNetworkProp
+	}
+	odbSubnetProp, err := expandOracleDatabaseAutonomousDatabaseOdbSubnet(d.Get("odb_subnet"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("odb_subnet"); !tpgresource.IsEmptyValue(reflect.ValueOf(odbSubnetProp)) && (ok || !reflect.DeepEqual(v, odbSubnetProp)) {
+		obj["odbSubnet"] = odbSubnetProp
+	}
+	effectiveLabelsProp, err := expandOracleDatabaseAutonomousDatabaseEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{OracleDatabaseBasePath}}projects/{{project}}/locations/{{location}}/autonomousDatabases?autonomousDatabaseId={{autonomous_database_id}}")
@@ -1041,29 +1165,36 @@ func resourceOracleDatabaseAutonomousDatabaseCreate(d *schema.ResourceData, meta
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = OracleDatabaseOperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating AutonomousDatabase", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if autonomousDatabaseIdValue, ok := d.GetOk("autonomous_database_id"); ok && autonomousDatabaseIdValue.(string) != "" {
+			if err = identity.Set("autonomous_database_id", autonomousDatabaseIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting autonomous_database_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = OracleDatabaseOperationWaitTime(
+		config, res, project, "Creating AutonomousDatabase", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create AutonomousDatabase: %s", err)
 	}
-
-	if err := d.Set("name", flattenOracleDatabaseAutonomousDatabaseName(opRes["name"], d, config)); err != nil {
-		return err
-	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/autonomousDatabases/{{autonomous_database_id}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating AutonomousDatabase %q: %#v", d.Id(), res)
 
@@ -1142,6 +1273,12 @@ func resourceOracleDatabaseAutonomousDatabaseRead(d *schema.ResourceData, meta i
 	if err := d.Set("cidr", flattenOracleDatabaseAutonomousDatabaseCidr(res["cidr"], d, config)); err != nil {
 		return fmt.Errorf("Error reading AutonomousDatabase: %s", err)
 	}
+	if err := d.Set("odb_network", flattenOracleDatabaseAutonomousDatabaseOdbNetwork(res["odbNetwork"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AutonomousDatabase: %s", err)
+	}
+	if err := d.Set("odb_subnet", flattenOracleDatabaseAutonomousDatabaseOdbSubnet(res["odbSubnet"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AutonomousDatabase: %s", err)
+	}
 	if err := d.Set("create_time", flattenOracleDatabaseAutonomousDatabaseCreateTime(res["createTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading AutonomousDatabase: %s", err)
 	}
@@ -1150,6 +1287,30 @@ func resourceOracleDatabaseAutonomousDatabaseRead(d *schema.ResourceData, meta i
 	}
 	if err := d.Set("effective_labels", flattenOracleDatabaseAutonomousDatabaseEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading AutonomousDatabase: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("autonomous_database_id"); !ok && v == "" {
+			err = identity.Set("autonomous_database_id", d.Get("autonomous_database_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting autonomous_database_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -1273,6 +1434,8 @@ func flattenOracleDatabaseAutonomousDatabaseProperties(v interface{}, d *schema.
 		flattenOracleDatabaseAutonomousDatabasePropertiesOcid(original["ocid"], d, config)
 	transformed["compute_count"] =
 		flattenOracleDatabaseAutonomousDatabasePropertiesComputeCount(original["computeCount"], d, config)
+	transformed["cpu_core_count"] =
+		flattenOracleDatabaseAutonomousDatabasePropertiesCpuCoreCount(original["cpuCoreCount"], d, config)
 	transformed["data_storage_size_tb"] =
 		flattenOracleDatabaseAutonomousDatabasePropertiesDataStorageSizeTb(original["dataStorageSizeTb"], d, config)
 	transformed["data_storage_size_gb"] =
@@ -1299,6 +1462,10 @@ func flattenOracleDatabaseAutonomousDatabaseProperties(v interface{}, d *schema.
 		flattenOracleDatabaseAutonomousDatabasePropertiesLicenseType(original["licenseType"], d, config)
 	transformed["customer_contacts"] =
 		flattenOracleDatabaseAutonomousDatabasePropertiesCustomerContacts(original["customerContacts"], d, config)
+	transformed["secret_id"] =
+		flattenOracleDatabaseAutonomousDatabasePropertiesSecretId(original["secretId"], d, config)
+	transformed["vault_id"] =
+		flattenOracleDatabaseAutonomousDatabasePropertiesVaultId(original["vaultId"], d, config)
 	transformed["maintenance_schedule_type"] =
 		flattenOracleDatabaseAutonomousDatabasePropertiesMaintenanceScheduleType(original["maintenanceScheduleType"], d, config)
 	transformed["mtls_connection_required"] =
@@ -1385,6 +1552,23 @@ func flattenOracleDatabaseAutonomousDatabasePropertiesOcid(v interface{}, d *sch
 
 func flattenOracleDatabaseAutonomousDatabasePropertiesComputeCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
+}
+
+func flattenOracleDatabaseAutonomousDatabasePropertiesCpuCoreCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
 }
 
 func flattenOracleDatabaseAutonomousDatabasePropertiesDataStorageSizeTb(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1480,6 +1664,14 @@ func flattenOracleDatabaseAutonomousDatabasePropertiesCustomerContacts(v interfa
 	return transformed
 }
 func flattenOracleDatabaseAutonomousDatabasePropertiesCustomerContactsEmail(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenOracleDatabaseAutonomousDatabasePropertiesSecretId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenOracleDatabaseAutonomousDatabasePropertiesVaultId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -2158,6 +2350,14 @@ func flattenOracleDatabaseAutonomousDatabaseCidr(v interface{}, d *schema.Resour
 	return v
 }
 
+func flattenOracleDatabaseAutonomousDatabaseOdbNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenOracleDatabaseAutonomousDatabaseOdbSubnet(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenOracleDatabaseAutonomousDatabaseCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -2194,6 +2394,9 @@ func expandOracleDatabaseAutonomousDatabaseAdminPassword(v interface{}, d tpgres
 }
 
 func expandOracleDatabaseAutonomousDatabaseProperties(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2214,6 +2417,13 @@ func expandOracleDatabaseAutonomousDatabaseProperties(v interface{}, d tpgresour
 		return nil, err
 	} else if val := reflect.ValueOf(transformedComputeCount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
 		transformed["computeCount"] = transformedComputeCount
+	}
+
+	transformedCpuCoreCount, err := expandOracleDatabaseAutonomousDatabasePropertiesCpuCoreCount(original["cpu_core_count"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedCpuCoreCount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["cpuCoreCount"] = transformedCpuCoreCount
 	}
 
 	transformedDataStorageSizeTb, err := expandOracleDatabaseAutonomousDatabasePropertiesDataStorageSizeTb(original["data_storage_size_tb"], d, config)
@@ -2305,6 +2515,20 @@ func expandOracleDatabaseAutonomousDatabaseProperties(v interface{}, d tpgresour
 		return nil, err
 	} else if val := reflect.ValueOf(transformedCustomerContacts); val.IsValid() && !tpgresource.IsEmptyValue(val) {
 		transformed["customerContacts"] = transformedCustomerContacts
+	}
+
+	transformedSecretId, err := expandOracleDatabaseAutonomousDatabasePropertiesSecretId(original["secret_id"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["secretId"] = transformedSecretId
+	}
+
+	transformedVaultId, err := expandOracleDatabaseAutonomousDatabasePropertiesVaultId(original["vault_id"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedVaultId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["vaultId"] = transformedVaultId
 	}
 
 	transformedMaintenanceScheduleType, err := expandOracleDatabaseAutonomousDatabasePropertiesMaintenanceScheduleType(original["maintenance_schedule_type"], d, config)
@@ -2591,6 +2815,10 @@ func expandOracleDatabaseAutonomousDatabasePropertiesComputeCount(v interface{},
 	return v, nil
 }
 
+func expandOracleDatabaseAutonomousDatabasePropertiesCpuCoreCount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandOracleDatabaseAutonomousDatabasePropertiesDataStorageSizeTb(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -2640,6 +2868,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesLicenseType(v interface{}, 
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesCustomerContacts(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2665,6 +2896,14 @@ func expandOracleDatabaseAutonomousDatabasePropertiesCustomerContactsEmail(v int
 	return v, nil
 }
 
+func expandOracleDatabaseAutonomousDatabasePropertiesSecretId(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandOracleDatabaseAutonomousDatabasePropertiesVaultId(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandOracleDatabaseAutonomousDatabasePropertiesMaintenanceScheduleType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -2686,6 +2925,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesAllocatedStorageSizeTb(v in
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesApexDetails(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2740,6 +2982,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesAvailableUpgradeVersions(v 
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesConnectionStrings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2794,6 +3039,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesConnectionStrings(v interfa
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesConnectionStringsAllConnectionStrings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2855,6 +3103,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesConnectionStringsMedium(v i
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesConnectionStringsProfiles(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2969,6 +3220,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesConnectionStringsProfilesVa
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesConnectionUrls(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3085,6 +3339,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesLocalAdgAutoFailoverMaxData
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesLocalStandbyDb(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3200,6 +3457,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesRole(v interface{}, d tpgre
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesScheduledOperationDetails(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3240,6 +3500,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesScheduledOperationDetailsDa
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesScheduledOperationDetailsStartTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3296,6 +3559,9 @@ func expandOracleDatabaseAutonomousDatabasePropertiesScheduledOperationDetailsSt
 }
 
 func expandOracleDatabaseAutonomousDatabasePropertiesScheduledOperationDetailsStopTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3388,6 +3654,14 @@ func expandOracleDatabaseAutonomousDatabaseNetwork(v interface{}, d tpgresource.
 }
 
 func expandOracleDatabaseAutonomousDatabaseCidr(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandOracleDatabaseAutonomousDatabaseOdbNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandOracleDatabaseAutonomousDatabaseOdbSubnet(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

@@ -23,16 +23,16 @@ description: |-
 
 A Google VMware Admin Cluster.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
+To get more information about VmwareAdminCluster, see:
+
+* [API documentation](https://cloud.google.com/kubernetes-engine/distributed-cloud/reference/on-prem-api/rest/v1/projects.locations.vmwareAdminClusters)
 
 ## Example Usage - Gkeonprem Vmware Admin Cluster Basic
 
 
 ```hcl
 resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-basic" {
-  provider = google-beta
   name = "basic"
   location = "us-west1"
   description = "test admin cluster"
@@ -71,6 +71,10 @@ resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-basic" {
       snat_pool = "test-snat-pool"
     }
   }
+  private_registry_config {
+    address = "test-address"
+    ca_cert = "test-ca-cert"
+  }
 }
 ```
 ## Example Usage - Gkeonprem Vmware Admin Cluster Full
@@ -78,7 +82,6 @@ resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-basic" {
 
 ```hcl
 resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-full" {
-  provider = google-beta
   name = "full"
   location = "us-west1"
   description = "test admin cluster"
@@ -164,6 +167,14 @@ resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-full" {
   platform_config {
     required_platform_version = "1.31.0"
   }
+  private_registry_config {
+    address = "test-address"
+    ca_cert = "test-ca-cert"
+  }
+  proxy {
+    url = "http://my-proxy.example.local:80"
+    no_proxy = "10.151.222.0/24,my-host.example.local,10.151.2.1"
+  }
 }
 ```
 ## Example Usage - Gkeonprem Vmware Admin Cluster Metallb
@@ -171,13 +182,13 @@ resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-full" {
 
 ```hcl
 resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-metallb" {
-  provider = google-beta
   name = "metallb"
   location = "us-west1"
   description = "test admin cluster"
   bootstrap_cluster_membership = "projects/870316890899/locations/global/memberships/gkeonprem-terraform-test"
-  on_prem_version = "1.31.0-gke.35"
+  on_prem_version = "1.33.0-gke.35"
   image_type = "ubuntu_containerd"
+  enable_advanced_cluster = true
   vcenter {
     resource_pool = "test resource pool"
     datastore = "test data store"
@@ -208,6 +219,14 @@ resource "google_gkeonprem_vmware_admin_cluster" "admin-cluster-metallb" {
       enabled = true
     }
   }
+  private_registry_config {
+    address = "test-address"
+    ca_cert = "test-ca-cert"
+  }
+  proxy {
+    url = "http://my-proxy.example.local:80"
+    no_proxy = "10.151.222.0/24,my-host.example.local,10.151.2.1"
+  }
 }
 ```
 
@@ -228,136 +247,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location of the resource.
-
-
-<a name="nested_network_config"></a>The `network_config` block supports:
-
-* `service_address_cidr_blocks` -
-  (Required)
-  All services in the cluster are assigned an RFC1918 IPv4 address
-  from these ranges. Only a single range is supported.. This field
-  cannot be changed after creation.
-
-* `pod_address_cidr_blocks` -
-  (Required)
-  All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges.
-  Only a single range is supported. This field cannot be changed after creation.
-
-* `static_ip_config` -
-  (Optional)
-  Configuration settings for a static IP configuration.
-  Structure is [documented below](#nested_network_config_static_ip_config).
-
-* `dhcp_ip_config` -
-  (Optional)
-  Configuration settings for a DHCP IP configuration.
-  Structure is [documented below](#nested_network_config_dhcp_ip_config).
-
-* `vcenter_network` -
-  (Optional)
-  vcenter_network specifies vCenter network name.
-
-* `host_config` -
-  (Optional)
-  Represents common network settings irrespective of the host's IP address.
-  Structure is [documented below](#nested_network_config_host_config).
-
-* `ha_control_plane_config` -
-  (Optional)
-  Configuration for HA admin cluster control plane.
-  Structure is [documented below](#nested_network_config_ha_control_plane_config).
-
-
-<a name="nested_network_config_static_ip_config"></a>The `static_ip_config` block supports:
-
-* `ip_blocks` -
-  (Optional)
-  Represents the configuration values for static IP allocation to nodes.
-  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks).
-
-
-<a name="nested_network_config_static_ip_config_ip_blocks"></a>The `ip_blocks` block supports:
-
-* `netmask` -
-  (Required)
-  The netmask used by the VMware Admin Cluster.
-
-* `gateway` -
-  (Required)
-  The network gateway used by the VMware Admin Cluster.
-
-* `ips` -
-  (Required)
-  The node's network configurations used by the VMware Admin Cluster.
-  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks_ip_blocks_ips).
-
-
-<a name="nested_network_config_static_ip_config_ip_blocks_ip_blocks_ips"></a>The `ips` block supports:
-
-* `ip` -
-  (Required)
-  IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24).
-
-* `hostname` -
-  (Optional)
-  Hostname of the machine. VM's name will be used if this field is empty.
-
-<a name="nested_network_config_dhcp_ip_config"></a>The `dhcp_ip_config` block supports:
-
-* `enabled` -
-  (Required)
-  enabled is a flag to mark if DHCP IP allocation is
-  used for VMware admin clusters.
-
-<a name="nested_network_config_host_config"></a>The `host_config` block supports:
-
-* `dns_servers` -
-  (Optional)
-  DNS servers.
-
-* `ntp_servers` -
-  (Optional)
-  NTP servers.
-
-* `dns_search_domains` -
-  (Optional)
-  DNS search domains.
-
-<a name="nested_network_config_ha_control_plane_config"></a>The `ha_control_plane_config` block supports:
-
-* `control_plane_ip_block` -
-  (Optional)
-  Static IP addresses for the control plane nodes.
-  Structure is [documented below](#nested_network_config_ha_control_plane_config_control_plane_ip_block).
-
-
-<a name="nested_network_config_ha_control_plane_config_control_plane_ip_block"></a>The `control_plane_ip_block` block supports:
-
-* `netmask` -
-  (Required)
-  The netmask used by the VMware Admin Cluster.
-
-* `gateway` -
-  (Required)
-  The network gateway used by the VMware Admin Cluster.
-
-* `ips` -
-  (Required)
-  The node's network configurations used by the VMware Admin Cluster.
-  Structure is [documented below](#nested_network_config_ha_control_plane_config_control_plane_ip_block_ips).
-
-
-<a name="nested_network_config_ha_control_plane_config_control_plane_ip_block_ips"></a>The `ips` block supports:
-
-* `ip` -
-  (Required)
-  IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24).
-
-* `hostname` -
-  (Optional)
-  Hostname of the machine. VM's name will be used if this field is empty.
-
-- - -
 
 
 * `description` -
@@ -431,9 +320,151 @@ The following arguments are supported:
   The VMware platform configuration.
   Structure is [documented below](#nested_platform_config).
 
+* `enable_advanced_cluster` -
+  (Optional)
+  If set, the advanced cluster feature is enabled.
+
+* `private_registry_config` -
+  (Optional)
+  Configuration for private registry.
+  Structure is [documented below](#nested_private_registry_config).
+
+* `proxy` -
+  (Optional)
+  Configuration for proxy.
+  Structure is [documented below](#nested_proxy).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_network_config"></a>The `network_config` block supports:
+
+* `service_address_cidr_blocks` -
+  (Required)
+  All services in the cluster are assigned an RFC1918 IPv4 address
+  from these ranges. Only a single range is supported.. This field
+  cannot be changed after creation.
+
+* `pod_address_cidr_blocks` -
+  (Required)
+  All pods in the cluster are assigned an RFC1918 IPv4 address from these ranges.
+  Only a single range is supported. This field cannot be changed after creation.
+
+* `static_ip_config` -
+  (Optional)
+  Configuration settings for a static IP configuration.
+  Structure is [documented below](#nested_network_config_static_ip_config).
+
+* `dhcp_ip_config` -
+  (Optional)
+  Configuration settings for a DHCP IP configuration.
+  Structure is [documented below](#nested_network_config_dhcp_ip_config).
+
+* `vcenter_network` -
+  (Optional)
+  vcenter_network specifies vCenter network name.
+
+* `host_config` -
+  (Optional)
+  Represents common network settings irrespective of the host's IP address.
+  Structure is [documented below](#nested_network_config_host_config).
+
+* `ha_control_plane_config` -
+  (Optional)
+  Configuration for HA admin cluster control plane.
+  Structure is [documented below](#nested_network_config_ha_control_plane_config).
+
+
+<a name="nested_network_config_static_ip_config"></a>The `static_ip_config` block supports:
+
+* `ip_blocks` -
+  (Optional)
+  Represents the configuration values for static IP allocation to nodes.
+  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks).
+
+
+<a name="nested_network_config_static_ip_config_ip_blocks"></a>The `ip_blocks` block supports:
+
+* `netmask` -
+  (Required)
+  The netmask used by the VMware Admin Cluster.
+
+* `gateway` -
+  (Required)
+  The network gateway used by the VMware Admin Cluster.
+
+* `ips` -
+  (Required)
+  The node's network configurations used by the VMware Admin Cluster.
+  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks_ips).
+
+
+<a name="nested_network_config_static_ip_config_ip_blocks_ips"></a>The `ips` block supports:
+
+* `ip` -
+  (Required)
+  IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24).
+
+* `hostname` -
+  (Optional)
+  Hostname of the machine. VM's name will be used if this field is empty.
+
+<a name="nested_network_config_dhcp_ip_config"></a>The `dhcp_ip_config` block supports:
+
+* `enabled` -
+  (Required)
+  enabled is a flag to mark if DHCP IP allocation is
+  used for VMware admin clusters.
+
+<a name="nested_network_config_host_config"></a>The `host_config` block supports:
+
+* `dns_servers` -
+  (Optional)
+  DNS servers.
+
+* `ntp_servers` -
+  (Optional)
+  NTP servers.
+
+* `dns_search_domains` -
+  (Optional)
+  DNS search domains.
+
+<a name="nested_network_config_ha_control_plane_config"></a>The `ha_control_plane_config` block supports:
+
+* `control_plane_ip_block` -
+  (Optional)
+  Static IP addresses for the control plane nodes.
+  Structure is [documented below](#nested_network_config_ha_control_plane_config_control_plane_ip_block).
+
+
+<a name="nested_network_config_ha_control_plane_config_control_plane_ip_block"></a>The `control_plane_ip_block` block supports:
+
+* `netmask` -
+  (Required)
+  The netmask used by the VMware Admin Cluster.
+
+* `gateway` -
+  (Required)
+  The network gateway used by the VMware Admin Cluster.
+
+* `ips` -
+  (Required)
+  The node's network configurations used by the VMware Admin Cluster.
+  Structure is [documented below](#nested_network_config_ha_control_plane_config_control_plane_ip_block_ips).
+
+
+<a name="nested_network_config_ha_control_plane_config_control_plane_ip_block_ips"></a>The `ips` block supports:
+
+* `ip` -
+  (Required)
+  IP could be an IP address (like 1.2.3.4) or a CIDR (like 1.2.3.0/24).
+
+* `hostname` -
+  (Optional)
+  Hostname of the machine. VM's name will be used if this field is empty.
 
 <a name="nested_control_plane_node"></a>The `control_plane_node` block supports:
 
@@ -646,10 +677,10 @@ The following arguments are supported:
 * `status` -
   (Output)
   ResourceStatus representing detailed cluster state.
-  Structure is [documented below](#nested_platform_config_bundles_bundles_status).
+  Structure is [documented below](#nested_platform_config_bundles_status).
 
 
-<a name="nested_platform_config_bundles_bundles_status"></a>The `status` block contains:
+<a name="nested_platform_config_bundles_status"></a>The `status` block contains:
 
 * `error_message` -
   (Output)
@@ -662,10 +693,10 @@ The following arguments are supported:
 * `conditions` -
   (Output)
   ResourceConditions provide a standard mechanism for higher-level status reporting from admin cluster controller.
-  Structure is [documented below](#nested_platform_config_bundles_bundles_status_conditions).
+  Structure is [documented below](#nested_platform_config_bundles_status_conditions).
 
 
-<a name="nested_platform_config_bundles_bundles_status_conditions"></a>The `conditions` block contains:
+<a name="nested_platform_config_bundles_status_conditions"></a>The `conditions` block contains:
 
 * `type` -
   (Output)
@@ -727,6 +758,27 @@ The following arguments are supported:
   (Output)
   The lifecycle state of the condition.
 
+<a name="nested_private_registry_config"></a>The `private_registry_config` block supports:
+
+* `address` -
+  (Optional)
+  The registry address.
+
+* `ca_cert` -
+  (Optional)
+  The CA certificate public key for private registry.
+
+<a name="nested_proxy"></a>The `proxy` block supports:
+
+* `url` -
+  (Required)
+  The proxy url.
+
+* `no_proxy` -
+  (Optional)
+  A comma-separated list of IP addresses, IP address ranges,
+  host names, and domain names that should not go through the proxy server.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -777,9 +829,6 @@ In addition to the arguments listed above, the following computed attributes are
 * `status` -
   ResourceStatus representing detailed cluster state.
   Structure is [documented below](#nested_status).
-
-* `enable_advanced_cluster` -
-  If set, the advanced cluster feature is enabled.
 
 * `effective_annotations` -
   All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
@@ -850,6 +899,18 @@ VmwareAdminCluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import VmwareAdminCluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gkeonprem_vmware_admin_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import VmwareAdminCluster using one of the formats above. For example:
 

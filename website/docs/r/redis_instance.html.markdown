@@ -42,6 +42,7 @@ To get more information about Instance, see:
 resource "google_redis_instance" "cache" {
   name           = "memory-cache"
   memory_size_gb = 1
+  deletion_protection = false
 
   lifecycle {
     prevent_destroy = true
@@ -67,7 +68,7 @@ resource "google_redis_instance" "cache" {
 
   authorized_network = data.google_compute_network.redis-network.id
 
-  redis_version     = "REDIS_4_0"
+  redis_version     = "REDIS_7_2"
   display_name      = "Terraform Test Instance"
   reserved_ip_range = "192.168.0.0/29"
 
@@ -172,7 +173,7 @@ resource "google_redis_instance" "cache" {
   authorized_network = google_compute_network.redis-network.id
   connect_mode       = "PRIVATE_SERVICE_ACCESS"
 
-  redis_version     = "REDIS_4_0"
+  redis_version     = "REDIS_7_2"
   display_name      = "Terraform Test Instance"
 
   depends_on = [google_service_networking_connection.private_service_connection]
@@ -201,9 +202,8 @@ resource "google_redis_instance" "cache" {
 
   authorized_network = data.google_compute_network.redis-network.id
 
-  redis_version     = "REDIS_6_X"
+  redis_version     = "REDIS_7_2"
   display_name      = "Terraform Test Instance"
-  reserved_ip_range = "192.168.0.0/28"
   replica_count     = 5
   read_replicas_mode = "READ_REPLICAS_ENABLED"
 
@@ -243,9 +243,8 @@ resource "google_redis_instance" "cache" {
 
   authorized_network = data.google_compute_network.redis-network.id
 
-  redis_version     = "REDIS_6_X"
+  redis_version     = "REDIS_7_2"
   display_name      = "Terraform Test Instance"
-  reserved_ip_range = "192.168.0.0/29"
 
   labels = {
     my_key    = "my_val"
@@ -293,9 +292,6 @@ The following arguments are supported:
 * `memory_size_gb` -
   (Required)
   Redis memory size in GiB.
-
-
-- - -
 
 
 * `alternative_location_id` -
@@ -419,18 +415,20 @@ The following arguments are supported:
   Optional. The KMS key reference that you want to use to encrypt the data at rest for this Redis
   instance. If this is provided, CMEK is enabled.
 
-* `tags` -
-  (Optional)
-  A map of resource manager tags.
-  Resource manager tag keys and values have the same definition as resource manager tags.
-  Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_key_value}.
-
 * `region` -
   (Optional)
   The name of the Redis region of the instance.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
+* `deletion_protection` - (Optional) Whether Terraform will be prevented from destroying the instance.
+When a`terraform destroy` or `terraform apply` would delete the instance,
+the command will fail if this field is not set to false in Terraform state.
+When the field is set to true or unset in Terraform state, a `terraform apply`
+or `terraform destroy` that would delete the instance will fail.
+When the field is set to false, deleting the instance is allowed.
+
 
 
 <a name="nested_persistence_config"></a>The `persistence_config` block supports:
@@ -520,10 +518,10 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Required. Start time of the window in UTC time.
-  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time).
+  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_start_time).
 
 
-<a name="nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_policy_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -576,6 +574,13 @@ In addition to the arguments listed above, the following computed attributes are
   to transfer data to/from Cloud Storage. Format is "serviceAccount:".
   The value may change over time for a given instance so should be
   checked before each import/export operation.
+
+* `effective_reserved_ip_range` -
+  The CIDR range of internal addresses that are reserved for this
+  instance. If not provided, the service will choose an unused /29
+  block, for example, 10.0.0.0/29 or 192.168.0.0/29. Ranges must be
+  unique and non-overlapping with existing subnets in an authorized
+  network.
 
 * `server_ca_certs` -
   List of server CA certificates for the instance.
@@ -676,6 +681,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_redis_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

@@ -379,6 +379,96 @@ resource "google_compute_backend_service" "default" {
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=backend_service_in_flight&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Backend Service In Flight
+
+
+```hcl
+resource "google_compute_network" "custom" {
+  provider              = google-beta
+  name                    = "custom-vpc"
+  auto_create_subnetworks = false
+}
+
+resource "google_compute_subnetwork" "default" {
+  provider              = google-beta
+  name          = "custom-subnet"
+  ip_cidr_range = "10.0.0.0/24"
+  region        = "us-central1"
+  network       = google_compute_network.custom.id
+}
+
+resource "google_compute_instance_template" "default" {
+  provider              = google-beta
+  name                  = "instance-template"
+  machine_type          = "e2-micro"
+
+  disk {
+    source_image = "debian-cloud/debian-11"
+    auto_delete  = true
+    boot         = true
+  }
+
+  network_interface {
+    network    = google_compute_network.custom.id
+    subnetwork = google_compute_subnetwork.default.id
+  }
+
+  metadata = {
+    startup-script = <<-EOT
+      #!/bin/bash
+      echo "Hello World from MIG VM" > /var/www/html/index.html
+      apt-get update -y
+      apt-get install -y apache2
+      systemctl start apache2
+    EOT
+  }
+}
+
+resource "google_compute_region_instance_group_manager" "foobar" {
+  provider              = google-beta
+  name               = "instance-group-manager"
+  base_instance_name = "vm"
+  region             = "us-central1"
+
+  version {
+    instance_template = google_compute_instance_template.default.id
+  }
+
+  target_size = 1
+}
+
+resource "google_compute_backend_service" "default" {
+  provider              = google-beta
+  name                  = "backend-service"
+  description           = "Hello World 1234"
+  port_name             = "http"
+  protocol              = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+
+  backend {
+    group                  = google_compute_region_instance_group_manager.foobar.instance_group
+    balancing_mode         = "IN_FLIGHT"
+    max_in_flight_requests = 1000
+    traffic_duration       = "LONG"
+  }
+
+  health_checks = [google_compute_health_check.default.self_link]
+}
+
+resource "google_compute_health_check" "default" {
+  provider              = google-beta
+  name = "health-check"
+
+  http_health_check {
+    port = 80
+  }
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=backend_service_external_managed&open_in_editor=main.tf" target="_blank">
     <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
   </a>
@@ -391,6 +481,7 @@ resource "google_compute_backend_service" "default" {
   name          = "backend-service"
   health_checks = [google_compute_health_check.default.id]
   load_balancing_scheme = "EXTERNAL_MANAGED"
+  protocol              = "H2C"
 }
 
 resource "google_compute_health_check" "default" {
@@ -463,6 +554,11 @@ resource "google_compute_backend_service" "default" {
       dry_run = false
     }
   }
+  log_config {
+    enable          = true
+    optional_mode   = "CUSTOM"
+    optional_fields = [ "orca_load_report", "tls.protocol" ]
+  }  
 }
 
 resource "google_compute_health_check" "default" {
@@ -485,7 +581,6 @@ resource "google_compute_health_check" "default" {
 
 ```hcl
 resource "google_compute_backend_service" "default" {
-  provider = google-beta
   name          = "backend-service"
   health_checks = [google_compute_health_check.default.id]
   load_balancing_scheme = "EXTERNAL_MANAGED"
@@ -503,7 +598,6 @@ resource "google_compute_backend_service" "default" {
 }
 
 resource "google_compute_health_check" "default" {
-  provider = google-beta
   name = "health-check"
   http_health_check {
     port = 80
@@ -511,7 +605,6 @@ resource "google_compute_health_check" "default" {
 }
 
 resource "google_network_security_backend_authentication_config" "default" {
-  provider = google-beta
   name             = "authentication"
   well_known_roots = "PUBLIC_ROOTS"
 }
@@ -629,6 +722,26 @@ resource "google_compute_url_map" "default" {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=backend_service_dynamic_forwarding&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Backend Service Dynamic Forwarding
+
+
+```hcl
+resource "google_compute_backend_service" "default" {
+  provider              = google-beta
+  name                  = "backend-service"
+  load_balancing_scheme = "INTERNAL_MANAGED"
+  dynamic_forwarding {
+    ip_port_selection {
+      enabled = true
+    }
+  }
+}
+```
 
 ## Argument Reference
 
@@ -644,9 +757,6 @@ The following arguments are supported:
   first character must be a lowercase letter, and all following
   characters must be a dash, lowercase letter, or digit, except the last
   character, which cannot be a dash.
-
-
-- - -
 
 
 * `affinity_cookie_ttl_sec` -
@@ -742,6 +852,30 @@ The following arguments are supported:
   Default value is `EXTERNAL`.
   Possible values are: `EXTERNAL`, `INTERNAL_SELF_MANAGED`, `INTERNAL_MANAGED`, `EXTERNAL_MANAGED`.
 
+* `external_managed_migration_state` -
+  (Optional)
+  Specifies the canary migration state. Possible values are PREPARE, TEST_BY_PERCENTAGE, and
+  TEST_ALL_TRAFFIC.
+  To begin the migration from EXTERNAL to EXTERNAL_MANAGED, the state must be changed to
+  PREPARE. The state must be changed to TEST_ALL_TRAFFIC before the loadBalancingScheme can be
+  changed to EXTERNAL_MANAGED. Optionally, the TEST_BY_PERCENTAGE state can be used to migrate
+  traffic by percentage using externalManagedMigrationTestingPercentage.
+  Rolling back a migration requires the states to be set in reverse order. So changing the
+  scheme from EXTERNAL_MANAGED to EXTERNAL requires the state to be set to TEST_ALL_TRAFFIC at
+  the same time. Optionally, the TEST_BY_PERCENTAGE state can be used to migrate some traffic
+  back to EXTERNAL or PREPARE can be used to migrate all traffic back to EXTERNAL.
+  Possible values are: `PREPARE`, `TEST_BY_PERCENTAGE`, `TEST_ALL_TRAFFIC`.
+
+* `external_managed_migration_testing_percentage` -
+  (Optional)
+  Determines the fraction of requests that should be processed by the Global external
+  Application Load Balancer.
+  The value of this field must be in the range [0, 100].
+  Session affinity options will slightly affect this routing behavior, for more details,
+  see: Session Affinity.
+  This value can only be set if the loadBalancingScheme in the backend service is set to
+  EXTERNAL (when using the Classic ALB) and the migration state is TEST_BY_PERCENTAGE.
+
 * `locality_lb_policy` -
   (Optional)
   The load balancing algorithm used within the scope of the locality.
@@ -784,7 +918,7 @@ The following arguments are supported:
                             to use for computing the weights are specified via the
                             backends[].customMetrics fields.
   locality_lb_policy is applicable to either:
-  * A regional backend service with the service_protocol set to HTTP, HTTPS, or HTTP2,
+  * A regional backend service with the service_protocol set to HTTP, HTTPS, HTTP2 or H2C,
     and loadBalancingScheme set to INTERNAL_MANAGED.
   * A global backend service with the load_balancing_scheme set to INTERNAL_SELF_MANAGED.
   * A regional backend service with loadBalancingScheme set to EXTERNAL (External Network
@@ -828,11 +962,11 @@ The following arguments are supported:
 * `protocol` -
   (Optional)
   The protocol this BackendService uses to communicate with backends.
-  The default is HTTP. **NOTE**: HTTP2 is only valid for beta HTTP/2 load balancer
-  types and may result in errors if used with the GA API. **NOTE**: With protocol “UNSPECIFIED”,
-  the backend service can be used by Layer 4 Internal Load Balancing or Network Load Balancing
-  with TCP/UDP/L3_DEFAULT Forwarding Rule protocol.
-  Possible values are: `HTTP`, `HTTPS`, `HTTP2`, `TCP`, `SSL`, `GRPC`, `UNSPECIFIED`.
+  The default is HTTP. Possible values are HTTP, HTTPS, HTTP2, H2C, TCP, SSL, UDP
+  or GRPC. Refer to the documentation for the load balancers or for Traffic Director
+  for more information. Must be set to GRPC when the backend service is referenced
+  by a URL map that is bound to target gRPC proxy.
+  Possible values are: `HTTP`, `HTTPS`, `HTTP2`, `TCP`, `SSL`, `UDP`, `GRPC`, `UNSPECIFIED`, `H2C`.
 
 * `security_policy` -
   (Optional)
@@ -845,7 +979,7 @@ The following arguments are supported:
 * `security_settings` -
   (Optional)
   The security settings that apply to this backend service. This field is applicable to either
-  a regional backend service with the service_protocol set to HTTP, HTTPS, or HTTP2, and
+  a regional backend service with the service_protocol set to HTTP, HTTPS, HTTP2 or H2C, and
   load_balancing_scheme set to INTERNAL_MANAGED; or a global backend service with the
   load_balancing_scheme set to INTERNAL_SELF_MANAGED.
   Structure is [documented below](#nested_security_settings).
@@ -880,7 +1014,7 @@ The following arguments are supported:
   Can only be set if load balancing scheme is EXTERNAL, EXTERNAL_MANAGED, INTERNAL_MANAGED or INTERNAL_SELF_MANAGED and the scope is global.
 
 * `tls_settings` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Configuration for Backend Authenticated TLS and mTLS. May only be specified when the backend protocol is SSL, HTTPS or HTTP2.
   Structure is [documented below](#nested_tls_settings).
 
@@ -894,8 +1028,25 @@ The following arguments are supported:
   This field is only allowed when the loadBalancingScheme of the backend service is INTERNAL_SELF_MANAGED.
   Structure is [documented below](#nested_max_stream_duration).
 
+* `network_pass_through_lb_traffic_policy` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Configures traffic steering properties of internal passthrough Network Load Balancers.
+  Structure is [documented below](#nested_network_pass_through_lb_traffic_policy).
+
+* `dynamic_forwarding` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Dynamic forwarding configuration. This field is used to configure the backend service with dynamic forwarding
+  feature which together with Service Extension allows customized and complex routing logic.
+  Structure is [documented below](#nested_dynamic_forwarding).
+
+* `params` -
+  (Optional)
+  Additional params passed with the request, but not persisted as part of resource payload
+  Structure is [documented below](#nested_params).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_backend"></a>The `backend` block supports:
@@ -909,7 +1060,7 @@ The following arguments are supported:
   See the [Backend Services Overview](https://cloud.google.com/load-balancing/docs/backend-service#balancing-mode)
   for an explanation of load balancing modes.
   Default value is `UTILIZATION`.
-  Possible values are: `UTILIZATION`, `RATE`, `CONNECTION`, `CUSTOM_METRICS`.
+  Possible values are: `UTILIZATION`, `RATE`, `CONNECTION`, `CUSTOM_METRICS`, `IN_FLIGHT`.
 
 * `capacity_scaler` -
   (Optional)
@@ -1005,13 +1156,37 @@ The following arguments are supported:
   Used when balancingMode is UTILIZATION. This ratio defines the
   CPU utilization target for the group. Valid range is [0.0, 1.0].
 
+* `max_in_flight_requests` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Defines a maximum number of in-flight requests for the whole NEG
+  or instance group. Not available if backend's balancingMode is RATE
+  or CONNECTION.
+
+* `max_in_flight_requests_per_instance` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Defines a maximum number of in-flight requests for a single VM.
+  Not available if backend's balancingMode is RATE or CONNECTION.
+
+* `max_in_flight_requests_per_endpoint` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Defines a maximum number of in-flight requests for a single endpoint.
+  Not available if backend's balancingMode is RATE or CONNECTION.
+
+* `traffic_duration` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  This field specifies how long a connection should be kept alive for:
+  - LONG: Most of the requests are expected to take more than multiple
+    seconds to finish.
+  - SHORT: Most requests are expected to finish with a sub-second latency.
+  Possible values are: `LONG`, `SHORT`.
+
 * `custom_metrics` -
   (Optional)
   The set of custom metrics that are used for <code>CUSTOM_METRICS</code> BalancingMode.
-  Structure is [documented below](#nested_backend_backend_custom_metrics).
+  Structure is [documented below](#nested_backend_custom_metrics).
 
 
-<a name="nested_backend_backend_custom_metrics"></a>The `custom_metrics` block supports:
+<a name="nested_backend_custom_metrics"></a>The `custom_metrics` block supports:
 
 * `name` -
   (Required)
@@ -1290,16 +1465,16 @@ The following arguments are supported:
 * `policy` -
   (Optional)
   The configuration for a built-in load balancing policy.
-  Structure is [documented below](#nested_locality_lb_policies_locality_lb_policies_policy).
+  Structure is [documented below](#nested_locality_lb_policies_policy).
 
 * `custom_policy` -
   (Optional)
   The configuration for a custom policy implemented by the user and
   deployed with the client.
-  Structure is [documented below](#nested_locality_lb_policies_locality_lb_policies_custom_policy).
+  Structure is [documented below](#nested_locality_lb_policies_custom_policy).
 
 
-<a name="nested_locality_lb_policies_locality_lb_policies_policy"></a>The `policy` block supports:
+<a name="nested_locality_lb_policies_policy"></a>The `policy` block supports:
 
 * `name` -
   (Required)
@@ -1331,7 +1506,7 @@ The following arguments are supported:
               Maglev, refer to https://ai.google/research/pubs/pub44824
   Possible values are: `ROUND_ROBIN`, `LEAST_REQUEST`, `RING_HASH`, `RANDOM`, `ORIGINAL_DESTINATION`, `MAGLEV`.
 
-<a name="nested_locality_lb_policies_locality_lb_policies_custom_policy"></a>The `custom_policy` block supports:
+<a name="nested_locality_lb_policies_custom_policy"></a>The `custom_policy` block supports:
 
 * `name` -
   (Required)
@@ -1563,6 +1738,7 @@ The following arguments are supported:
   This field can only be specified if logging is enabled for this backend service and "logConfig.optionalMode"
   was set to CUSTOM. Contains a list of optional fields you want to include in the logs.
   For example: serverInstance, serverGkeDetails.cluster, serverGkeDetails.pod.podNamespace
+  For example: orca_load_report, tls.protocol
 
 <a name="nested_tls_settings"></a>The `tls_settings` block supports:
 
@@ -1611,6 +1787,52 @@ The following arguments are supported:
   Durations less than one second are represented with a 0 seconds field and a positive nanos field.
   Must be from 0 to 999,999,999 inclusive.
 
+<a name="nested_network_pass_through_lb_traffic_policy"></a>The `network_pass_through_lb_traffic_policy` block supports:
+
+* `zonal_affinity` -
+  (Optional)
+  When configured, new connections are load balanced across healthy backend endpoints in the local zone.
+  Structure is [documented below](#nested_network_pass_through_lb_traffic_policy_zonal_affinity).
+
+
+<a name="nested_network_pass_through_lb_traffic_policy_zonal_affinity"></a>The `zonal_affinity` block supports:
+
+* `spillover` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  This field indicates whether zonal affinity is enabled or not.
+  Default value is `ZONAL_AFFINITY_DISABLED`.
+  Possible values are: `ZONAL_AFFINITY_DISABLED`, `ZONAL_AFFINITY_SPILL_CROSS_ZONE`, `ZONAL_AFFINITY_STAY_WITHIN_ZONE`.
+
+* `spillover_ratio` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The value of the field must be in [0, 1]. When the ratio of the count of healthy backend endpoints in a zone
+  to the count of backend endpoints in that same zone is equal to or above this threshold, the load balancer
+  distributes new connections to all healthy endpoints in the local zone only. When the ratio of the count
+  of healthy backend endpoints in a zone to the count of backend endpoints in that same zone is below this
+  threshold, the load balancer distributes all new connections to all healthy endpoints across all zones.
+
+<a name="nested_dynamic_forwarding"></a>The `dynamic_forwarding` block supports:
+
+* `ip_port_selection` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  IP:PORT based dynamic forwarding configuration.
+  Structure is [documented below](#nested_dynamic_forwarding_ip_port_selection).
+
+
+<a name="nested_dynamic_forwarding_ip_port_selection"></a>The `ip_port_selection` block supports:
+
+* `enabled` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  A boolean flag enabling IP:PORT based dynamic forwarding.
+
+<a name="nested_params"></a>The `params` block supports:
+
+* `resource_manager_tags` -
+  (Optional)
+  Resource manager tags to be bound to the backend service. Tag keys and values have the
+  same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+  and values are in the format tagValues/456.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -1647,6 +1869,17 @@ BackendService can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackendService using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_backend_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackendService using one of the formats above. For example:
 

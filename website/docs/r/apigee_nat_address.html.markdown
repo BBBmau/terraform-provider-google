@@ -205,12 +205,10 @@ The following arguments are supported:
   in the format `organizations/{{org_name}}/instances/{{instance_name}}`.
 
 
-- - -
-
-
 * `activate` -
   (Optional)
   Flag that specifies whether the reserved NAT address should be activate.
+
 
 
 ## Attributes Reference
@@ -243,6 +241,17 @@ NatAddress can be imported using any of these accepted formats:
 * `{{instance_id}}/natAddresses/{{name}}`
 * `{{instance_id}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import NatAddress using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    instanceId = "<-required value->"
+  }
+  to = google_apigee_nat_address.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import NatAddress using one of the formats above. For example:
 

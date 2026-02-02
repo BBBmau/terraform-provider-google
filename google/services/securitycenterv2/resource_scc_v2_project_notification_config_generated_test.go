@@ -19,8 +19,11 @@ package securitycenterv2_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccSecurityCenterV2ProjectNotificationConfig_sccV2ProjectNotificationConfigBasicExample(t *testing.T) {
@@ -51,7 +70,7 @@ func TestAccSecurityCenterV2ProjectNotificationConfig_sccV2ProjectNotificationCo
 				ResourceName:            "google_scc_v2_project_notification_config.custom_notification_config",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"config_id", "location", "location", "project"},
+				ImportStateVerifyIgnore: []string{"config_id", "location", "project"},
 			},
 		},
 	})
@@ -66,7 +85,6 @@ resource "google_pubsub_topic" "scc_v2_project_notification" {
 resource "google_scc_v2_project_notification_config" "custom_notification_config" {
   config_id    = "tf-test-my-config%{random_suffix}"
   project      = "%{project}"
-  location     = "global"
   description  = "My custom Cloud Security Command Center Finding Notification Configuration"
   pubsub_topic =  google_pubsub_topic.scc_v2_project_notification.id
 

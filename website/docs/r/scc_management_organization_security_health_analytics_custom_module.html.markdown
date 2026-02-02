@@ -108,9 +108,6 @@ The following arguments are supported:
   Numerical ID of the parent organization.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   The display name of the Security Health Analytics custom module. This
@@ -132,6 +129,7 @@ The following arguments are supported:
 * `location` -
   (Optional)
   Location ID of the parent organization. If not provided, 'global' will be used as the default location.
+
 
 
 <a name="nested_custom_config"></a>The `custom_config` block supports:
@@ -210,10 +208,10 @@ The following arguments are supported:
   (Optional)
   The CEL expression for the custom output. A resource property can be specified
   to return the value of the property or a text string enclosed in quotation marks.
-  Structure is [documented below](#nested_custom_config_custom_output_properties_properties_value_expression).
+  Structure is [documented below](#nested_custom_config_custom_output_properties_value_expression).
 
 
-<a name="nested_custom_config_custom_output_properties_properties_value_expression"></a>The `value_expression` block supports:
+<a name="nested_custom_config_custom_output_properties_value_expression"></a>The `value_expression` block supports:
 
 * `expression` -
   (Required)
@@ -281,6 +279,18 @@ OrganizationSecurityHealthAnalyticsCustomModule can be imported using any of the
 * `organizations/{{organization}}/locations/{{location}}/securityHealthAnalyticsCustomModules/{{name}}`
 * `{{organization}}/{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationSecurityHealthAnalyticsCustomModule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    organization = "<-required value->"
+    location = "<-optional value->"
+  }
+  to = google_scc_management_organization_security_health_analytics_custom_module.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationSecurityHealthAnalyticsCustomModule using one of the formats above. For example:
 

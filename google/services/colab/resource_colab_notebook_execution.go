@@ -20,18 +20,70 @@
 package colab
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceColabNotebookExecution() *schema.Resource {
@@ -53,6 +105,26 @@ func ResourceColabNotebookExecution() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"notebook_execution_job_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"display_name": {
 				Type:        schema.TypeString,
@@ -71,6 +143,101 @@ func ResourceColabNotebookExecution() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 				Description: `The location for the resource: https://cloud.google.com/colab/docs/locations`,
+			},
+			"custom_environment_spec": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				ForceNew:    true,
+				Description: `Compute configuration to use for an execution job`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"machine_spec": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `'The machine configuration of the runtime.'`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"accelerator_count": {
+										Type:        schema.TypeInt,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `The number of accelerators used by the runtime.`,
+									},
+									"accelerator_type": {
+										Type:        schema.TypeString,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `The type of hardware accelerator used by the runtime. If specified, acceleratorCount must also be specified.`,
+									},
+									"machine_type": {
+										Type:        schema.TypeString,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `The Compute Engine machine type selected for the runtime.`,
+									},
+								},
+							},
+						},
+						"network_spec": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `The network configuration for the runtime.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"enable_internet_access": {
+										Type:        schema.TypeBool,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `Enable public internet access for the runtime.`,
+									},
+									"network": {
+										Type:             schema.TypeString,
+										Optional:         true,
+										ForceNew:         true,
+										DiffSuppressFunc: tpgresource.CompareSelfLinkRelativePaths,
+										Description:      `The name of the VPC that this runtime is in.`,
+									},
+									"subnetwork": {
+										Type:             schema.TypeString,
+										Optional:         true,
+										ForceNew:         true,
+										DiffSuppressFunc: tpgresource.CompareSelfLinkRelativePaths,
+										Description:      `The name of the subnetwork that this runtime is in.`,
+									},
+								},
+							},
+						},
+						"persistent_disk_spec": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `The configuration for the data disk of the runtime.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"disk_size_gb": {
+										Type:        schema.TypeString,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `The disk size of the runtime in GB. If specified, the diskType must also be specified. The minimum size is 10GB and the maximum is 65536GB.`,
+									},
+									"disk_type": {
+										Type:        schema.TypeString,
+										Optional:    true,
+										ForceNew:    true,
+										Description: `The type of the persistent disk.`,
+									},
+								},
+							},
+						},
+					},
+				},
+				ExactlyOneOf: []string{"custom_environment_spec", "notebook_runtime_template_resource_name"},
 			},
 			"dataform_repository_source": {
 				Type:        schema.TypeList,
@@ -95,7 +262,7 @@ func ResourceColabNotebookExecution() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"dataform_repository_source", "gcs_notebook_source", "direct_notebook_source"},
+				ExactlyOneOf: []string{"dataform_repository_source", "direct_notebook_source", "gcs_notebook_source"},
 			},
 			"direct_notebook_source": {
 				Type:        schema.TypeList,
@@ -113,7 +280,7 @@ func ResourceColabNotebookExecution() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"dataform_repository_source", "gcs_notebook_source", "direct_notebook_source"},
+				ExactlyOneOf: []string{"dataform_repository_source", "direct_notebook_source", "gcs_notebook_source"},
 			},
 			"execution_timeout": {
 				Type:        schema.TypeString,
@@ -150,7 +317,7 @@ func ResourceColabNotebookExecution() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"dataform_repository_source", "gcs_notebook_source", "direct_notebook_source"},
+				ExactlyOneOf: []string{"dataform_repository_source", "direct_notebook_source", "gcs_notebook_source"},
 			},
 			"notebook_execution_job_id": {
 				Type:        schema.TypeString,
@@ -164,7 +331,7 @@ func ResourceColabNotebookExecution() *schema.Resource {
 				Optional:     true,
 				ForceNew:     true,
 				Description:  `The NotebookRuntimeTemplate to source compute configuration from.`,
-				ExactlyOneOf: []string{"notebook_runtime_template_resource_name"},
+				ExactlyOneOf: []string{"custom_environment_spec", "notebook_runtime_template_resource_name"},
 			},
 			"service_account": {
 				Type:         schema.TypeString,
@@ -228,6 +395,12 @@ func resourceColabNotebookExecutionCreate(d *schema.ResourceData, meta interface
 	} else if v, ok := d.GetOkExists("notebook_runtime_template_resource_name"); !tpgresource.IsEmptyValue(reflect.ValueOf(notebookRuntimeTemplateResourceNameProp)) && (ok || !reflect.DeepEqual(v, notebookRuntimeTemplateResourceNameProp)) {
 		obj["notebookRuntimeTemplateResourceName"] = notebookRuntimeTemplateResourceNameProp
 	}
+	customEnvironmentSpecProp, err := expandColabNotebookExecutionCustomEnvironmentSpec(d.Get("custom_environment_spec"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("custom_environment_spec"); !tpgresource.IsEmptyValue(reflect.ValueOf(customEnvironmentSpecProp)) && (ok || !reflect.DeepEqual(v, customEnvironmentSpecProp)) {
+		obj["customEnvironmentSpec"] = customEnvironmentSpecProp
+	}
 	gcsOutputUriProp, err := expandColabNotebookExecutionGcsOutputUri(d.Get("gcs_output_uri"), d, config)
 	if err != nil {
 		return err
@@ -287,6 +460,27 @@ func resourceColabNotebookExecutionCreate(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if notebookExecutionJobIdValue, ok := d.GetOk("notebook_execution_job_id"); ok && notebookExecutionJobIdValue.(string) != "" {
+			if err = identity.Set("notebook_execution_job_id", notebookExecutionJobIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting notebook_execution_job_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ColabOperationWaitTime(
 		config, res, project, "Creating NotebookExecution", userAgent,
@@ -377,6 +571,9 @@ func resourceColabNotebookExecutionRead(d *schema.ResourceData, meta interface{}
 	if err := d.Set("notebook_runtime_template_resource_name", flattenColabNotebookExecutionNotebookRuntimeTemplateResourceName(res["notebookRuntimeTemplateResourceName"], d, config)); err != nil {
 		return fmt.Errorf("Error reading NotebookExecution: %s", err)
 	}
+	if err := d.Set("custom_environment_spec", flattenColabNotebookExecutionCustomEnvironmentSpec(res["customEnvironmentSpec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NotebookExecution: %s", err)
+	}
 	if err := d.Set("gcs_output_uri", flattenColabNotebookExecutionGcsOutputUri(res["gcsOutputUri"], d, config)); err != nil {
 		return fmt.Errorf("Error reading NotebookExecution: %s", err)
 	}
@@ -385,6 +582,30 @@ func resourceColabNotebookExecutionRead(d *schema.ResourceData, meta interface{}
 	}
 	if err := d.Set("service_account", flattenColabNotebookExecutionServiceAccount(res["serviceAccount"], d, config)); err != nil {
 		return fmt.Errorf("Error reading NotebookExecution: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("notebook_execution_job_id"); !ok && v == "" {
+			err = identity.Set("notebook_execution_job_id", d.Get("notebook_execution_job_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting notebook_execution_job_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -524,6 +745,117 @@ func flattenColabNotebookExecutionNotebookRuntimeTemplateResourceName(v interfac
 	return v
 }
 
+func flattenColabNotebookExecutionCustomEnvironmentSpec(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["machine_spec"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpec(original["machineSpec"], d, config)
+	transformed["persistent_disk_spec"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpec(original["persistentDiskSpec"], d, config)
+	transformed["network_spec"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpec(original["networkSpec"], d, config)
+	return []interface{}{transformed}
+}
+func flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpec(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["machine_type"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpecMachineType(original["machineType"], d, config)
+	transformed["accelerator_type"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorType(original["acceleratorType"], d, config)
+	transformed["accelerator_count"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorCount(original["acceleratorCount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpecMachineType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpec(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["disk_type"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskType(original["diskType"], d, config)
+	transformed["disk_size_gb"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskSizeGb(original["diskSizeGb"], d, config)
+	return []interface{}{transformed}
+}
+func flattenColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskSizeGb(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpec(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["enable_internet_access"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpecEnableInternetAccess(original["enableInternetAccess"], d, config)
+	transformed["network"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpecNetwork(original["network"], d, config)
+	transformed["subnetwork"] =
+		flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpecSubnetwork(original["subnetwork"], d, config)
+	return []interface{}{transformed}
+}
+func flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpecEnableInternetAccess(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpecNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenColabNotebookExecutionCustomEnvironmentSpecNetworkSpecSubnetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenColabNotebookExecutionGcsOutputUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -541,6 +873,9 @@ func expandColabNotebookExecutionDisplayName(v interface{}, d tpgresource.Terraf
 }
 
 func expandColabNotebookExecutionDataformRepositorySource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -575,6 +910,9 @@ func expandColabNotebookExecutionDataformRepositorySourceCommitSha(v interface{}
 }
 
 func expandColabNotebookExecutionGcsNotebookSource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -609,6 +947,9 @@ func expandColabNotebookExecutionGcsNotebookSourceGeneration(v interface{}, d tp
 }
 
 func expandColabNotebookExecutionDirectNotebookSource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -636,6 +977,175 @@ func expandColabNotebookExecutionExecutionTimeout(v interface{}, d tpgresource.T
 }
 
 func expandColabNotebookExecutionNotebookRuntimeTemplateResourceName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpec(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedMachineSpec, err := expandColabNotebookExecutionCustomEnvironmentSpecMachineSpec(original["machine_spec"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMachineSpec); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["machineSpec"] = transformedMachineSpec
+	}
+
+	transformedPersistentDiskSpec, err := expandColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpec(original["persistent_disk_spec"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedPersistentDiskSpec); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["persistentDiskSpec"] = transformedPersistentDiskSpec
+	}
+
+	transformedNetworkSpec, err := expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpec(original["network_spec"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedNetworkSpec); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["networkSpec"] = transformedNetworkSpec
+	}
+
+	return transformed, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecMachineSpec(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedMachineType, err := expandColabNotebookExecutionCustomEnvironmentSpecMachineSpecMachineType(original["machine_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMachineType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["machineType"] = transformedMachineType
+	}
+
+	transformedAcceleratorType, err := expandColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorType(original["accelerator_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAcceleratorType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["acceleratorType"] = transformedAcceleratorType
+	}
+
+	transformedAcceleratorCount, err := expandColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorCount(original["accelerator_count"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAcceleratorCount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["acceleratorCount"] = transformedAcceleratorCount
+	}
+
+	return transformed, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecMachineSpecMachineType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecMachineSpecAcceleratorCount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpec(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedDiskType, err := expandColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskType(original["disk_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedDiskType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["diskType"] = transformedDiskType
+	}
+
+	transformedDiskSizeGb, err := expandColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskSizeGb(original["disk_size_gb"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedDiskSizeGb); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["diskSizeGb"] = transformedDiskSizeGb
+	}
+
+	return transformed, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecPersistentDiskSpecDiskSizeGb(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpec(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedEnableInternetAccess, err := expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpecEnableInternetAccess(original["enable_internet_access"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedEnableInternetAccess); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["enableInternetAccess"] = transformedEnableInternetAccess
+	}
+
+	transformedNetwork, err := expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpecNetwork(original["network"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedNetwork); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["network"] = transformedNetwork
+	}
+
+	transformedSubnetwork, err := expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpecSubnetwork(original["subnetwork"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSubnetwork); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["subnetwork"] = transformedSubnetwork
+	}
+
+	return transformed, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpecEnableInternetAccess(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpecNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandColabNotebookExecutionCustomEnvironmentSpecNetworkSpecSubnetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

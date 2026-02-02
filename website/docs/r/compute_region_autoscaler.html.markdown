@@ -141,6 +141,19 @@ The following arguments are supported:
   URL of the managed instance group that this autoscaler will scale.
 
 
+* `description` -
+  (Optional)
+  An optional description of this resource.
+
+* `region` -
+  (Optional)
+  URL of the region where the instance group resides.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_autoscaling_policy"></a>The `autoscaling_policy` block supports:
 
 * `min_replicas` -
@@ -388,21 +401,6 @@ The following arguments are supported:
   (Optional)
   A description of a scaling schedule.
 
-- - -
-
-
-* `description` -
-  (Optional)
-  An optional description of this resource.
-
-* `region` -
-  (Optional)
-  URL of the region where the instance group resides.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -433,6 +431,18 @@ RegionAutoscaler can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionAutoscaler using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_autoscaler.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionAutoscaler using one of the formats above. For example:
 

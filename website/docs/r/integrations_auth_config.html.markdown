@@ -68,9 +68,6 @@ The following arguments are supported:
   Location in which client needs to be provisioned.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A description of the auth config.
@@ -102,6 +99,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_decrypted_credential"></a>The `decrypted_credential` block supports:
@@ -220,37 +218,37 @@ The following arguments are supported:
 * `key` -
   (Optional)
   Key of the map entry.
-  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_key).
+  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_key).
 
 * `value` -
   (Optional)
   Value of the map entry.
-  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_value).
+  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_value).
 
 
-<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_key"></a>The `key` block supports:
+<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_key"></a>The `key` block supports:
 
 * `literal_value` -
   (Optional)
   Passing a literal value
-  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_key_literal_value).
+  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_key_literal_value).
 
 
-<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_key_literal_value"></a>The `literal_value` block supports:
+<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_key_literal_value"></a>The `literal_value` block supports:
 
 * `string_value` -
   (Optional)
   String.
 
-<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_value"></a>The `value` block supports:
+<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_value"></a>The `value` block supports:
 
 * `literal_value` -
   (Optional)
   Passing a literal value
-  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_value_literal_value).
+  Structure is [documented below](#nested_decrypted_credential_oauth2_client_credentials_token_params_entries_value_literal_value).
 
 
-<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_entries_value_literal_value"></a>The `literal_value` block supports:
+<a name="nested_decrypted_credential_oauth2_client_credentials_token_params_entries_value_literal_value"></a>The `literal_value` block supports:
 
 * `string_value` -
   (Optional)
@@ -390,6 +388,17 @@ AuthConfig can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AuthConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_integrations_auth_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AuthConfig using one of the formats above. For example:
 

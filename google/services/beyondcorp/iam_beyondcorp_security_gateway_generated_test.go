@@ -25,10 +25,18 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccBeyondcorpSecurityGatewayIamBindingGenerated(t *testing.T) {
@@ -53,7 +61,7 @@ func TestAccBeyondcorpSecurityGatewayIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMBindingStateID("google_beyondcorp_security_gateway_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -63,7 +71,7 @@ func TestAccBeyondcorpSecurityGatewayIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMBindingStateID("google_beyondcorp_security_gateway_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -94,7 +102,7 @@ func TestAccBeyondcorpSecurityGatewayIamMemberGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMMemberStateID("google_beyondcorp_security_gateway_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -125,7 +133,7 @@ func TestAccBeyondcorpSecurityGatewayIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMPolicyStateID("google_beyondcorp_security_gateway_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -134,7 +142,7 @@ func TestAccBeyondcorpSecurityGatewayIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMPolicyStateID("google_beyondcorp_security_gateway_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -164,7 +172,7 @@ func TestAccBeyondcorpSecurityGatewayIamBindingGenerated_withCondition(t *testin
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser %s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMBindingStateID("google_beyondcorp_security_gateway_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -196,19 +204,19 @@ func TestAccBeyondcorpSecurityGatewayIamBindingGenerated_withAndWithoutCondition
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMBindingStateID("google_beyondcorp_security_gateway_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_binding.foo2",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser %s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMBindingStateID("google_beyondcorp_security_gateway_iam_binding.foo2"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_binding.foo3",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser %s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"]), context["condition_title_no_desc"]),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMBindingStateID("google_beyondcorp_security_gateway_iam_binding.foo3"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -238,7 +246,7 @@ func TestAccBeyondcorpSecurityGatewayIamMemberGenerated_withCondition(t *testing
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMMemberStateID("google_beyondcorp_security_gateway_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -270,19 +278,19 @@ func TestAccBeyondcorpSecurityGatewayIamMemberGenerated_withAndWithoutCondition(
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMMemberStateID("google_beyondcorp_security_gateway_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_member.foo2",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMMemberStateID("google_beyondcorp_security_gateway_iam_member.foo2"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_member.foo3",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s roles/beyondcorp.securityGatewayUser user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"]), context["condition_title_no_desc"]),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMMemberStateID("google_beyondcorp_security_gateway_iam_member.foo3"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -314,7 +322,7 @@ func TestAccBeyondcorpSecurityGatewayIamPolicyGenerated_withCondition(t *testing
 			{
 				Config: testAccBeyondcorpSecurityGatewayIamPolicy_withConditionGenerated(context),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// TODO(SarahFrench) - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
+					// TODO - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
 					// resource.TestCheckResourceAttr("data.google_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttr("google_beyondcorp_security_gateway_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttrWith("data.google_iam_policy.foo", "policy_data", tpgresource.CheckGoogleIamPolicy),
@@ -322,7 +330,7 @@ func TestAccBeyondcorpSecurityGatewayIamPolicyGenerated_withCondition(t *testing
 			},
 			{
 				ResourceName:      "google_beyondcorp_security_gateway_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s", envvar.GetTestProjectFromEnv(), "global", fmt.Sprintf("default%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBeyondcorpSecurityGatewayIAMPolicyStateID("google_beyondcorp_security_gateway_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -610,4 +618,57 @@ resource "google_beyondcorp_security_gateway_iam_policy" "foo" {
   policy_data = data.google_iam_policy.foo.policy_data
 }
 `, context)
+}
+func generateBeyondcorpSecurityGatewayIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		security_gateway_id := tpgresource.GetResourceNameFromSelfLink(rawState["security_gateway_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s", project, location, security_gateway_id), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateBeyondcorpSecurityGatewayIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		security_gateway_id := tpgresource.GetResourceNameFromSelfLink(rawState["security_gateway_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s", project, location, security_gateway_id), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateBeyondcorpSecurityGatewayIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		security_gateway_id := tpgresource.GetResourceNameFromSelfLink(rawState["security_gateway_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/securityGateways/%s", project, location, security_gateway_id), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

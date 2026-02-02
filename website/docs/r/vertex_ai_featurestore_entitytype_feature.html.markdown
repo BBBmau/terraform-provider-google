@@ -138,9 +138,6 @@ The following arguments are supported:
   The name of the Featurestore to use, in the format projects/{project}/locations/{location}/featurestores/{featurestore}/entityTypes/{entitytype}.
 
 
-- - -
-
-
 * `name` -
   (Optional)
   The name of the feature. The feature can be up to 64 characters long and can consist only of ASCII Latin letters A-Z and a-z, underscore(_), and ASCII digits 0-9 starting with a letter. The value will be unique given an entity type.
@@ -155,6 +152,7 @@ The following arguments are supported:
 * `description` -
   (Optional)
   Description of the feature.
+
 
 
 ## Attributes Reference
@@ -196,6 +194,17 @@ FeaturestoreEntitytypeFeature can be imported using any of these accepted format
 
 * `{{entitytype}}/features/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FeaturestoreEntitytypeFeature using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    entitytype = "<-required value->"
+  }
+  to = google_vertex_ai_featurestore_entitytype_feature.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FeaturestoreEntitytypeFeature using one of the formats above. For example:
 

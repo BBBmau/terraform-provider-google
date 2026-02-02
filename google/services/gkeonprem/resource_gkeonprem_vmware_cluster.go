@@ -20,18 +20,70 @@
 package gkeonprem
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceGkeonpremVmwareCluster() *schema.Resource {
@@ -55,6 +107,26 @@ func ResourceGkeonpremVmwareCluster() *schema.Resource {
 			tpgresource.SetAnnotationsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"admin_cluster_membership": {
@@ -514,7 +586,7 @@ used for VMware user clusters.`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"network_config.0.static_ip_config", "network_config.0.dhcp_ip_config"},
+							ExactlyOneOf: []string{"network_config.0.dhcp_ip_config", "network_config.0.static_ip_config"},
 						},
 						"host_config": {
 							Type:        schema.TypeList,
@@ -599,7 +671,7 @@ used for VMware user clusters.`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"network_config.0.static_ip_config", "network_config.0.dhcp_ip_config"},
+							ExactlyOneOf: []string{"network_config.0.dhcp_ip_config", "network_config.0.static_ip_config"},
 						},
 						"vcenter_network": {
 							Type:        schema.TypeString,
@@ -1025,11 +1097,11 @@ func resourceGkeonpremVmwareClusterCreate(d *schema.ResourceData, meta interface
 	} else if v, ok := d.GetOkExists("vcenter"); !tpgresource.IsEmptyValue(reflect.ValueOf(vcenterProp)) && (ok || !reflect.DeepEqual(v, vcenterProp)) {
 		obj["vcenter"] = vcenterProp
 	}
-	annotationsProp, err := expandGkeonpremVmwareClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandGkeonpremVmwareClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(annotationsProp)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveAnnotationsProp)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{GkeonpremBasePath}}projects/{{project}}/locations/{{location}}/vmwareClusters?vmware_cluster_id={{name}}")
@@ -1073,22 +1145,35 @@ func resourceGkeonpremVmwareClusterCreate(d *schema.ResourceData, meta interface
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = GkeonpremOperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating VmwareCluster", userAgent,
-		d.Timeout(schema.TimeoutCreate))
-	if err != nil {
-		return fmt.Errorf("Error waiting to create VmwareCluster: %s", err)
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
 	}
 
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/vmwareClusters/{{name}}")
+	err = GkeonpremOperationWaitTime(
+		config, res, project, "Creating VmwareCluster", userAgent,
+		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
+
+		return fmt.Errorf("Error waiting to create VmwareCluster: %s", err)
 	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating VmwareCluster %q: %#v", d.Id(), res)
 
@@ -1231,6 +1316,30 @@ func resourceGkeonpremVmwareClusterRead(d *schema.ResourceData, meta interface{}
 		return fmt.Errorf("Error reading VmwareCluster: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1239,6 +1348,26 @@ func resourceGkeonpremVmwareClusterUpdate(d *schema.ResourceData, meta interface
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1346,11 +1475,11 @@ func resourceGkeonpremVmwareClusterUpdate(d *schema.ResourceData, meta interface
 	} else if v, ok := d.GetOkExists("vcenter"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, vcenterProp)) {
 		obj["vcenter"] = vcenterProp
 	}
-	annotationsProp, err := expandGkeonpremVmwareClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandGkeonpremVmwareClusterEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{GkeonpremBasePath}}projects/{{project}}/locations/{{location}}/vmwareClusters/{{name}}")
@@ -2529,6 +2658,9 @@ func expandGkeonpremVmwareClusterOnPremVersion(v interface{}, d tpgresource.Terr
 }
 
 func expandGkeonpremVmwareClusterControlPlaneNode(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2588,6 +2720,9 @@ func expandGkeonpremVmwareClusterControlPlaneNodeReplicas(v interface{}, d tpgre
 }
 
 func expandGkeonpremVmwareClusterControlPlaneNodeAutoResizeConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2611,6 +2746,9 @@ func expandGkeonpremVmwareClusterControlPlaneNodeAutoResizeConfigEnabled(v inter
 }
 
 func expandGkeonpremVmwareClusterControlPlaneNodeVsphereConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2645,6 +2783,9 @@ func expandGkeonpremVmwareClusterControlPlaneNodeVsphereConfigStoragePolicyName(
 }
 
 func expandGkeonpremVmwareClusterAntiAffinityGroups(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2668,6 +2809,9 @@ func expandGkeonpremVmwareClusterAntiAffinityGroupsAagConfigDisabled(v interface
 }
 
 func expandGkeonpremVmwareClusterStorage(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2691,6 +2835,9 @@ func expandGkeonpremVmwareClusterStorageVsphereCsiDisabled(v interface{}, d tpgr
 }
 
 func expandGkeonpremVmwareClusterNetworkConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2760,6 +2907,9 @@ func expandGkeonpremVmwareClusterNetworkConfigPodAddressCidrBlocks(v interface{}
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigStaticIpConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2779,6 +2929,9 @@ func expandGkeonpremVmwareClusterNetworkConfigStaticIpConfig(v interface{}, d tp
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigStaticIpConfigIpBlocks(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2823,6 +2976,9 @@ func expandGkeonpremVmwareClusterNetworkConfigStaticIpConfigIpBlocksGateway(v in
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigStaticIpConfigIpBlocksIps(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2860,6 +3016,9 @@ func expandGkeonpremVmwareClusterNetworkConfigStaticIpConfigIpBlocksIpsHostname(
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigDhcpIpConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2887,6 +3046,9 @@ func expandGkeonpremVmwareClusterNetworkConfigVcenterNetwork(v interface{}, d tp
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigHostConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2932,6 +3094,9 @@ func expandGkeonpremVmwareClusterNetworkConfigHostConfigDnsSearchDomains(v inter
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigControlPlaneV2Config(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2951,6 +3116,9 @@ func expandGkeonpremVmwareClusterNetworkConfigControlPlaneV2Config(v interface{}
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigControlPlaneV2ConfigControlPlaneIpBlock(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2992,6 +3160,9 @@ func expandGkeonpremVmwareClusterNetworkConfigControlPlaneV2ConfigControlPlaneIp
 }
 
 func expandGkeonpremVmwareClusterNetworkConfigControlPlaneV2ConfigControlPlaneIpBlockIps(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3029,6 +3200,9 @@ func expandGkeonpremVmwareClusterNetworkConfigControlPlaneV2ConfigControlPlaneIp
 }
 
 func expandGkeonpremVmwareClusterLoadBalancer(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3069,6 +3243,9 @@ func expandGkeonpremVmwareClusterLoadBalancer(v interface{}, d tpgresource.Terra
 }
 
 func expandGkeonpremVmwareClusterLoadBalancerVipConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3103,6 +3280,9 @@ func expandGkeonpremVmwareClusterLoadBalancerVipConfigIngressVip(v interface{}, 
 }
 
 func expandGkeonpremVmwareClusterLoadBalancerF5Config(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3148,6 +3328,9 @@ func expandGkeonpremVmwareClusterLoadBalancerF5ConfigSnatPool(v interface{}, d t
 }
 
 func expandGkeonpremVmwareClusterLoadBalancerManualLbConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3204,6 +3387,9 @@ func expandGkeonpremVmwareClusterLoadBalancerManualLbConfigKonnectivityServerNod
 }
 
 func expandGkeonpremVmwareClusterLoadBalancerMetalLbConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3223,6 +3409,9 @@ func expandGkeonpremVmwareClusterLoadBalancerMetalLbConfig(v interface{}, d tpgr
 }
 
 func expandGkeonpremVmwareClusterLoadBalancerMetalLbConfigAddressPools(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3282,6 +3471,9 @@ func expandGkeonpremVmwareClusterLoadBalancerMetalLbConfigAddressPoolsManualAssi
 }
 
 func expandGkeonpremVmwareClusterDataplaneV2(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3331,6 +3523,9 @@ func expandGkeonpremVmwareClusterVmTrackingEnabled(v interface{}, d tpgresource.
 }
 
 func expandGkeonpremVmwareClusterAutoRepairConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3354,6 +3549,9 @@ func expandGkeonpremVmwareClusterAutoRepairConfigEnabled(v interface{}, d tpgres
 }
 
 func expandGkeonpremVmwareClusterAuthorization(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3373,6 +3571,9 @@ func expandGkeonpremVmwareClusterAuthorization(v interface{}, d tpgresource.Terr
 }
 
 func expandGkeonpremVmwareClusterAuthorizationAdminUsers(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3411,6 +3612,9 @@ func expandGkeonpremVmwareClusterDisableBundledIngress(v interface{}, d tpgresou
 }
 
 func expandGkeonpremVmwareClusterUpgradePolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3434,6 +3638,9 @@ func expandGkeonpremVmwareClusterUpgradePolicyControlPlaneOnly(v interface{}, d 
 }
 
 func expandGkeonpremVmwareClusterVcenter(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

@@ -100,9 +100,6 @@ The following arguments are supported:
   The ID of the Network Policy.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   User-provided description for this network policy.
@@ -120,6 +117,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_internet_access"></a>The `internet_access` block supports:
@@ -184,6 +182,18 @@ NetworkPolicy can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import NetworkPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_vmwareengine_network_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import NetworkPolicy using one of the formats above. For example:
 

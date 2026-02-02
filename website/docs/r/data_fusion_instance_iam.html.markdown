@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Cloud Data Fusion Instance
+
 Three different resources help you manage your IAM policy for Cloud Data Fusion Instance. Each of these resources serves a different use case:
 
 * `google_data_fusion_instance_iam_policy`: Authoritative. Sets the IAM policy for the instance and replaces any existing policy already attached.
@@ -87,11 +88,11 @@ resource "google_data_fusion_instance_iam_member" "member" {
 
 The following arguments are supported:
 
-* `name` - (Required) Used to find the parent resource to bind the IAM policy to
 * `region` - (Optional) The region of the Data Fusion instance.
  Used to find the parent resource to bind the IAM policy to. If not specified,
   the value will be parsed from the identifier of the parent resource. If no region is provided in the parent identifier and no
   region is specified, it is taken from the provider configuration.
+* `name` - (Required) Used to find the parent resource to bind the IAM policy to
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the project will be parsed from the identifier of the parent resource. If no project is provided in the parent identifier and no project is specified, the provider project is used.
@@ -107,6 +108,7 @@ The following arguments are supported:
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_data_fusion_instance_iam_binding` can be used per role. Note that custom roles must be of the format
@@ -126,9 +128,9 @@ exported:
 
 For all import syntaxes, the "resource in question" can take any of the following forms:
 
-* projects/{{project}}/locations/{{location}}/instances/{{name}}
-* {{project}}/{{location}}/{{name}}
-* {{location}}/{{name}}
+* projects/{{project}}/locations/{{region}}/instances/{{name}}
+* {{project}}/{{region}}/{{name}}
+* {{region}}/{{name}}
 * {{name}}
 
 Any variables not passed in the import command will be taken from the provider configuration.
@@ -137,17 +139,17 @@ Cloud Data Fusion instance IAM resources can be imported using the resource iden
 
 IAM member imports use space-delimited identifiers: the resource in question, the role, and the member identity, e.g.
 ```
-$ terraform import google_data_fusion_instance_iam_member.editor "projects/{{project}}/locations/{{location}}/instances/{{instance}} roles/viewer user:jane@example.com"
+$ terraform import google_data_fusion_instance_iam_member.editor "projects/{{project}}/locations/{{region}}/instances/{{instance}} roles/viewer user:jane@example.com"
 ```
 
 IAM binding imports use space-delimited identifiers: the resource in question and the role, e.g.
 ```
-$ terraform import google_data_fusion_instance_iam_binding.editor "projects/{{project}}/locations/{{location}}/instances/{{instance}} roles/viewer"
+$ terraform import google_data_fusion_instance_iam_binding.editor "projects/{{project}}/locations/{{region}}/instances/{{instance}} roles/viewer"
 ```
 
 IAM policy imports use the identifier of the resource in question, e.g.
 ```
-$ terraform import google_data_fusion_instance_iam_policy.editor projects/{{project}}/locations/{{location}}/instances/{{instance}}
+$ terraform import google_data_fusion_instance_iam_policy.editor projects/{{project}}/locations/{{region}}/instances/{{instance}}
 ```
 
 -> **Custom Roles** If you're importing a IAM resource with a custom role, make sure to use the

@@ -1219,9 +1219,6 @@ The following arguments are supported:
   For Private Service Connect forwarding rules that forward traffic to managed services, the target must be a service attachment.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource. Provide this property when
@@ -1364,6 +1361,29 @@ The following arguments are supported:
   networkTier of the Address.
   Possible values are: `PREMIUM`, `STANDARD`.
 
+* `external_managed_backend_bucket_migration_state` -
+  (Optional)
+  Specifies the canary migration state for the backend buckets attached to this forwarding rule.
+  Possible values are PREPARE, TEST_BY_PERCENTAGE, and TEST_ALL_TRAFFIC.
+  To begin the migration from EXTERNAL to EXTERNAL_MANAGED, the state must be changed to
+  PREPARE. The state must be changed to TEST_ALL_TRAFFIC before the loadBalancingScheme can be
+  changed to EXTERNAL_MANAGED. Optionally, the TEST_BY_PERCENTAGE state can be used to migrate
+  traffic to backend buckets attached to this forwarding rule by percentage using
+  externalManagedBackendBucketMigrationTestingPercentage.
+  Rolling back a migration requires the states to be set in reverse order. So changing the
+  scheme from EXTERNAL_MANAGED to EXTERNAL requires the state to be set to TEST_ALL_TRAFFIC at
+  the same time. Optionally, the TEST_BY_PERCENTAGE state can be used to migrate some traffic
+  back to EXTERNAL or PREPARE can be used to migrate all traffic back to EXTERNAL.
+  Possible values are: `PREPARE`, `TEST_BY_PERCENTAGE`, `TEST_ALL_TRAFFIC`.
+
+* `external_managed_backend_bucket_migration_testing_percentage` -
+  (Optional)
+  Determines the fraction of requests to backend buckets that should be processed by the Global
+  external Application Load Balancer.
+  The value of this field must be in the range [0, 100].
+  This value can only be set if the loadBalancingScheme in the forwarding rule is set to
+  EXTERNAL (when using the Classic ALB) and the migration state is TEST_BY_PERCENTAGE.
+
 * `service_directory_registrations` -
   (Optional)
   Service Directory resources to register this forwarding rule with.
@@ -1386,6 +1406,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_metadata_filters"></a>The `metadata_filters` block supports:
 
 * `filter_match_criteria` -
@@ -1403,10 +1424,10 @@ The following arguments are supported:
   The list of label value pairs that must match labels in the
   provided metadata based on filterMatchCriteria
   This list must not be empty and can have at the most 64 entries.
-  Structure is [documented below](#nested_metadata_filters_metadata_filters_filter_labels).
+  Structure is [documented below](#nested_metadata_filters_filter_labels).
 
 
-<a name="nested_metadata_filters_metadata_filters_filter_labels"></a>The `filter_labels` block supports:
+<a name="nested_metadata_filters_filter_labels"></a>The `filter_labels` block supports:
 
 * `name` -
   (Required)
@@ -1480,6 +1501,17 @@ GlobalForwardingRule can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GlobalForwardingRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_global_forwarding_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GlobalForwardingRule using one of the formats above. For example:
 

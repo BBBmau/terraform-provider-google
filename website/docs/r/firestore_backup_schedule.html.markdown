@@ -98,9 +98,6 @@ The following arguments are supported:
   You can set this to a value up to 14 weeks.
 
 
-- - -
-
-
 * `daily_recurrence` -
   (Optional)
   For a schedule that runs daily.
@@ -116,6 +113,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_weekly_recurrence"></a>The `weekly_recurrence` block supports:
@@ -154,6 +152,18 @@ BackupSchedule can be imported using any of these accepted formats:
 * `{{project}}/{{database}}/{{name}}`
 * `{{database}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupSchedule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    database = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_firestore_backup_schedule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupSchedule using one of the formats above. For example:
 

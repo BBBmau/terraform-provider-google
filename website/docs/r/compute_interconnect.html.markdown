@@ -42,7 +42,7 @@ resource "google_compute_interconnect" "example-interconnect" {
   customer_name        = "example_customer"
   interconnect_type    = "DEDICATED"
   link_type            = "LINK_TYPE_ETHERNET_10G_LR"
-  location             = "https://www.googleapis.com/compute/v1/projects/${data.google_project.project.name}/global/interconnectLocations/iad-zone1-1"
+  location             = "https://www.googleapis.com/compute/v1/${data.google_project.project.id}/global/interconnectLocations/iad-zone1-1"
   requested_link_count = 1
 }
 ```
@@ -59,6 +59,11 @@ The following arguments are supported:
   long and match the regular expression `[a-z]([-a-z0-9]*[a-z0-9])?` which means the first
   character must be a lowercase letter, and all following characters must be a dash,
   lowercase letter, or digit, except the last character, which cannot be a dash.
+
+* `location` -
+  (Required)
+  URL of the InterconnectLocation object that represents where this connection is to be provisioned.
+  Specifies the location inside Google's Networks.
 
 * `link_type` -
   (Required)
@@ -82,23 +87,20 @@ The following arguments are supported:
   Possible values are: `DEDICATED`, `PARTNER`, `IT_PRIVATE`.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource. Provide this property when you create the resource.
-
-* `location` -
-  (Optional)
-  URL of the InterconnectLocation object that represents where this connection is to be provisioned.
-  Specifies the location inside Google's Networks, should not be passed in case of cross-cloud interconnect.
 
 * `admin_enabled` -
   (Optional)
   Administrative status of the interconnect. When this is set to true, the Interconnect is
   functional and can carry traffic. When set to false, no packets can be carried over the
   interconnect and no BGP routes are exchanged over it. By default, the status is set to true.
+
+* `params` -
+  (Optional)
+  Additional params passed with the request, but not persisted as part of resource payload
+  Structure is [documented below](#nested_params).
 
 * `noc_contact_email` -
   (Optional)
@@ -140,16 +142,36 @@ The following arguments are supported:
 
 * `requested_features` -
   (Optional)
-  interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC (
-  If specified then the connection is created on MACsec capable hardware ports. If not
-  specified, the default value is false, which allocates non-MACsec capable ports first if
-  available). Note that MACSEC is still technically allowed for compatibility reasons, but it
-  does not work with the API, and will be removed in an upcoming major version.
-  Each value may be one of: `MACSEC`, `IF_MACSEC`.
+  List of features to request for this Interconnect connection. This field is only applicable during Interconnect creation and cannot be modified later.
+  Possible values include:
+  - 'IF_MACSEC': Provisions the connection on hardware ports that support MACsec (Media Access Control Security). If not specified, the system may allocate non-MACsec capable ports if available.
+  - 'IF_L2_FORWARDING': Provisions the connection for Layer 2 (L2) traffic forwarding. If not specified, the connection defaults to Layer 3 (L3) traffic forwarding.
+  - 'IF_CROSS_SITE_NETWORK': Provisions the connection exclusively for Cross-Site Networking.
+  Note: 'MACSEC' is a legacy value for compatibility reasons and has the same effect as 'IF_MACSEC'. 'IF_MACSEC' is preferred.
+  Each value may be one of: `MACSEC`, `CROSS_SITE_NETWORK`, `IF_MACSEC`, `IF_L2_FORWARDING`.
+
+* `aai_enabled` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Enable or disable the Application Aware Interconnect(AAI) feature on this interconnect.
+
+* `application_aware_interconnect` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Configuration that enables Media Access Control security (MACsec) on the Cloud
+  Interconnect connection between Google and your on-premises router.
+  Structure is [documented below](#nested_application_aware_interconnect).
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_params"></a>The `params` block supports:
+
+* `resource_manager_tags` -
+  (Optional)
+  Resource manager tags to be bound to the interconnect. Tag keys and values have the
+  same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+  and values are in the format tagValues/456.
 
 <a name="nested_macsec"></a>The `macsec` block supports:
 
@@ -197,6 +219,62 @@ The following arguments are supported:
   if the MKA session cannot be established with your router.
 
   ~> **Warning:** `failOpen` is deprecated and will be removed in a future major release. Use other `failOpen` instead.
+
+<a name="nested_application_aware_interconnect"></a>The `application_aware_interconnect` block supports:
+
+* `profile_description` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  A description for the AAI profile on this interconnect.
+
+* `strict_priority_policy` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Specify configuration for StrictPriorityPolicy.
+
+* `bandwidth_percentage_policy` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Bandwidth Percentage policy allows you to have granular control over how your Interconnect
+  bandwidth is utilized among your workloads mapping to different traffic classes.
+  Structure is [documented below](#nested_application_aware_interconnect_bandwidth_percentage_policy).
+
+* `shape_average_percentage` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Optional field to specify a list of shape average percentages to be
+  applied in conjunction with StrictPriorityPolicy or BandwidthPercentagePolicy
+  Structure is [documented below](#nested_application_aware_interconnect_shape_average_percentage).
+
+
+<a name="nested_application_aware_interconnect_bandwidth_percentage_policy"></a>The `bandwidth_percentage_policy` block supports:
+
+* `bandwidth_percentage` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Specify bandwidth percentages for various traffic classes for queuing
+  type Bandwidth Percent.
+  Structure is [documented below](#nested_application_aware_interconnect_bandwidth_percentage_policy_bandwidth_percentage).
+
+
+<a name="nested_application_aware_interconnect_bandwidth_percentage_policy_bandwidth_percentage"></a>The `bandwidth_percentage` block supports:
+
+* `traffic_class` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Enum representing the various traffic classes offered by AAI.
+  Default value is `TC_UNSPECIFIED`.
+  Possible values are: `TC_UNSPECIFIED`, `TC1`, `TC2`, `TC3`, `TC4`, `TC5`, `TC6`.
+
+* `percentage` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Bandwidth percentage for a specific traffic class.
+
+<a name="nested_application_aware_interconnect_shape_average_percentage"></a>The `shape_average_percentage` block supports:
+
+* `traffic_class` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Enum representing the various traffic classes offered by AAI.
+  Default value is `TC_UNSPECIFIED`.
+  Possible values are: `TC_UNSPECIFIED`, `TC1`, `TC2`, `TC3`, `TC4`, `TC5`, `TC6`.
+
+* `percentage` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Bandwidth percentage for a specific traffic class.
 
 ## Attributes Reference
 
@@ -263,10 +341,19 @@ In addition to the arguments listed above, the following computed attributes are
   Reserved for future use.
 
 * `available_features` -
-  interconnects.list of features available for this Interconnect connection. Can take the value:
-  MACSEC. If present then the Interconnect connection is provisioned on MACsec capable hardware
-  ports. If not present then the Interconnect connection is provisioned on non-MACsec capable
-  ports and MACsec isn't supported and enabling MACsec fails).
+  [Output Only] List of features that are available on this Interconnect connection based on the provisioned hardware and configuration.
+  Possible values include:
+  - 'IF_MACSEC': Indicates the Interconnect connection is provisioned on MACsec capable hardware ports. If this feature is not present, the connection does not support MACsec, and any attempt to enable it will fail.
+  - 'IF_L2_FORWARDING': Indicates the Interconnect connection can be used for Layer 2 (L2) traffic forwarding. If not present, the connection cannot be used with L2 forwarding attachments.
+  - 'IF_CROSS_SITE_NETWORK': Indicates the Interconnect connection is provisioned for Cross-Site Networking.
+  Note: 'MACSEC' is a legacy value and has the same meaning as 'IF_MACSEC'.
+
+* `wire_groups` -
+  A list of the URLs of all CrossSiteNetwork WireGroups configured to use this Interconnect. The Interconnect cannot be deleted if this list is non-empty.
+
+* `interconnect_groups` -
+  URLs of InterconnectGroups that include this Interconnect.
+  Order is arbitrary and items are unique.
 
 * `terraform_labels` -
   The combination of labels configured directly on the resource
@@ -358,6 +445,17 @@ Interconnect can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Interconnect using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_interconnect.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Interconnect using one of the formats above. For example:
 

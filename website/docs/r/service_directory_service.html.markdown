@@ -23,12 +23,10 @@ description: |-
 
 An individual service. A service contains a name and optional metadata.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about Service, see:
 
-* [API documentation](https://cloud.google.com/service-directory/docs/reference/rest/v1beta1/projects.locations.namespaces.services)
+* [API documentation](https://cloud.google.com/service-directory/docs/reference/rest/v1/projects.locations.namespaces.services)
 * How-to Guides
     * [Configuring a service](https://cloud.google.com/service-directory/docs/configuring-service-directory#configuring_a_service)
 
@@ -42,13 +40,11 @@ To get more information about Service, see:
 
 ```hcl
 resource "google_service_directory_namespace" "example" {
-  provider     = google-beta
   namespace_id = "example-namespace"
   location     = "us-central1"
 }
 
 resource "google_service_directory_service" "example" {
-  provider   = google-beta
   service_id = "example-service"
   namespace  = google_service_directory_namespace.example.id
 
@@ -74,15 +70,13 @@ The following arguments are supported:
   lowercase letters or the hyphen character.
 
 
-- - -
-
-
 * `metadata` -
   (Optional)
   Metadata for the service. This data can be consumed
   by service clients. The entire metadata dictionary may contain
   up to 2000 characters, spread across all key-value pairs.
   Metadata that goes beyond any these limits will be rejected.
+
 
 
 ## Attributes Reference
@@ -114,6 +108,17 @@ Service can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{namespace_id}}/{{service_id}}`
 * `{{location}}/{{namespace_id}}/{{service_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Service using identity values. For example:
+
+```tf
+import {
+  identity = {
+    serviceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_service_directory_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Service using one of the formats above. For example:
 

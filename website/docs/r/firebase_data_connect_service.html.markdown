@@ -38,7 +38,6 @@ To get more information about Service, see:
 resource "google_project_service" "fdc" {
   project = "my-project-name"
   service = "firebasedataconnect.googleapis.com"
-  disable_on_destroy = false
 }
 
 # Create a Firebase Data Connect service
@@ -68,7 +67,6 @@ resource "google_firebase_data_connect_service" "default" {
 resource "google_project_service" "fdc" {
   project = "my-project-name"
   service = "firebasedataconnect.googleapis.com"
-  disable_on_destroy = false
 }
 
 # Create a Firebase Data Connect service
@@ -97,9 +95,6 @@ The following arguments are supported:
   service's resource name.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   Optional. Mutable human-readable name. 63 character limit.
@@ -124,6 +119,7 @@ Service to be deleted even if a Schema or Connector is present. By default,
 the Service deletion will only succeed when no Schema or Connectors are
 present.
 Possible values: DEFAULT, FORCE
+
 
 ## Attributes Reference
 
@@ -189,6 +185,18 @@ Service can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{service_id}}`
 * `{{location}}/{{service_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Service using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    serviceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_data_connect_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Service using one of the formats above. For example:
 

@@ -70,9 +70,6 @@ The following arguments are supported:
   A reference to Bucket resource
 
 
-- - -
-
-
 * `admission_policy` -
   (Optional)
   The cache admission policy dictates whether a block should be inserted upon a cache miss.
@@ -82,6 +79,7 @@ The following arguments are supported:
 * `ttl` -
   (Optional)
   The TTL of all cache entries in whole seconds. e.g., "7200s". It defaults to `86400s`
+
 
 
 ## Attributes Reference
@@ -123,6 +121,17 @@ AnywhereCache can be imported using any of these accepted formats:
 * `b/{{bucket}}/anywhereCaches/{{anywhere_cache_id}}`
 * `{{bucket}}/{{anywhere_cache_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AnywhereCache using identity values. For example:
+
+```tf
+import {
+  identity = {
+    anywhereCacheId = "<-optional value->"
+    bucket = "<-required value->"
+  }
+  to = google_storage_anywhere_cache.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AnywhereCache using one of the formats above. For example:
 

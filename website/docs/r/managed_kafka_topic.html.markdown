@@ -87,9 +87,6 @@ The following arguments are supported:
   The ID to use for the topic, which will become the final component of the topic's name. This value is structured like: `my-topic-name`.
 
 
-- - -
-
-
 * `partition_count` -
   (Optional)
   The number of partitions in a topic. You can increase the partition count for a topic, but you cannot decrease it. Increasing partitions for a topic that uses a key might change how messages are distributed.
@@ -100,6 +97,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -130,6 +128,19 @@ Topic can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{cluster}}/{{topic_id}}`
 * `{{location}}/{{cluster}}/{{topic_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Topic using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    cluster = "<-required value->"
+    topicId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_managed_kafka_topic.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Topic using one of the formats above. For example:
 

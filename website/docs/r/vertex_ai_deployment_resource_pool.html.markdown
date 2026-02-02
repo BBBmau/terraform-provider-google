@@ -70,9 +70,6 @@ The following arguments are supported:
   The resource name of deployment resource pool. The maximum length is 63 characters, and valid characters are `/^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$/`.
 
 
-- - -
-
-
 * `dedicated_resources` -
   (Optional)
   The underlying dedicated resources that the deployment resource pool uses.
@@ -84,6 +81,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_dedicated_resources"></a>The `dedicated_resources` block supports:
@@ -159,6 +157,18 @@ DeploymentResourcePool can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DeploymentResourcePool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_deployment_resource_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DeploymentResourcePool using one of the formats above. For example:
 

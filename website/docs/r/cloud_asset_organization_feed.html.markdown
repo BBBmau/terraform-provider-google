@@ -101,23 +101,6 @@ The following arguments are supported:
   The organization this feed should be created in.
 
 
-<a name="nested_feed_output_config"></a>The `feed_output_config` block supports:
-
-* `pubsub_destination` -
-  (Required)
-  Destination on Cloud Pubsub.
-  Structure is [documented below](#nested_feed_output_config_pubsub_destination).
-
-
-<a name="nested_feed_output_config_pubsub_destination"></a>The `pubsub_destination` block supports:
-
-* `topic` -
-  (Required)
-  Destination on Cloud Pubsub topic.
-
-- - -
-
-
 * `asset_names` -
   (Optional)
   A list of the full names of the assets to receive updates. You must specify either or both of
@@ -147,6 +130,21 @@ The following arguments are supported:
   condition are optional.
   Structure is [documented below](#nested_condition).
 
+
+
+<a name="nested_feed_output_config"></a>The `feed_output_config` block supports:
+
+* `pubsub_destination` -
+  (Required)
+  Destination on Cloud Pubsub.
+  Structure is [documented below](#nested_feed_output_config_pubsub_destination).
+
+
+<a name="nested_feed_output_config_pubsub_destination"></a>The `pubsub_destination` block supports:
+
+* `topic` -
+  (Required)
+  Destination on Cloud Pubsub topic.
 
 <a name="nested_condition"></a>The `condition` block supports:
 
@@ -196,6 +194,17 @@ OrganizationFeed can be imported using any of these accepted formats:
 * `organizations/{{org_id}}/feeds/{{name}}`
 * `{{org_id}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationFeed using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    org_id = "<-required value->"
+  }
+  to = google_cloud_asset_organization_feed.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationFeed using one of the formats above. For example:
 

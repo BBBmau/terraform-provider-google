@@ -186,13 +186,61 @@ The following arguments are supported:
   Structure is [documented below](#nested_conditions).
 
 
+* `enabled` -
+  (Optional)
+  Whether or not the policy is enabled. The default is true.
+
+* `notification_channels` -
+  (Optional)
+  Identifies the notification channels to which notifications should be
+  sent when incidents are opened or closed or when new violations occur
+  on an already opened incident. Each element of this array corresponds
+  to the name field in each of the NotificationChannel objects that are
+  returned from the notificationChannels.list method. The syntax of the
+  entries in this field is
+  `projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]`
+
+* `alert_strategy` -
+  (Optional)
+  Control over how this alert policy's notification channels are notified.
+  Structure is [documented below](#nested_alert_strategy).
+
+* `user_labels` -
+  (Optional)
+  This field is intended to be used for organizing and identifying the AlertPolicy
+  objects.The field can contain up to 64 entries. Each key and value is limited
+  to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values
+  can contain only lowercase letters, numerals, underscores, and dashes. Keys
+  must begin with a letter.
+
+* `severity` -
+  (Optional)
+  The severity of an alert policy indicates how important incidents generated
+  by that policy are. The severity level will be displayed on the Incident
+  detail page and in notifications.
+  Possible values are: `CRITICAL`, `ERROR`, `WARNING`.
+
+* `documentation` -
+  (Optional)
+  Documentation that is included with notifications and incidents related
+  to this policy. Best practice is for the documentation to include information
+  to help responders understand, mitigate, escalate, and correct the underlying
+  problems detected by the alerting policy. Notification channels that have
+  limited capacity might not show this documentation.
+  Structure is [documented below](#nested_documentation).
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_conditions"></a>The `conditions` block supports:
 
 * `condition_absent` -
   (Optional)
   A condition that checks that a time series
   continues to receive new data points.
-  Structure is [documented below](#nested_conditions_conditions_condition_absent).
+  Structure is [documented below](#nested_conditions_condition_absent).
 
 * `name` -
   (Output)
@@ -206,13 +254,13 @@ The following arguments are supported:
 * `condition_monitoring_query_language` -
   (Optional)
   A Monitoring Query Language query that outputs a boolean stream
-  Structure is [documented below](#nested_conditions_conditions_condition_monitoring_query_language).
+  Structure is [documented below](#nested_conditions_condition_monitoring_query_language).
 
 * `condition_threshold` -
   (Optional)
   A condition that compares a time series against a
   threshold.
-  Structure is [documented below](#nested_conditions_conditions_condition_threshold).
+  Structure is [documented below](#nested_conditions_condition_threshold).
 
 * `display_name` -
   (Required)
@@ -226,7 +274,7 @@ The following arguments are supported:
   (Optional)
   A condition that checks for log messages matching given constraints.
   If set, no other conditions can be present.
-  Structure is [documented below](#nested_conditions_conditions_condition_matched_log).
+  Structure is [documented below](#nested_conditions_condition_matched_log).
 
 * `condition_prometheus_query_language` -
   (Optional)
@@ -234,17 +282,17 @@ The following arguments are supported:
   Prometheus Query Language (PromQL).
   The PrometheusQueryLanguageCondition message contains information
   from a Prometheus alerting rule and its associated rule group.
-  Structure is [documented below](#nested_conditions_conditions_condition_prometheus_query_language).
+  Structure is [documented below](#nested_conditions_condition_prometheus_query_language).
 
 * `condition_sql` -
   (Optional)
   A condition that allows alerting policies to be defined using GoogleSQL.
   SQL conditions examine a sliding window of logs using GoogleSQL.
   Alert policies with SQL conditions may incur additional billing.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql).
+  Structure is [documented below](#nested_conditions_condition_sql).
 
 
-<a name="nested_conditions_conditions_condition_absent"></a>The `condition_absent` block supports:
+<a name="nested_conditions_condition_absent"></a>The `condition_absent` block supports:
 
 * `aggregations` -
   (Optional)
@@ -257,7 +305,7 @@ The following arguments are supported:
   all members of a group of resources).
   Multiple aggregations are applied in the
   order specified.
-  Structure is [documented below](#nested_conditions_conditions_condition_absent_aggregations).
+  Structure is [documented below](#nested_conditions_condition_absent_aggregations).
 
 * `trigger` -
   (Optional)
@@ -267,7 +315,7 @@ The following arguments are supported:
   the condition will trigger if the comparison
   is true for any of the time series that have
   been identified by filter and aggregations.
-  Structure is [documented below](#nested_conditions_conditions_condition_absent_trigger).
+  Structure is [documented below](#nested_conditions_condition_absent_trigger).
 
 * `duration` -
   (Required)
@@ -293,7 +341,7 @@ The following arguments are supported:
   in length.
 
 
-<a name="nested_conditions_conditions_condition_absent_aggregations"></a>The `aggregations` block supports:
+<a name="nested_conditions_condition_absent_aggregations"></a>The `aggregations` block supports:
 
 * `per_series_aligner` -
   (Optional)
@@ -382,7 +430,7 @@ The following arguments are supported:
   returned.
   Possible values are: `REDUCE_NONE`, `REDUCE_MEAN`, `REDUCE_MIN`, `REDUCE_MAX`, `REDUCE_SUM`, `REDUCE_STDDEV`, `REDUCE_COUNT`, `REDUCE_COUNT_TRUE`, `REDUCE_COUNT_FALSE`, `REDUCE_FRACTION_TRUE`, `REDUCE_PERCENTILE_99`, `REDUCE_PERCENTILE_95`, `REDUCE_PERCENTILE_50`, `REDUCE_PERCENTILE_05`.
 
-<a name="nested_conditions_conditions_condition_absent_trigger"></a>The `trigger` block supports:
+<a name="nested_conditions_condition_absent_trigger"></a>The `trigger` block supports:
 
 * `percent` -
   (Optional)
@@ -396,7 +444,7 @@ The following arguments are supported:
   that must fail the predicate for the
   condition to be triggered.
 
-<a name="nested_conditions_conditions_condition_monitoring_query_language"></a>The `condition_monitoring_query_language` block supports:
+<a name="nested_conditions_condition_monitoring_query_language"></a>The `condition_monitoring_query_language` block supports:
 
 * `query` -
   (Required)
@@ -430,7 +478,7 @@ The following arguments are supported:
   been identified by filter and aggregations,
   or by the ratio, if denominator_filter and
   denominator_aggregations are specified.
-  Structure is [documented below](#nested_conditions_conditions_condition_monitoring_query_language_trigger).
+  Structure is [documented below](#nested_conditions_condition_monitoring_query_language_trigger).
 
 * `evaluation_missing_data` -
   (Optional)
@@ -440,7 +488,7 @@ The following arguments are supported:
   Possible values are: `EVALUATION_MISSING_DATA_INACTIVE`, `EVALUATION_MISSING_DATA_ACTIVE`, `EVALUATION_MISSING_DATA_NO_OP`.
 
 
-<a name="nested_conditions_conditions_condition_monitoring_query_language_trigger"></a>The `trigger` block supports:
+<a name="nested_conditions_condition_monitoring_query_language_trigger"></a>The `trigger` block supports:
 
 * `percent` -
   (Optional)
@@ -454,7 +502,7 @@ The following arguments are supported:
   that must fail the predicate for the
   condition to be triggered.
 
-<a name="nested_conditions_conditions_condition_threshold"></a>The `condition_threshold` block supports:
+<a name="nested_conditions_condition_threshold"></a>The `condition_threshold` block supports:
 
 * `threshold_value` -
   (Optional)
@@ -497,7 +545,7 @@ The following arguments are supported:
   the MetricService.ListTimeSeries request. It
   is advisable to use the ListTimeSeries
   method when debugging this field.
-  Structure is [documented below](#nested_conditions_conditions_condition_threshold_denominator_aggregations).
+  Structure is [documented below](#nested_conditions_condition_threshold_denominator_aggregations).
 
 * `duration` -
   (Required)
@@ -525,7 +573,7 @@ The following arguments are supported:
   `forecastHorizon`. When this field is not set, the
   `MetricThreshold` tests the current value of the
   timeseries against the threshold.
-  Structure is [documented below](#nested_conditions_conditions_condition_threshold_forecast_options).
+  Structure is [documented below](#nested_conditions_condition_threshold_forecast_options).
 
 * `comparison` -
   (Required)
@@ -549,7 +597,7 @@ The following arguments are supported:
   been identified by filter and aggregations,
   or by the ratio, if denominator_filter and
   denominator_aggregations are specified.
-  Structure is [documented below](#nested_conditions_conditions_condition_threshold_trigger).
+  Structure is [documented below](#nested_conditions_condition_threshold_trigger).
 
 * `aggregations` -
   (Optional)
@@ -566,7 +614,7 @@ The following arguments are supported:
   request. It is advisable to use the
   ListTimeSeries method when debugging this
   field.
-  Structure is [documented below](#nested_conditions_conditions_condition_threshold_aggregations).
+  Structure is [documented below](#nested_conditions_condition_threshold_aggregations).
 
 * `filter` -
   (Optional)
@@ -591,7 +639,7 @@ The following arguments are supported:
   Possible values are: `EVALUATION_MISSING_DATA_INACTIVE`, `EVALUATION_MISSING_DATA_ACTIVE`, `EVALUATION_MISSING_DATA_NO_OP`.
 
 
-<a name="nested_conditions_conditions_condition_threshold_denominator_aggregations"></a>The `denominator_aggregations` block supports:
+<a name="nested_conditions_condition_threshold_denominator_aggregations"></a>The `denominator_aggregations` block supports:
 
 * `per_series_aligner` -
   (Optional)
@@ -680,7 +728,7 @@ The following arguments are supported:
   returned.
   Possible values are: `REDUCE_NONE`, `REDUCE_MEAN`, `REDUCE_MIN`, `REDUCE_MAX`, `REDUCE_SUM`, `REDUCE_STDDEV`, `REDUCE_COUNT`, `REDUCE_COUNT_TRUE`, `REDUCE_COUNT_FALSE`, `REDUCE_FRACTION_TRUE`, `REDUCE_PERCENTILE_99`, `REDUCE_PERCENTILE_95`, `REDUCE_PERCENTILE_50`, `REDUCE_PERCENTILE_05`.
 
-<a name="nested_conditions_conditions_condition_threshold_forecast_options"></a>The `forecast_options` block supports:
+<a name="nested_conditions_condition_threshold_forecast_options"></a>The `forecast_options` block supports:
 
 * `forecast_horizon` -
   (Required)
@@ -691,7 +739,7 @@ The following arguments are supported:
   forecasts made for the Configured `duration`,
   then the timeseries is considered to be failing.
 
-<a name="nested_conditions_conditions_condition_threshold_trigger"></a>The `trigger` block supports:
+<a name="nested_conditions_condition_threshold_trigger"></a>The `trigger` block supports:
 
 * `percent` -
   (Optional)
@@ -705,7 +753,7 @@ The following arguments are supported:
   that must fail the predicate for the
   condition to be triggered.
 
-<a name="nested_conditions_conditions_condition_threshold_aggregations"></a>The `aggregations` block supports:
+<a name="nested_conditions_condition_threshold_aggregations"></a>The `aggregations` block supports:
 
 * `per_series_aligner` -
   (Optional)
@@ -794,7 +842,7 @@ The following arguments are supported:
   returned.
   Possible values are: `REDUCE_NONE`, `REDUCE_MEAN`, `REDUCE_MIN`, `REDUCE_MAX`, `REDUCE_SUM`, `REDUCE_STDDEV`, `REDUCE_COUNT`, `REDUCE_COUNT_TRUE`, `REDUCE_COUNT_FALSE`, `REDUCE_FRACTION_TRUE`, `REDUCE_PERCENTILE_99`, `REDUCE_PERCENTILE_95`, `REDUCE_PERCENTILE_50`, `REDUCE_PERCENTILE_05`.
 
-<a name="nested_conditions_conditions_condition_matched_log"></a>The `condition_matched_log` block supports:
+<a name="nested_conditions_condition_matched_log"></a>The `condition_matched_log` block supports:
 
 * `filter` -
   (Required)
@@ -810,7 +858,7 @@ The following arguments are supported:
   Label keys and corresponding values can be used in notifications
   generated by this condition.
 
-<a name="nested_conditions_conditions_condition_prometheus_query_language"></a>The `condition_prometheus_query_language` block supports:
+<a name="nested_conditions_condition_prometheus_query_language"></a>The `condition_prometheus_query_language` block supports:
 
 * `query` -
   (Required)
@@ -874,7 +922,7 @@ The following arguments are supported:
   Users with the `monitoring.alertPolicyViewer` role are able to see the
   name of the non-existent metric in the alerting policy condition.
 
-<a name="nested_conditions_conditions_condition_sql"></a>The `condition_sql` block supports:
+<a name="nested_conditions_condition_sql"></a>The `condition_sql` block supports:
 
 * `query` -
   (Required)
@@ -887,37 +935,37 @@ The following arguments are supported:
 * `minutes` -
   (Optional)
   Used to schedule the query to run every so many minutes.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql_minutes).
+  Structure is [documented below](#nested_conditions_condition_sql_minutes).
 
 * `hourly` -
   (Optional)
   Used to schedule the query to run every so many hours.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql_hourly).
+  Structure is [documented below](#nested_conditions_condition_sql_hourly).
 
 * `daily` -
   (Optional)
   Used to schedule the query to run every so many days.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql_daily).
+  Structure is [documented below](#nested_conditions_condition_sql_daily).
 
 * `row_count_test` -
   (Optional)
   A test that checks if the number of rows in the result set violates some threshold.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql_row_count_test).
+  Structure is [documented below](#nested_conditions_condition_sql_row_count_test).
 
 * `boolean_test` -
   (Optional)
   A test that uses an alerting result in a boolean column produced by the SQL query.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql_boolean_test).
+  Structure is [documented below](#nested_conditions_condition_sql_boolean_test).
 
 
-<a name="nested_conditions_conditions_condition_sql_minutes"></a>The `minutes` block supports:
+<a name="nested_conditions_condition_sql_minutes"></a>The `minutes` block supports:
 
 * `periodicity` -
   (Required)
   Number of minutes between runs. The interval must be greater than or
   equal to 5 minutes and less than or equal to 1440 minutes.
 
-<a name="nested_conditions_conditions_condition_sql_hourly"></a>The `hourly` block supports:
+<a name="nested_conditions_condition_sql_hourly"></a>The `hourly` block supports:
 
 * `periodicity` -
   (Required)
@@ -930,7 +978,7 @@ The following arguments are supported:
   Must be greater than or equal to 0 minutes and less than or equal to
   59 minutes.  If left unspecified, then an arbitrary offset is used.
 
-<a name="nested_conditions_conditions_condition_sql_daily"></a>The `daily` block supports:
+<a name="nested_conditions_condition_sql_daily"></a>The `daily` block supports:
 
 * `periodicity` -
   (Required)
@@ -942,10 +990,10 @@ The following arguments are supported:
   The time of day (in UTC) at which the query should run. If left
   unspecified, the server picks an arbitrary time of day and runs
   the query at the same time each day.
-  Structure is [documented below](#nested_conditions_conditions_condition_sql_daily_execution_time).
+  Structure is [documented below](#nested_conditions_condition_sql_daily_execution_time).
 
 
-<a name="nested_conditions_conditions_condition_sql_daily_execution_time"></a>The `execution_time` block supports:
+<a name="nested_conditions_condition_sql_daily_execution_time"></a>The `execution_time` block supports:
 
 * `hours` -
   (Optional)
@@ -970,7 +1018,7 @@ The following arguments are supported:
   Fractions of seconds, in nanoseconds. Must be greater than or
   equal to 0 and less than or equal to 999,999,999.
 
-<a name="nested_conditions_conditions_condition_sql_row_count_test"></a>The `row_count_test` block supports:
+<a name="nested_conditions_condition_sql_row_count_test"></a>The `row_count_test` block supports:
 
 * `comparison` -
   (Required)
@@ -988,62 +1036,12 @@ The following arguments are supported:
   (Required)
   The value against which to compare the row count.
 
-<a name="nested_conditions_conditions_condition_sql_boolean_test"></a>The `boolean_test` block supports:
+<a name="nested_conditions_condition_sql_boolean_test"></a>The `boolean_test` block supports:
 
 * `column` -
   (Required)
   The name of the column containing the boolean value. If the value in a row is
   NULL, that row is ignored.
-
-- - -
-
-
-* `enabled` -
-  (Optional)
-  Whether or not the policy is enabled. The default is true.
-
-* `notification_channels` -
-  (Optional)
-  Identifies the notification channels to which notifications should be
-  sent when incidents are opened or closed or when new violations occur
-  on an already opened incident. Each element of this array corresponds
-  to the name field in each of the NotificationChannel objects that are
-  returned from the notificationChannels.list method. The syntax of the
-  entries in this field is
-  `projects/[PROJECT_ID]/notificationChannels/[CHANNEL_ID]`
-
-* `alert_strategy` -
-  (Optional)
-  Control over how this alert policy's notification channels are notified.
-  Structure is [documented below](#nested_alert_strategy).
-
-* `user_labels` -
-  (Optional)
-  This field is intended to be used for organizing and identifying the AlertPolicy
-  objects.The field can contain up to 64 entries. Each key and value is limited
-  to 63 Unicode characters or 128 bytes, whichever is smaller. Labels and values
-  can contain only lowercase letters, numerals, underscores, and dashes. Keys
-  must begin with a letter.
-
-* `severity` -
-  (Optional)
-  The severity of an alert policy indicates how important incidents generated
-  by that policy are. The severity level will be displayed on the Incident
-  detail page and in notifications.
-  Possible values are: `CRITICAL`, `ERROR`, `WARNING`.
-
-* `documentation` -
-  (Optional)
-  Documentation that is included with notifications and incidents related
-  to this policy. Best practice is for the documentation to include information
-  to help responders understand, mitigate, escalate, and correct the underlying
-  problems detected by the alerting policy. Notification channels that have
-  limited capacity might not show this documentation.
-  Structure is [documented below](#nested_documentation).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 <a name="nested_alert_strategy"></a>The `alert_strategy` block supports:
 
@@ -1167,16 +1165,27 @@ This resource provides the following
 
 AlertPolicy can be imported using any of these accepted formats:
 
+* `projects/{{project}}/alertPolicies/{{name}}`
 * `{{project}}/{{name}}`
-* `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AlertPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_monitoring_alert_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AlertPolicy using one of the formats above. For example:
 
 ```tf
 import {
-  id = "{{project}}/{{name}}"
+  id = "projects/{{project}}/alertPolicies/{{name}}"
   to = google_monitoring_alert_policy.default
 }
 ```
@@ -1184,8 +1193,8 @@ import {
 When using the [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import), AlertPolicy can be imported using one of the formats above. For example:
 
 ```
+$ terraform import google_monitoring_alert_policy.default projects/{{project}}/alertPolicies/{{name}}
 $ terraform import google_monitoring_alert_policy.default {{project}}/{{name}}
-$ terraform import google_monitoring_alert_policy.default "{{project}} {{name}}"
 $ terraform import google_monitoring_alert_policy.default {{name}}
 ```
 

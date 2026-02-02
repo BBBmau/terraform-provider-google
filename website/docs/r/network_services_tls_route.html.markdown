@@ -184,51 +184,6 @@ The following arguments are supported:
   Name of the TlsRoute resource.
 
 
-<a name="nested_rules"></a>The `rules` block supports:
-
-* `matches` -
-  (Required)
-  Matches define the predicate used to match requests to a given action.
-  Structure is [documented below](#nested_rules_rules_matches).
-
-* `action` -
-  (Required)
-  Required. A detailed rule defining how to route traffic.
-  Structure is [documented below](#nested_rules_rules_action).
-
-
-<a name="nested_rules_rules_matches"></a>The `matches` block supports:
-
-* `sni_host` -
-  (Optional)
-  SNI (server name indicator) to match against. SNI will be matched against all wildcard domains, i.e. www.example.com will be first matched against www.example.com, then *.example.com, then *.com.
-  Partial wildcards are not supported, and values like *w.example.com are invalid. At least one of sniHost and alpn is required. Up to 5 sni hosts across all matches can be set.
-
-* `alpn` -
-  (Optional)
-  ALPN (Application-Layer Protocol Negotiation) to match against. Examples: "http/1.1", "h2". At least one of sniHost and alpn is required. Up to 5 alpns across all matches can be set.
-
-<a name="nested_rules_rules_action"></a>The `action` block supports:
-
-* `destinations` -
-  (Optional)
-  The destination to which traffic should be forwarded.
-  Structure is [documented below](#nested_rules_rules_action_destinations).
-
-
-<a name="nested_rules_rules_action_destinations"></a>The `destinations` block supports:
-
-* `service_name` -
-  (Optional)
-  The URL of a BackendService to route traffic to.
-
-* `weight` -
-  (Optional)
-  Specifies the proportion of requests forwarded to the backend referenced by the serviceName field.
-
-- - -
-
-
 * `description` -
   (Optional)
   A free-text description of the resource. Max length 1024 characters.
@@ -247,6 +202,49 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_rules"></a>The `rules` block supports:
+
+* `matches` -
+  (Required)
+  Matches define the predicate used to match requests to a given action.
+  Structure is [documented below](#nested_rules_matches).
+
+* `action` -
+  (Required)
+  Required. A detailed rule defining how to route traffic.
+  Structure is [documented below](#nested_rules_action).
+
+
+<a name="nested_rules_matches"></a>The `matches` block supports:
+
+* `sni_host` -
+  (Optional)
+  SNI (server name indicator) to match against. SNI will be matched against all wildcard domains, i.e. www.example.com will be first matched against www.example.com, then *.example.com, then *.com.
+  Partial wildcards are not supported, and values like *w.example.com are invalid. At least one of sniHost and alpn is required. Up to 5 sni hosts across all matches can be set.
+
+* `alpn` -
+  (Optional)
+  ALPN (Application-Layer Protocol Negotiation) to match against. Examples: "http/1.1", "h2". At least one of sniHost and alpn is required. Up to 5 alpns across all matches can be set.
+
+<a name="nested_rules_action"></a>The `action` block supports:
+
+* `destinations` -
+  (Optional)
+  The destination to which traffic should be forwarded.
+  Structure is [documented below](#nested_rules_action_destinations).
+
+
+<a name="nested_rules_action_destinations"></a>The `destinations` block supports:
+
+* `service_name` -
+  (Optional)
+  The URL of a BackendService to route traffic to.
+
+* `weight` -
+  (Optional)
+  Specifies the proportion of requests forwarded to the backend referenced by the serviceName field.
 
 ## Attributes Reference
 
@@ -282,6 +280,17 @@ TlsRoute can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TlsRoute using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_tls_route.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TlsRoute using one of the formats above. For example:
 

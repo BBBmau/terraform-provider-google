@@ -204,6 +204,59 @@ The following arguments are supported:
   The firewall policy of the resource.
 
 
+* `rule_name` -
+  (Optional)
+  An optional name for the rule. This field is not a unique identifier and can be updated.
+
+* `description` -
+  (Optional)
+  An optional description for this resource.
+
+* `security_profile_group` -
+  (Optional)
+  A fully-qualified URL of a SecurityProfile resource instance.
+  Example: https://networksecurity.googleapis.com/v1/projects/{project}/locations/{location}/securityProfileGroups/my-security-profile-group
+  Must be specified if action = 'apply_security_profile_group' and cannot be specified for other actions.
+  Security Profile Group and Firewall Policy Rule must be in the same scope.
+
+* `tls_inspect` -
+  (Optional)
+  Boolean flag indicating if the traffic should be TLS decrypted.
+  Can be set only if action = 'apply_security_profile_group' and cannot be set for other actions.
+
+* `enable_logging` -
+  (Optional)
+  Denotes whether to enable logging for a particular rule.
+  If logging is enabled, logs will be exported to the configured export destination in Stackdriver.
+  Logs may be exported to BigQuery or Pub/Sub.
+  Note: you cannot enable logging on "goto_next" rules.
+
+* `target_service_accounts` -
+  (Optional)
+  A list of service accounts indicating the sets of instances that are applied with this rule.
+
+* `target_secure_tags` -
+  (Optional)
+  A list of secure tags that controls which instances the firewall rule applies to.
+  If targetSecureTag are specified, then the firewall rule applies only to instances in the VPC network that have one of those EFFECTIVE secure tags, if all the targetSecureTag are in INEFFECTIVE state, then this rule will be ignored.
+  targetSecureTag may not be set at the same time as targetServiceAccounts. If neither targetServiceAccounts nor targetSecureTag are specified, the firewall rule applies to all instances on the specified network. Maximum number of target label tags allowed is 256.
+  Structure is [documented below](#nested_target_secure_tags).
+
+* `disabled` -
+  (Optional)
+  Denotes whether the firewall policy rule is disabled.
+  When set to true, the firewall policy rule is not enforced and traffic behaves as if it did not exist.
+  If this is unspecified, the firewall policy rule will be enabled.
+
+* `region` -
+  (Optional)
+  The location of this resource.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_match"></a>The `match` block supports:
 
 * `src_ip_ranges` -
@@ -293,61 +346,6 @@ The following arguments are supported:
   (Output)
   State of the secure tag, either EFFECTIVE or INEFFECTIVE. A secure tag is INEFFECTIVE when it is deleted or its network is deleted.
 
-- - -
-
-
-* `rule_name` -
-  (Optional)
-  An optional name for the rule. This field is not a unique identifier and can be updated.
-
-* `description` -
-  (Optional)
-  An optional description for this resource.
-
-* `security_profile_group` -
-  (Optional)
-  A fully-qualified URL of a SecurityProfile resource instance.
-  Example: https://networksecurity.googleapis.com/v1/projects/{project}/locations/{location}/securityProfileGroups/my-security-profile-group
-  Must be specified if action = 'apply_security_profile_group' and cannot be specified for other actions.
-  Security Profile Group and Firewall Policy Rule must be in the same scope.
-
-* `tls_inspect` -
-  (Optional)
-  Boolean flag indicating if the traffic should be TLS decrypted.
-  Can be set only if action = 'apply_security_profile_group' and cannot be set for other actions.
-
-* `enable_logging` -
-  (Optional)
-  Denotes whether to enable logging for a particular rule.
-  If logging is enabled, logs will be exported to the configured export destination in Stackdriver.
-  Logs may be exported to BigQuery or Pub/Sub.
-  Note: you cannot enable logging on "goto_next" rules.
-
-* `target_service_accounts` -
-  (Optional)
-  A list of service accounts indicating the sets of instances that are applied with this rule.
-
-* `target_secure_tags` -
-  (Optional)
-  A list of secure tags that controls which instances the firewall rule applies to.
-  If targetSecureTag are specified, then the firewall rule applies only to instances in the VPC network that have one of those EFFECTIVE secure tags, if all the targetSecureTag are in INEFFECTIVE state, then this rule will be ignored.
-  targetSecureTag may not be set at the same time as targetServiceAccounts. If neither targetServiceAccounts nor targetSecureTag are specified, the firewall rule applies to all instances on the specified network. Maximum number of target label tags allowed is 256.
-  Structure is [documented below](#nested_target_secure_tags).
-
-* `disabled` -
-  (Optional)
-  Denotes whether the firewall policy rule is disabled.
-  When set to true, the firewall policy rule is not enforced and traffic behaves as if it did not exist.
-  If this is unspecified, the firewall policy rule will be enabled.
-
-* `region` -
-  (Optional)
-  The location of this resource.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 <a name="nested_target_secure_tags"></a>The `target_secure_tags` block supports:
 
 * `name` -
@@ -393,6 +391,19 @@ RegionNetworkFirewallPolicyRule can be imported using any of these accepted form
 * `{{region}}/{{firewall_policy}}/{{priority}}`
 * `{{firewall_policy}}/{{priority}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionNetworkFirewallPolicyRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    priority = "<-required value->"
+    firewallPolicy = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_network_firewall_policy_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionNetworkFirewallPolicyRule using one of the formats above. For example:
 

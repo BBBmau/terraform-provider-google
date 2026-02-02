@@ -60,9 +60,6 @@ The following arguments are supported:
   A reference to the zone where the machine resides.
 
 
-- - -
-
-
 * `metadata` -
   (Optional)
   The metadata key/value pairs assigned to all the instances in the corresponding scope.
@@ -70,6 +67,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_metadata"></a>The `metadata` block supports:
@@ -107,6 +105,17 @@ InstanceSettings can be imported using any of these accepted formats:
 * `{{project}}/{{zone}}`
 * `{{zone}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InstanceSettings using identity values. For example:
+
+```tf
+import {
+  identity = {
+    zone = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_instance_settings.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InstanceSettings using one of the formats above. For example:
 

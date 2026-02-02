@@ -118,9 +118,6 @@ The following arguments are supported:
   The region for the resource. It should be the same as the feature group's region.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   The labels with user-defined metadata to organize your FeatureGroup.
@@ -137,6 +134,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -178,6 +176,19 @@ FeatureGroupFeature can be imported using any of these accepted formats:
 * `{{region}}/{{feature_group}}/{{name}}`
 * `{{feature_group}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FeatureGroupFeature using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    featureGroup = "<-required value->"
+    region = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_feature_group_feature.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FeatureGroupFeature using one of the formats above. For example:
 

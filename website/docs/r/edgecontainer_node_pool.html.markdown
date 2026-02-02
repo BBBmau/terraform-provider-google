@@ -30,107 +30,12 @@ To get more information about NodePool, see:
 * How-to Guides
     * [Google Distributed Cloud Edge](https://cloud.google.com/distributed-cloud/edge/latest/docs)
 
-## Example Usage - Edgecontainer Node Pool
-
-
-```hcl
-resource "google_edgecontainer_cluster" "cluster" {
-  name = "default"
-  location = "us-central1"
-
-  authorization {
-    admin_users {
-      username = "admin@hashicorptest.com"
-    }
-  }
-
-  networking {
-    cluster_ipv4_cidr_blocks = ["10.0.0.0/16"]
-    services_ipv4_cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  fleet {
-    project = "projects/${data.google_project.project.number}"
-  }
-}
-
-resource "google_edgecontainer_node_pool" "default" {
-  name = "nodepool-1"
-  cluster = google_edgecontainer_cluster.cluster.name
-  location = "us-central1"
-  node_location = "us-central1-edge-example-edgesite"
-  node_count = 3
-
-  labels = {
-    my_key    = "my_val"
-    other_key = "other_val"
-  }
-}
-
-data "google_project" "project" {}
-```
-## Example Usage - Edgecontainer Node Pool With Cmek
-
-
-```hcl
-resource "google_edgecontainer_cluster" "cluster" {
-  name = "default"
-  location = "us-central1"
-
-  authorization {
-    admin_users {
-      username = "admin@hashicorptest.com"
-    }
-  }
-
-  networking {
-    cluster_ipv4_cidr_blocks = ["10.0.0.0/16"]
-    services_ipv4_cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  fleet {
-    project = "projects/${data.google_project.project.number}"
-  }
-}
-
-resource "google_kms_crypto_key_iam_member" "crypto_key" {
-  crypto_key_id = google_kms_crypto_key.crypto_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-edgecontainer.iam.gserviceaccount.com"
-}
-
-resource "google_kms_crypto_key" "crypto_key" {
-  name     = "key"
-  key_ring = google_kms_key_ring.key_ring.id
-}
-
-resource "google_kms_key_ring" "key_ring" {
-  name     = "keyring"
-  location = "us-central1"
-}
-
-resource "google_edgecontainer_node_pool" "default" {
-  depends_on = [google_kms_crypto_key_iam_member.crypto_key]
-
-  name = "nodepool-1"
-  cluster = google_edgecontainer_cluster.cluster.name
-  location = "us-central1"
-  node_location = "us-central1-edge-example-edgesite"
-  node_count = 3
-
-  local_disk_encryption {
-    kms_key = google_kms_crypto_key.crypto_key.id
-  }
-}
-
-data "google_project" "project" {}
-```
 ## Example Usage - Edgecontainer Local Control Plane Node Pool
 
 
 ```hcl
 resource "google_edgecontainer_cluster" "default" {
-  name = ""
+  name = "default"
   location = "us-central1"
 
   authorization {
@@ -197,9 +102,6 @@ The following arguments are supported:
   The name of the target Distributed Cloud Edge Cluster.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels associated with this resource.
@@ -224,6 +126,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_local_disk_encryption"></a>The `local_disk_encryption` block supports:
@@ -289,6 +192,19 @@ NodePool can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{cluster}}/{{name}}`
 * `{{location}}/{{cluster}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import NodePool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    cluster = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_edgecontainer_node_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import NodePool using one of the formats above. For example:
 

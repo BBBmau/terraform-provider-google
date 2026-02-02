@@ -63,7 +63,20 @@ resource "google_privateca_ca_pool" "default" {
 
 
 ```hcl
+resource "google_project_service_identity" "privateca_sa" {
+  provider = google-beta
+  service = "privateca.googleapis.com"
+}
+
+resource "google_kms_crypto_key_iam_member" "privateca_sa_keyuser_encrypterdecrypter" {
+  provider = google-beta
+  crypto_key_id = "projects/keys-project/locations/us-central1/keyRings/key-ring/cryptoKeys/crypto-key"
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member = google_project_service_identity.privateca_sa.member
+}
+
 resource "google_privateca_ca_pool" "default" {
+  provider = google-beta
   name = "my-pool"
   location = "us-central1"
   tier = "ENTERPRISE"
@@ -74,6 +87,9 @@ resource "google_privateca_ca_pool" "default" {
   }
   labels = {
     foo = "bar"
+  }
+  encryption_spec {
+    cloud_kms_key = "projects/keys-project/locations/us-central1/keyRings/key-ring/cryptoKeys/crypto-key"
   }
   issuance_policy {
     allowed_key_types {
@@ -152,6 +168,10 @@ resource "google_privateca_ca_pool" "default" {
       }
     }
   }
+
+  depends_on = [
+    google_kms_crypto_key_iam_member.privateca_sa_keyuser_encrypterdecrypter,
+  ]
 }
 ```
 
@@ -175,9 +195,6 @@ The following arguments are supported:
   running `gcloud privateca locations list`.
 
 
-- - -
-
-
 * `issuance_policy` -
   (Optional)
   The IssuancePolicy to control how Certificates will be issued from this CaPool.
@@ -197,8 +214,16 @@ The following arguments are supported:
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
 
+* `encryption_spec` -
+  (Optional)
+  Used when customer would like to encrypt data at rest. The customer-provided key will be used
+  to encrypt the Subject, SubjectAltNames and PEM-encoded certificate fields. When unspecified,
+  customer data will remain unencrypted.
+  Structure is [documented below](#nested_encryption_spec).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_issuance_policy"></a>The `issuance_policy` block supports:
@@ -206,7 +231,7 @@ The following arguments are supported:
 * `allowed_key_types` -
   (Optional)
   If any AllowedKeyType is specified, then the certificate request's public key must match one of the key types listed here.
-  Otherwise, any key may be used.
+  Otherwise, any key may be used. You can specify only one key type of those listed here.
   Structure is [documented below](#nested_issuance_policy_allowed_key_types).
 
 * `backdate_duration` -
@@ -247,15 +272,15 @@ The following arguments are supported:
 * `rsa` -
   (Optional)
   Describes an RSA key that may be used in a Certificate issued from a CaPool.
-  Structure is [documented below](#nested_issuance_policy_allowed_key_types_allowed_key_types_rsa).
+  Structure is [documented below](#nested_issuance_policy_allowed_key_types_rsa).
 
 * `elliptic_curve` -
   (Optional)
   Represents an allowed Elliptic Curve key type.
-  Structure is [documented below](#nested_issuance_policy_allowed_key_types_allowed_key_types_elliptic_curve).
+  Structure is [documented below](#nested_issuance_policy_allowed_key_types_elliptic_curve).
 
 
-<a name="nested_issuance_policy_allowed_key_types_allowed_key_types_rsa"></a>The `rsa` block supports:
+<a name="nested_issuance_policy_allowed_key_types_rsa"></a>The `rsa` block supports:
 
 * `min_modulus_size` -
   (Optional)
@@ -267,7 +292,7 @@ The following arguments are supported:
   The maximum allowed RSA modulus size, in bits. If this is not set, or if set to zero, the
   service will not enforce an explicit upper bound on RSA modulus sizes.
 
-<a name="nested_issuance_policy_allowed_key_types_allowed_key_types_elliptic_curve"></a>The `elliptic_curve` block supports:
+<a name="nested_issuance_policy_allowed_key_types_elliptic_curve"></a>The `elliptic_curve` block supports:
 
 * `signature_algorithm` -
   (Required)
@@ -369,10 +394,10 @@ The following arguments are supported:
 * `object_id` -
   (Required)
   Describes values that are relevant in a CA certificate.
-  Structure is [documented below](#nested_issuance_policy_baseline_values_additional_extensions_additional_extensions_object_id).
+  Structure is [documented below](#nested_issuance_policy_baseline_values_additional_extensions_object_id).
 
 
-<a name="nested_issuance_policy_baseline_values_additional_extensions_additional_extensions_object_id"></a>The `object_id` block supports:
+<a name="nested_issuance_policy_baseline_values_additional_extensions_object_id"></a>The `object_id` block supports:
 
 * `object_id_path` -
   (Required)
@@ -578,6 +603,13 @@ The following arguments are supported:
   will be published in PEM.
   Possible values are: `PEM`, `DER`.
 
+<a name="nested_encryption_spec"></a>The `encryption_spec` block supports:
+
+* `cloud_kms_key` -
+  (Optional)
+  The resource name for an existing Cloud KMS key in the format
+  `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -610,6 +642,18 @@ CaPool can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CaPool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_privateca_ca_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CaPool using one of the formats above. For example:
 

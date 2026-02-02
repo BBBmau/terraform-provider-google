@@ -34,86 +34,6 @@ To get more information about Cluster, see:
 values will be stored in the raw state as plain text: `cluster_ca_certificate`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=edgecontainer_cluster&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
-## Example Usage - Edgecontainer Cluster
-
-
-```hcl
-resource "google_edgecontainer_cluster" "default" {
-  name = "basic-cluster"
-  location = "us-central1"
-
-  authorization {
-    admin_users {
-      username = "admin@hashicorptest.com"
-    }
-  }
-
-  networking {
-    cluster_ipv4_cidr_blocks = ["10.0.0.0/16"]
-    services_ipv4_cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  fleet {
-    project = "projects/${data.google_project.project.number}"
-  }
-
-  labels = {
-    my_key    = "my_val"
-    other_key = "other_val"
-  }
-}
-
-data "google_project" "project" {}
-```
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=edgecontainer_cluster_with_maintenance_window&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
-## Example Usage - Edgecontainer Cluster With Maintenance Window
-
-
-```hcl
-resource "google_edgecontainer_cluster" "default" {
-  name = "cluster-with-maintenance"
-  location = "us-central1"
-
-  authorization {
-    admin_users {
-      username = "admin@hashicorptest.com"
-    }
-  }
-
-  networking {
-    cluster_ipv4_cidr_blocks = ["10.0.0.0/16"]
-    services_ipv4_cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  fleet {
-    project = "projects/${data.google_project.project.number}"
-  }
-
-  maintenance_policy {
-    window {
-      recurring_window {
-        window {
-          start_time = "2023-01-01T08:00:00Z"
-          end_time = "2023-01-01T17:00:00Z"
-        }
-
-        recurrence = "FREQ=WEEKLY;BYDAY=SA"
-      }
-    }
-  }
-}
-
-data "google_project" "project" {}
-```
 ## Example Usage - Edgecontainer Local Control Plane Cluster
 
 
@@ -187,6 +107,57 @@ The following arguments are supported:
   The GDCE cluster name.
 
 
+* `labels` -
+  (Optional)
+  User-defined labels for the edgecloud cluster.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `default_max_pods_per_node` -
+  (Optional)
+  The default maximum number of pods per node used if a maximum value is not
+  specified explicitly for a node pool in this cluster. If unspecified, the
+  Kubernetes default value will be used.
+
+* `maintenance_policy` -
+  (Optional)
+  Cluster-wide maintenance policy configuration.
+  Structure is [documented below](#nested_maintenance_policy).
+
+* `control_plane` -
+  (Optional)
+  The configuration of the cluster control plane.
+  Structure is [documented below](#nested_control_plane).
+
+* `system_addons_config` -
+  (Optional)
+  Config that customers are allowed to define for GDCE system add-ons.
+  Structure is [documented below](#nested_system_addons_config).
+
+* `external_load_balancer_ipv4_address_pools` -
+  (Optional)
+  Address pools for cluster data plane external load balancing.
+
+* `control_plane_encryption` -
+  (Optional)
+  Remote control plane disk encryption options. This field is only used when
+  enabling CMEK support.
+  Structure is [documented below](#nested_control_plane_encryption).
+
+* `target_version` -
+  (Optional)
+  The target cluster version. For example: "1.5.0".
+
+* `release_channel` -
+  (Optional)
+  The release channel a cluster is subscribed to.
+  Possible values are: `RELEASE_CHANNEL_UNSPECIFIED`, `NONE`, `REGULAR`.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_fleet"></a>The `fleet` block supports:
 
 * `project` -
@@ -249,59 +220,6 @@ The following arguments are supported:
   (Required)
   An active Google username.
 
-- - -
-
-
-* `labels` -
-  (Optional)
-  User-defined labels for the edgecloud cluster.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `default_max_pods_per_node` -
-  (Optional)
-  The default maximum number of pods per node used if a maximum value is not
-  specified explicitly for a node pool in this cluster. If unspecified, the
-  Kubernetes default value will be used.
-
-* `maintenance_policy` -
-  (Optional)
-  Cluster-wide maintenance policy configuration.
-  Structure is [documented below](#nested_maintenance_policy).
-
-* `control_plane` -
-  (Optional)
-  The configuration of the cluster control plane.
-  Structure is [documented below](#nested_control_plane).
-
-* `system_addons_config` -
-  (Optional)
-  Config that customers are allowed to define for GDCE system add-ons.
-  Structure is [documented below](#nested_system_addons_config).
-
-* `external_load_balancer_ipv4_address_pools` -
-  (Optional)
-  Address pools for cluster data plane external load balancing.
-
-* `control_plane_encryption` -
-  (Optional)
-  Remote control plane disk encryption options. This field is only used when
-  enabling CMEK support.
-  Structure is [documented below](#nested_control_plane_encryption).
-
-* `target_version` -
-  (Optional)
-  The target cluster version. For example: "1.5.0".
-
-* `release_channel` -
-  (Optional)
-  The release channel a cluster is subscribed to.
-  Possible values are: `RELEASE_CHANNEL_UNSPECIFIED`, `NONE`, `REGULAR`.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 <a name="nested_maintenance_policy"></a>The `maintenance_policy` block supports:
 
 * `window` -
@@ -355,14 +273,14 @@ The following arguments are supported:
 * `window` -
   (Optional)
   Represents an arbitrary window of time.
-  Structure is [documented below](#nested_maintenance_policy_maintenance_exclusions_maintenance_exclusions_window).
+  Structure is [documented below](#nested_maintenance_policy_maintenance_exclusions_window).
 
 * `id` -
   (Optional)
   A unique (per cluster) id for the window.
 
 
-<a name="nested_maintenance_policy_maintenance_exclusions_maintenance_exclusions_window"></a>The `window` block supports:
+<a name="nested_maintenance_policy_maintenance_exclusions_window"></a>The `window` block supports:
 
 * `start_time` -
   (Optional)
@@ -585,6 +503,18 @@ Cluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Cluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_edgecontainer_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Cluster using one of the formats above. For example:
 

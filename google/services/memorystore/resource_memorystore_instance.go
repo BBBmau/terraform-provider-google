@@ -20,20 +20,84 @@
 package memorystore
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+func memorystoreInstancedDesiredAutoConnectionsDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
+	// Suppress diff wis to handle an edge case where desired_auto_created_endpoints in addtion to desired_psc_auto_connections are both set with same values
+	// this is due to how the api reponds when mode is set to CLUSTER_DISABLED and desired_psc_auto_connections is set.
+	log.Printf("[DEBUG] desired_auto_created_endpoints is set in state but not in config, supressing force new recreate")
+
+	oldAuto, newAuto := d.GetChange("desired_auto_created_endpoints")
+
+	if reflect.DeepEqual(oldAuto, newAuto) && !tpgresource.IsEmptyValue(reflect.ValueOf(oldAuto)) && !tpgresource.IsEmptyValue(reflect.ValueOf(newAuto)) {
+		return true
+	}
+
+	return false
+}
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceMemorystoreInstance() *schema.Resource {
@@ -57,6 +121,26 @@ func ResourceMemorystoreInstance() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"instance_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"instance_id": {
@@ -281,7 +365,7 @@ A duration in seconds with up to nine fractional digits, ending with 's'. Exampl
 							Required: true,
 							ForceNew: true,
 							Description: `URIs of the GCS objects to import.
-Example: gs://bucket1/object1, gs//bucket2/folder2/object2`,
+Example: gs://bucket1/object1, gs://bucket2/folder2/object2`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
@@ -290,6 +374,12 @@ Example: gs://bucket1/object1, gs//bucket2/folder2/object2`,
 					},
 				},
 				ConflictsWith: []string{"managed_backup_source"},
+			},
+			"kms_key": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Description: `The KMS key used to encrypt the at-rest data of the cluster`,
 			},
 			"labels": {
 				Type:     schema.TypeMap,
@@ -394,6 +484,12 @@ resolution and up to nine fractional digits.`,
 					},
 				},
 			},
+			"maintenance_version": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Description: `This field can be used to trigger self service update to indicate the desired maintenance version. The input to this field can be determined by the available_maintenance_versions field.
+*Note*: This field can only be specified when updating an existing cluster to a newer version. Downgrades are currently not supported!`,
+			},
 			"managed_backup_source": {
 				Type:        schema.TypeList,
 				Optional:    true,
@@ -406,7 +502,7 @@ resolution and up to nine fractional digits.`,
 							Type:        schema.TypeString,
 							Required:    true,
 							ForceNew:    true,
-							Description: `Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com.`,
+							Description: `Example: 'projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup}'.`,
 						},
 					},
 				},
@@ -552,6 +648,14 @@ Ignored for MULTI_ZONE mode.`,
 					},
 				},
 			},
+			"available_maintenance_versions": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `This field is used to determine the available maintenance versions for the self service update.`,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"backup_collection": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -564,10 +668,10 @@ Example: projects/{project}/locations/{location}/backupCollections/{collection}`
 				Description: `Output only. Creation timestamp of the instance.`,
 			},
 			"discovery_endpoints": {
-				Type:     schema.TypeList,
-				Computed: true,
-				Description: `Output only. Endpoints clients can connect to the instance through. Currently only one
-discovery endpoint is supported.`,
+				Type:        schema.TypeList,
+				Computed:    true,
+				Deprecated:  "This field is deprecated. As a result it will not be populated if the connections are created using `desired_auto_created_endpoints` parameter or `google_memorystore_instance_desired_user_created_endpoints` resource. Instead of this parameter, for discovery, use `endpoints.connections.pscConnection` and `endpoints.connections.pscAutoConnection` with `connectionType` CONNECTION_TYPE_DISCOVERY.",
+				Description: `Deprecated. Output only. Endpoints clients can connect to the instance through.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"address": {
@@ -595,6 +699,11 @@ projects/{network_project}/global/networks/{network_id}.`,
 				Computed:    true,
 				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"effective_maintenance_version": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `This field represents the actual maintenance version of the cluster.`,
 			},
 			"endpoints": {
 				Type:        schema.TypeList,
@@ -703,6 +812,32 @@ resolution and up to nine fractional digits.`,
 					},
 				},
 			},
+			"managed_server_ca": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `Instance's Certificate Authority. This field will only be populated if instance's transit_encryption_mode is SERVER_AUTHENTICATION`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"ca_certs": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: `The PEM encoded CA certificate chains for managed server authentication`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"certificates": {
+										Type:        schema.TypeList,
+										Computed:    true,
+										Description: `The certificates that form the CA chain, from leaf to root order`,
+										Elem: &schema.Schema{
+											Type: schema.TypeString,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			"name": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -745,6 +880,7 @@ Format: projects/{project}/locations/{location}/instances/{instance}`,
 			"psc_auto_connections": {
 				Type:        schema.TypeList,
 				Computed:    true,
+				Deprecated:  "`psc_auto_connections` is deprecated  Use `endpoints.connections.pscAutoConnections` instead.",
 				Description: `Output only. User inputs and resource details of the auto-created PSC connections.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -875,8 +1011,9 @@ DELETING`,
 			"desired_psc_auto_connections": {
 				Type:        schema.TypeList,
 				Optional:    true,
+				Deprecated:  "`desired_psc_auto_connections` is deprecated. Use `desired_auto_created_endpoints` instead. `terraform import` will only work with desired_auto_created_endpoints`.",
 				ForceNew:    true,
-				Description: `Immutable. User inputs for the auto-created PSC connections.`,
+				Description: `'desired_psc_auto_connections' is deprecated  Use 'desired_auto_created_endpoints' instead 'terraform import' will only work with desired_auto_created_endpoints'.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"network": {
@@ -892,6 +1029,30 @@ projects/{project_id}/global/networks/{network_id}.`,
 						},
 					},
 				},
+				ConflictsWith: []string{},
+			},
+			"desired_auto_created_endpoints": {
+				Type:             schema.TypeList,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: memorystoreInstancedDesiredAutoConnectionsDiffSuppress,
+				Description:      `Immutable. User inputs for the auto-created endpoints connections.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"network": {
+							Type:     schema.TypeString,
+							Required: true,
+							Description: `Required. The consumer network where the IP address resides, in the form of
+projects/{project_id}/global/networks/{network_id}.`,
+						},
+						"project_id": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: `Required. The consumer project_id where the forwarding rule is created from.`,
+						},
+					},
+				},
+				ConflictsWith: []string{},
 			},
 			"project": {
 				Type:     schema.TypeString,
@@ -921,7 +1082,7 @@ func resourceMemorystoreInstanceCreate(d *schema.ResourceData, meta interface{})
 	replicaCountProp, err := expandMemorystoreInstanceReplicaCount(d.Get("replica_count"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("replica_count"); !tpgresource.IsEmptyValue(reflect.ValueOf(replicaCountProp)) && (ok || !reflect.DeepEqual(v, replicaCountProp)) {
+	} else if v, ok := d.GetOkExists("replica_count"); ok || !reflect.DeepEqual(v, replicaCountProp) {
 		obj["replicaCount"] = replicaCountProp
 	}
 	authorizationModeProp, err := expandMemorystoreInstanceAuthorizationMode(d.Get("authorization_mode"), d, config)
@@ -959,6 +1120,12 @@ func resourceMemorystoreInstanceCreate(d *schema.ResourceData, meta interface{})
 		return err
 	} else if v, ok := d.GetOkExists("maintenance_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(maintenancePolicyProp)) && (ok || !reflect.DeepEqual(v, maintenancePolicyProp)) {
 		obj["maintenancePolicy"] = maintenancePolicyProp
+	}
+	maintenanceVersionProp, err := expandMemorystoreInstanceMaintenanceVersion(d.Get("maintenance_version"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("maintenance_version"); !tpgresource.IsEmptyValue(reflect.ValueOf(maintenanceVersionProp)) && (ok || !reflect.DeepEqual(v, maintenanceVersionProp)) {
+		obj["maintenanceVersion"] = maintenanceVersionProp
 	}
 	engineVersionProp, err := expandMemorystoreInstanceEngineVersion(d.Get("engine_version"), d, config)
 	if err != nil {
@@ -1008,11 +1175,17 @@ func resourceMemorystoreInstanceCreate(d *schema.ResourceData, meta interface{})
 	} else if v, ok := d.GetOkExists("managed_backup_source"); !tpgresource.IsEmptyValue(reflect.ValueOf(managedBackupSourceProp)) && (ok || !reflect.DeepEqual(v, managedBackupSourceProp)) {
 		obj["managedBackupSource"] = managedBackupSourceProp
 	}
-	labelsProp, err := expandMemorystoreInstanceEffectiveLabels(d.Get("effective_labels"), d, config)
+	kmsKeyProp, err := expandMemorystoreInstanceKmsKey(d.Get("kms_key"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("kms_key"); !tpgresource.IsEmptyValue(reflect.ValueOf(kmsKeyProp)) && (ok || !reflect.DeepEqual(v, kmsKeyProp)) {
+		obj["kmsKey"] = kmsKeyProp
+	}
+	effectiveLabelsProp, err := expandMemorystoreInstanceEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	obj, err = resourceMemorystoreInstanceEncoder(d, meta, obj)
@@ -1061,37 +1234,36 @@ func resourceMemorystoreInstanceCreate(d *schema.ResourceData, meta interface{})
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = MemorystoreOperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating Instance", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if instanceIdValue, ok := d.GetOk("instance_id"); ok && instanceIdValue.(string) != "" {
+			if err = identity.Set("instance_id", instanceIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting instance_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = MemorystoreOperationWaitTime(
+		config, res, project, "Creating Instance", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create Instance: %s", err)
 	}
-
-	opRes, err = resourceMemorystoreInstanceDecoder(d, meta, opRes)
-	if err != nil {
-		return fmt.Errorf("Error decoding response from operation: %s", err)
-	}
-	if opRes == nil {
-		return fmt.Errorf("Error decoding response from operation, could not find object")
-	}
-
-	if err := d.Set("name", flattenMemorystoreInstanceName(opRes["name"], d, config)); err != nil {
-		return err
-	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/instances/{{instance_id}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating Instance %q: %#v", d.Id(), res)
 
@@ -1204,6 +1376,15 @@ func resourceMemorystoreInstanceRead(d *schema.ResourceData, meta interface{}) e
 	if err := d.Set("maintenance_schedule", flattenMemorystoreInstanceMaintenanceSchedule(res["maintenanceSchedule"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
+	if err := d.Set("maintenance_version", flattenMemorystoreInstanceMaintenanceVersion(res["maintenanceVersion"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
+	if err := d.Set("effective_maintenance_version", flattenMemorystoreInstanceEffectiveMaintenanceVersion(res["effectiveMaintenanceVersion"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
+	if err := d.Set("available_maintenance_versions", flattenMemorystoreInstanceAvailableMaintenanceVersions(res["availableMaintenanceVersions"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
 	if err := d.Set("engine_version", flattenMemorystoreInstanceEngineVersion(res["engineVersion"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
@@ -1237,11 +1418,41 @@ func resourceMemorystoreInstanceRead(d *schema.ResourceData, meta interface{}) e
 	if err := d.Set("backup_collection", flattenMemorystoreInstanceBackupCollection(res["backupCollection"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
+	if err := d.Set("kms_key", flattenMemorystoreInstanceKmsKey(res["kmsKey"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
+	if err := d.Set("managed_server_ca", flattenMemorystoreInstanceManagedServerCa(res["managedServerCa"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
 	if err := d.Set("terraform_labels", flattenMemorystoreInstanceTerraformLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
 	if err := d.Set("effective_labels", flattenMemorystoreInstanceEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("instance_id"); !ok && v == "" {
+			err = identity.Set("instance_id", d.Get("instance_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting instance_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -1252,6 +1463,26 @@ func resourceMemorystoreInstanceUpdate(d *schema.ResourceData, meta interface{})
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if instanceIdValue, ok := d.GetOk("instance_id"); ok && instanceIdValue.(string) != "" {
+			if err = identity.Set("instance_id", instanceIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting instance_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1272,7 +1503,7 @@ func resourceMemorystoreInstanceUpdate(d *schema.ResourceData, meta interface{})
 	replicaCountProp, err := expandMemorystoreInstanceReplicaCount(d.Get("replica_count"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("replica_count"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, replicaCountProp)) {
+	} else if v, ok := d.GetOkExists("replica_count"); ok || !reflect.DeepEqual(v, replicaCountProp) {
 		obj["replicaCount"] = replicaCountProp
 	}
 	shardCountProp, err := expandMemorystoreInstanceShardCount(d.Get("shard_count"), d, config)
@@ -1299,6 +1530,12 @@ func resourceMemorystoreInstanceUpdate(d *schema.ResourceData, meta interface{})
 	} else if v, ok := d.GetOkExists("maintenance_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, maintenancePolicyProp)) {
 		obj["maintenancePolicy"] = maintenancePolicyProp
 	}
+	maintenanceVersionProp, err := expandMemorystoreInstanceMaintenanceVersion(d.Get("maintenance_version"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("maintenance_version"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, maintenanceVersionProp)) {
+		obj["maintenanceVersion"] = maintenanceVersionProp
+	}
 	engineVersionProp, err := expandMemorystoreInstanceEngineVersion(d.Get("engine_version"), d, config)
 	if err != nil {
 		return err
@@ -1323,11 +1560,11 @@ func resourceMemorystoreInstanceUpdate(d *schema.ResourceData, meta interface{})
 	} else if v, ok := d.GetOkExists("cross_instance_replication_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, crossInstanceReplicationConfigProp)) {
 		obj["crossInstanceReplicationConfig"] = crossInstanceReplicationConfigProp
 	}
-	labelsProp, err := expandMemorystoreInstanceEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandMemorystoreInstanceEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	obj, err = resourceMemorystoreInstanceEncoder(d, meta, obj)
@@ -1366,6 +1603,10 @@ func resourceMemorystoreInstanceUpdate(d *schema.ResourceData, meta interface{})
 
 	if d.HasChange("maintenance_policy") {
 		updateMask = append(updateMask, "maintenancePolicy")
+	}
+
+	if d.HasChange("maintenance_version") {
+		updateMask = append(updateMask, "maintenanceVersion")
 	}
 
 	if d.HasChange("engine_version") {
@@ -2006,6 +2247,18 @@ func flattenMemorystoreInstanceMaintenanceScheduleScheduleDeadlineTime(v interfa
 	return v
 }
 
+func flattenMemorystoreInstanceMaintenanceVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenMemorystoreInstanceEffectiveMaintenanceVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenMemorystoreInstanceAvailableMaintenanceVersions(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenMemorystoreInstanceEngineVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -2420,6 +2673,45 @@ func flattenMemorystoreInstanceBackupCollection(v interface{}, d *schema.Resourc
 	return v
 }
 
+func flattenMemorystoreInstanceKmsKey(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenMemorystoreInstanceManagedServerCa(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["ca_certs"] =
+		flattenMemorystoreInstanceManagedServerCaCaCerts(original["caCerts"], d, config)
+	return []interface{}{transformed}
+}
+func flattenMemorystoreInstanceManagedServerCaCaCerts(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"certificates": flattenMemorystoreInstanceManagedServerCaCaCertsCertificates(original["certificates"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenMemorystoreInstanceManagedServerCaCaCertsCertificates(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenMemorystoreInstanceTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -2540,6 +2832,9 @@ func expandMemorystoreInstanceNodeType(v interface{}, d tpgresource.TerraformRes
 }
 
 func expandMemorystoreInstancePersistenceConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2577,6 +2872,9 @@ func expandMemorystoreInstancePersistenceConfigMode(v interface{}, d tpgresource
 }
 
 func expandMemorystoreInstancePersistenceConfigRdbConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2611,6 +2909,9 @@ func expandMemorystoreInstancePersistenceConfigRdbConfigRdbSnapshotStartTime(v i
 }
 
 func expandMemorystoreInstancePersistenceConfigAofConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2634,6 +2935,9 @@ func expandMemorystoreInstancePersistenceConfigAofConfigAppendFsync(v interface{
 }
 
 func expandMemorystoreInstanceMaintenancePolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2675,6 +2979,9 @@ func expandMemorystoreInstanceMaintenancePolicyUpdateTime(v interface{}, d tpgre
 }
 
 func expandMemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindow(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2719,6 +3026,9 @@ func expandMemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowDuration(v
 }
 
 func expandMemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 {
 		return nil, nil
@@ -2779,6 +3089,10 @@ func expandMemorystoreInstanceMaintenancePolicyWeeklyMaintenanceWindowStartTimeN
 	return v, nil
 }
 
+func expandMemorystoreInstanceMaintenanceVersion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandMemorystoreInstanceEngineVersion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -2795,6 +3109,9 @@ func expandMemorystoreInstanceEngineConfigs(v interface{}, d tpgresource.Terrafo
 }
 
 func expandMemorystoreInstanceZoneDistributionConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2833,6 +3150,9 @@ func expandMemorystoreInstanceDeletionProtectionEnabled(v interface{}, d tpgreso
 }
 
 func expandMemorystoreInstanceCrossInstanceReplicationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2884,6 +3204,9 @@ func expandMemorystoreInstanceCrossInstanceReplicationConfigInstanceRole(v inter
 }
 
 func expandMemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2918,6 +3241,9 @@ func expandMemorystoreInstanceCrossInstanceReplicationConfigPrimaryInstanceUid(v
 }
 
 func expandMemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstances(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2955,6 +3281,9 @@ func expandMemorystoreInstanceCrossInstanceReplicationConfigSecondaryInstancesUi
 }
 
 func expandMemorystoreInstanceCrossInstanceReplicationConfigMembership(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2981,6 +3310,9 @@ func expandMemorystoreInstanceCrossInstanceReplicationConfigMembership(v interfa
 }
 
 func expandMemorystoreInstanceCrossInstanceReplicationConfigMembershipPrimaryInstance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3015,6 +3347,9 @@ func expandMemorystoreInstanceCrossInstanceReplicationConfigMembershipPrimaryIns
 }
 
 func expandMemorystoreInstanceCrossInstanceReplicationConfigMembershipSecondaryInstance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -3060,6 +3395,9 @@ func expandMemorystoreInstanceMode(v interface{}, d tpgresource.TerraformResourc
 }
 
 func expandMemorystoreInstanceGcsSource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3084,6 +3422,9 @@ func expandMemorystoreInstanceGcsSourceUris(v interface{}, d tpgresource.Terrafo
 }
 
 func expandMemorystoreInstanceManagedBackupSource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3106,6 +3447,10 @@ func expandMemorystoreInstanceManagedBackupSourceBackup(v interface{}, d tpgreso
 	return v, nil
 }
 
+func expandMemorystoreInstanceKmsKey(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandMemorystoreInstanceEffectiveLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (map[string]string, error) {
 	if v == nil {
 		return map[string]string{}, nil
@@ -3118,34 +3463,73 @@ func expandMemorystoreInstanceEffectiveLabels(v interface{}, d tpgresource.Terra
 }
 
 func resourceMemorystoreInstanceEncoder(d *schema.ResourceData, meta interface{}, obj map[string]interface{}) (map[string]interface{}, error) {
-	v, ok := d.GetOk("desired_psc_auto_connections")
-	if !ok {
-		return obj, nil // No desired connections, nothing to update
+	// Handles desired_auto_created_endpoints virtual field
+	v, ok := d.GetOk("desired_auto_created_endpoints")
+	if ok {
+		l := v.([]interface{})
+		if len(l) > 0 {
+			endpoints := make([]interface{}, 1)
+			endpointObj := make(map[string]interface{})
+			connections := make([]interface{}, 0, len(l))
+
+			for _, raw := range l {
+				if raw == nil {
+					continue
+				}
+				desiredEndpoint := raw.(map[string]interface{})
+				connectionObj := make(map[string]interface{})
+				pscAutoConnection := make(map[string]interface{})
+
+				projectId := desiredEndpoint["project_id"]
+				if val := reflect.ValueOf(projectId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+					pscAutoConnection["projectId"] = projectId
+				}
+
+				network := desiredEndpoint["network"]
+				if val := reflect.ValueOf(network); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+					pscAutoConnection["network"] = network
+				}
+
+				connectionObj["pscAutoConnection"] = pscAutoConnection
+				connections = append(connections, connectionObj)
+			}
+
+			endpointObj["connections"] = connections
+			endpoints[0] = endpointObj
+			obj["endpoints"] = endpoints
+			log.Printf("[DEBUG] You are setting desired_auto_created_endpoints in encoder %#v", endpoints)
+
+		}
+		// Handles desired_auto_created_endpoints virtual field
+	} else if v, ok := d.GetOk("desired_psc_auto_connections"); ok {
+		l := v.([]interface{})
+		req := make([]interface{}, 0, len(l))
+		for _, raw := range l {
+			if raw == nil {
+				continue
+			}
+			desiredConnection := raw.(map[string]interface{})
+			connectionReq := make(map[string]interface{})
+
+			projectId := desiredConnection["project_id"]
+			if val := reflect.ValueOf(projectId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+				connectionReq["projectId"] = projectId
+			}
+
+			network := desiredConnection["network"]
+			if val := reflect.ValueOf(network); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+				connectionReq["network"] = network
+			}
+
+			req = append(req, connectionReq)
+		}
+
+		obj["pscAutoConnections"] = req
+		log.Printf("[DEBUG] You are setting desired_psc_auto_connections in encoder  %#v", req)
+
 	}
-	l := v.([]interface{})
-	req := make([]interface{}, 0, len(l))
-	for _, raw := range l {
-		if raw == nil {
-			continue
-		}
-		desiredConnection := raw.(map[string]interface{})
-		connectionReq := make(map[string]interface{})
 
-		projectId := desiredConnection["project_id"]
-		if val := reflect.ValueOf(projectId); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-			connectionReq["projectId"] = projectId
-		}
-
-		network := desiredConnection["network"]
-		if val := reflect.ValueOf(network); val.IsValid() && !tpgresource.IsEmptyValue(val) {
-			connectionReq["network"] = network
-		}
-
-		req = append(req, connectionReq)
-	}
-
-	obj["pscAutoConnections"] = req
-	// if the automated_backup_config is not defined, automatedBackupMode needs to be passed and set to DISABLED in the expand
+	// If the automated_backup_config is not defined, automatedBackupMode needs to be passed and set to DISABLED in the expand
 	if obj["automatedBackupConfig"] == nil {
 		config := meta.(*transport_tpg.Config)
 		automatedBackupConfigProp, _ := expandMemorystoreInstanceAutomatedBackupConfig(d.Get("automated_backup_config"), d, config)
@@ -3155,49 +3539,163 @@ func resourceMemorystoreInstanceEncoder(d *schema.ResourceData, meta interface{}
 }
 
 func resourceMemorystoreInstanceDecoder(d *schema.ResourceData, meta interface{}, res map[string]interface{}) (map[string]interface{}, error) {
-	// Retrieve pscAutoConnections from API response
+	// Retrieve endpoints.connections.pscAutoConnection from API response
 	v, ok := res["pscAutoConnections"]
-	if !ok {
-		if _, endpointsFound := res["endpoints"]; endpointsFound {
-			return res, nil // For Cluster Disabled instances, we would have 'endpoints' instead of 'pscAutoConnections'
-		}
-		return res, nil
-	}
+	if ok {
 
-	connections, ok := v.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("pscAutoConnections is not an array")
-	}
-
-	transformed := make([]interface{}, 0, len(connections))
-	uniqueConnections := make(map[string]bool) // Track unique project+network combos
-
-	for _, raw := range connections {
-		connectionData, ok := raw.(map[string]interface{})
-		if !ok || len(connectionData) < 1 {
-			return nil, fmt.Errorf("Invalid or empty psc connection data: %v", raw)
-		}
-
-		projectID, ok := connectionData["projectId"].(string)
+		connections, ok := v.([]interface{})
 		if !ok {
-			return nil, fmt.Errorf("invalid project ID in psc connection: %v", connectionData)
+			return nil, fmt.Errorf("pscAutoConnections is not an array")
 		}
 
-		networkID, ok := connectionData["network"].(string)
-		if !ok {
-			return nil, fmt.Errorf("invalid network ID in psc connection: %v", connectionData)
+		transformed := make([]interface{}, 0, len(connections))
+		uniqueConnections := make(map[string]bool) // Track unique project+network combos
+
+		for _, raw := range connections {
+			connectionData, ok := raw.(map[string]interface{})
+			if !ok || len(connectionData) < 1 {
+				return nil, fmt.Errorf("Invalid or empty psc connection data: %v", raw)
+			}
+
+			projectID, ok := connectionData["projectId"].(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid project ID in psc connection: %v", connectionData)
+			}
+
+			networkID, ok := connectionData["network"].(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid network ID in psc connection: %v", connectionData)
+			}
+
+			uniqueKey := projectID + networkID
+			if !uniqueConnections[uniqueKey] { // Check for uniqueness
+				uniqueConnections[uniqueKey] = true
+				transformed = append(transformed, map[string]interface{}{
+					"project_id": projectID,
+					"network":    networkID,
+				})
+			}
+		}
+		d.Set("desired_psc_auto_connections", transformed)
+		log.Printf("[DEBUG] You are setting desired_psc_auto_connections in decoder %#v", transformed)
+
+		// Retrieve pscAutoConnections from API response
+	} else if v, ok := res["endpoints"]; ok {
+
+		endpointsArray, ok := v.([]interface{})
+		if !ok || len(endpointsArray) == 0 {
+			// No endpoints or empty array, nothing to process
+		} else {
+			transformed := make([]interface{}, 0)
+			uniqueEndpoints := make(map[string]bool) // Track unique project+network combos
+
+			for _, endpoint := range endpointsArray {
+				endpointData, ok := endpoint.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				connections, ok := endpointData["connections"].([]interface{})
+				if !ok {
+					continue
+				}
+
+				for _, connection := range connections {
+					connectionData, ok := connection.(map[string]interface{})
+					if !ok {
+						continue
+					}
+
+					pscAutoConnection, ok := connectionData["pscAutoConnection"].(map[string]interface{})
+					if !ok {
+						continue
+					}
+
+					projectID, projectOk := pscAutoConnection["projectId"].(string)
+					networkID, networkOk := pscAutoConnection["network"].(string)
+
+					if projectOk && networkOk {
+						uniqueKey := projectID + networkID
+						if !uniqueEndpoints[uniqueKey] { // Check for uniqueness
+							uniqueEndpoints[uniqueKey] = true
+							transformed = append(transformed, map[string]interface{}{
+								"project_id": projectID,
+								"network":    networkID,
+							})
+						}
+					}
+				}
+			}
+			// We want to make these fields detect API-side drift, so if the API returns a value for them and they're set in config, we set them in state.
+			// On import, we only set `desired_auto_created_endpoints` because that's the non-deprecated field.
+			if len(transformed) > 0 {
+				_, okEndpoint := d.GetOk("desired_auto_created_endpoints")
+				_, okPsc := d.GetOk("desired_psc_auto_connections")
+				if okEndpoint {
+					d.Set("desired_auto_created_endpoints", transformed)
+					log.Printf("[DEBUG] Setting desired_auto_created_endpoints in decoder within endpoints for %#v", transformed)
+				} else if okPsc {
+					d.Set("desired_auto_created_endpoints", []interface{}{})
+				}
+				if okPsc {
+					d.Set("desired_psc_auto_connections", transformed)
+					log.Printf("[DEBUG] Setting desired_psc_auto_connections in decoder within endpoints for %#v", transformed)
+				} else if okEndpoint {
+					d.Set("desired_psc_auto_connections", []interface{}{})
+				}
+				// Set preferred field on import
+				if !okPsc && !okEndpoint {
+					d.Set("desired_auto_created_endpoints", transformed)
+					log.Printf("[DEBUG] Setting desired_auto_created_endpoints in decoder within endpoints for %#v", transformed)
+				}
+			}
 		}
 
-		uniqueKey := projectID + networkID
-		if !uniqueConnections[uniqueKey] { // Check for uniqueness
-			uniqueConnections[uniqueKey] = true
-			transformed = append(transformed, map[string]interface{}{
-				"project_id": projectID,
-				"network":    networkID,
-			})
-		}
 	}
 
-	d.Set("desired_psc_auto_connections", transformed)
+	// Such custom code is necessary as the instance's certificate authority has to be retrieved via a dedicated
+	// getCertificateAuthority API.
+	// See https://cloud.google.com/memorystore/docs/valkey/reference/rest/v1/projects.locations.instances/getCertificateAuthority
+	// for details about this API.
+	config := meta.(*transport_tpg.Config)
+	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only instances with SERVER_AUTHENTICATION mode have certificate authority set
+	if v, ok := res["transitEncryptionMode"].(string); ok && v == "SERVER_AUTHENTICATION" {
+		url, err := tpgresource.ReplaceVars(d, config, "{{MemorystoreBasePath}}projects/{{project}}/locations/{{location}}/instances/{{instance_id}}/certificateAuthority")
+		if err != nil {
+			return nil, err
+		}
+
+		billingProject := ""
+
+		project, err := tpgresource.GetProject(d, config)
+		if err != nil {
+			return nil, fmt.Errorf("Error fetching project for instance: %s", err)
+		}
+
+		billingProject = project
+
+		// err == nil indicates that the billing_project value was found
+		if bp, err := tpgresource.GetBillingProject(d, config); err == nil {
+			billingProject = bp
+		}
+
+		certificateAuthority, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+			Config:    config,
+			Method:    "GET",
+			Project:   billingProject,
+			RawURL:    url,
+			UserAgent: userAgent,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("Error reading certificateAuthority: %s", err)
+		}
+
+		res["managedServerCa"] = certificateAuthority["managedServerCa"]
+	}
 	return res, nil
 }

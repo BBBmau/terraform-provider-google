@@ -24,6 +24,9 @@ description: |-
 A Google Bare Metal User Cluster.
 
 
+To get more information about BareMetalCluster, see:
+
+* [API documentation](https://cloud.google.com/kubernetes-engine/distributed-cloud/reference/on-prem-api/rest/v1/projects.locations.bareMetalClusters)
 
 ## Example Usage - Gkeonprem Bare Metal Cluster Basic
 
@@ -346,6 +349,74 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location of the resource.
+
+
+* `description` -
+  (Optional)
+  A human readable description of this Bare Metal User Cluster.
+
+* `annotations` -
+  (Optional)
+  Annotations on the Bare Metal User Cluster.
+  This field has the same restrictions as Kubernetes annotations.
+  The total size of all keys and values combined is limited to 256k.
+  Key can have 2 segments: prefix (optional) and name (required),
+  separated by a slash (/).
+  Prefix must be a DNS subdomain.
+  Name must be 63 characters or less, begin and end with alphanumerics,
+  with dashes (-), underscores (_), dots (.), and alphanumerics between.
+
+  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
+  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+
+* `proxy` -
+  (Optional)
+  Specifies the cluster proxy configuration.
+  Structure is [documented below](#nested_proxy).
+
+* `cluster_operations` -
+  (Optional)
+  Specifies the User Cluster's observability infrastructure.
+  Structure is [documented below](#nested_cluster_operations).
+
+* `maintenance_config` -
+  (Optional)
+  Specifies the workload node configurations.
+  Structure is [documented below](#nested_maintenance_config).
+
+* `node_config` -
+  (Optional)
+  Specifies the workload node configurations.
+  Structure is [documented below](#nested_node_config).
+
+* `node_access_config` -
+  (Optional)
+  Specifies the node access related settings for the bare metal user cluster.
+  Structure is [documented below](#nested_node_access_config).
+
+* `os_environment_config` -
+  (Optional)
+  OS environment related configurations.
+  Structure is [documented below](#nested_os_environment_config).
+
+* `security_config` -
+  (Optional)
+  Specifies the security related settings for the Bare Metal User Cluster.
+  Structure is [documented below](#nested_security_config).
+
+* `binary_authorization` -
+  (Optional)
+  Binary Authorization related configurations.
+  Structure is [documented below](#nested_binary_authorization).
+
+* `upgrade_policy` -
+  (Optional)
+  The cluster upgrade policy.
+  Structure is [documented below](#nested_upgrade_policy).
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_network_config"></a>The `network_config` block supports:
@@ -876,76 +947,6 @@ The following arguments are supported:
   (Required)
   The StorageClass name that PVs will be created with.
 
-- - -
-
-
-* `description` -
-  (Optional)
-  A human readable description of this Bare Metal User Cluster.
-
-* `annotations` -
-  (Optional)
-  Annotations on the Bare Metal User Cluster.
-  This field has the same restrictions as Kubernetes annotations.
-  The total size of all keys and values combined is limited to 256k.
-  Key can have 2 segments: prefix (optional) and name (required),
-  separated by a slash (/).
-  Prefix must be a DNS subdomain.
-  Name must be 63 characters or less, begin and end with alphanumerics,
-  with dashes (-), underscores (_), dots (.), and alphanumerics between.
-
-  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
-  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
-
-* `proxy` -
-  (Optional)
-  Specifies the cluster proxy configuration.
-  Structure is [documented below](#nested_proxy).
-
-* `cluster_operations` -
-  (Optional)
-  Specifies the User Cluster's observability infrastructure.
-  Structure is [documented below](#nested_cluster_operations).
-
-* `maintenance_config` -
-  (Optional)
-  Specifies the workload node configurations.
-  Structure is [documented below](#nested_maintenance_config).
-
-* `node_config` -
-  (Optional)
-  Specifies the workload node configurations.
-  Structure is [documented below](#nested_node_config).
-
-* `node_access_config` -
-  (Optional)
-  Specifies the node access related settings for the bare metal user cluster.
-  Structure is [documented below](#nested_node_access_config).
-
-* `os_environment_config` -
-  (Optional)
-  OS environment related configurations.
-  Structure is [documented below](#nested_os_environment_config).
-
-* `security_config` -
-  (Optional)
-  Specifies the security related settings for the Bare Metal User Cluster.
-  Structure is [documented below](#nested_security_config).
-
-* `binary_authorization` -
-  (Optional)
-  Binary Authorization related configurations.
-  Structure is [documented below](#nested_binary_authorization).
-
-* `upgrade_policy` -
-  (Optional)
-  The cluster upgrade policy.
-  Structure is [documented below](#nested_upgrade_policy).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 <a name="nested_proxy"></a>The `proxy` block supports:
 
 * `uri` -
@@ -1216,6 +1217,18 @@ BareMetalCluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BareMetalCluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gkeonprem_bare_metal_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BareMetalCluster using one of the formats above. For example:
 

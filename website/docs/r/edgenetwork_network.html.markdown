@@ -65,9 +65,6 @@ The following arguments are supported:
   A unique ID that identifies this network.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels associated with this resource.
@@ -85,6 +82,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -135,6 +133,19 @@ Network can be imported using any of these accepted formats:
 * `{{location}}/{{network_id}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Network using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    zone = "<-required value->"
+    network_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_edgenetwork_network.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Network using one of the formats above. For example:
 

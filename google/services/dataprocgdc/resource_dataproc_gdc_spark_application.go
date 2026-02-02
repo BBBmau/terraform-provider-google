@@ -20,17 +20,70 @@
 package dataprocgdc
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceDataprocGdcSparkApplication() *schema.Resource {
@@ -55,6 +108,30 @@ func ResourceDataprocGdcSparkApplication() *schema.Resource {
 			tpgresource.SetAnnotationsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"serviceinstance": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"spark_application_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"location": {
@@ -189,7 +266,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_sql_application_config", "spark_r_application_config"},
+				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_r_application_config", "spark_sql_application_config"},
 			},
 			"spark_application_config": {
 				Type:        schema.TypeList,
@@ -249,7 +326,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_sql_application_config", "spark_r_application_config"},
+				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_r_application_config", "spark_sql_application_config"},
 			},
 			"spark_r_application_config": {
 				Type:        schema.TypeList,
@@ -294,7 +371,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_sql_application_config", "spark_r_application_config"},
+				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_r_application_config", "spark_sql_application_config"},
 			},
 			"spark_sql_application_config": {
 				Type:        schema.TypeList,
@@ -348,7 +425,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_sql_application_config", "spark_r_application_config"},
+				ExactlyOneOf: []string{"pyspark_application_config", "spark_application_config", "spark_r_application_config", "spark_sql_application_config"},
 			},
 			"version": {
 				Type:        schema.TypeString,
@@ -509,17 +586,17 @@ func resourceDataprocGdcSparkApplicationCreate(d *schema.ResourceData, meta inte
 	} else if v, ok := d.GetOkExists("dependency_images"); !tpgresource.IsEmptyValue(reflect.ValueOf(dependencyImagesProp)) && (ok || !reflect.DeepEqual(v, dependencyImagesProp)) {
 		obj["dependencyImages"] = dependencyImagesProp
 	}
-	labelsProp, err := expandDataprocGdcSparkApplicationEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandDataprocGdcSparkApplicationEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
-	annotationsProp, err := expandDataprocGdcSparkApplicationEffectiveAnnotations(d.Get("effective_annotations"), d, config)
+	effectiveAnnotationsProp, err := expandDataprocGdcSparkApplicationEffectiveAnnotations(d.Get("effective_annotations"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(annotationsProp)) && (ok || !reflect.DeepEqual(v, annotationsProp)) {
-		obj["annotations"] = annotationsProp
+	} else if v, ok := d.GetOkExists("effective_annotations"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveAnnotationsProp)) && (ok || !reflect.DeepEqual(v, effectiveAnnotationsProp)) {
+		obj["annotations"] = effectiveAnnotationsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{DataprocGdcBasePath}}projects/{{project}}/locations/{{location}}/serviceInstances/{{serviceinstance}}/sparkApplications?sparkApplicationId={{spark_application_id}}")
@@ -562,6 +639,32 @@ func resourceDataprocGdcSparkApplicationCreate(d *schema.ResourceData, meta inte
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if serviceinstanceValue, ok := d.GetOk("serviceinstance"); ok && serviceinstanceValue.(string) != "" {
+			if err = identity.Set("serviceinstance", serviceinstanceValue.(string)); err != nil {
+				return fmt.Errorf("Error setting serviceinstance: %s", err)
+			}
+		}
+		if sparkApplicationIdValue, ok := d.GetOk("spark_application_id"); ok && sparkApplicationIdValue.(string) != "" {
+			if err = identity.Set("spark_application_id", sparkApplicationIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting spark_application_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = DataprocGdcOperationWaitTime(
 		config, res, project, "Creating SparkApplication", userAgent,
@@ -691,6 +794,36 @@ func resourceDataprocGdcSparkApplicationRead(d *schema.ResourceData, meta interf
 	}
 	if err := d.Set("effective_annotations", flattenDataprocGdcSparkApplicationEffectiveAnnotations(res["annotations"], d, config)); err != nil {
 		return fmt.Errorf("Error reading SparkApplication: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("serviceinstance"); !ok && v == "" {
+			err = identity.Set("serviceinstance", d.Get("serviceinstance").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting serviceinstance: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("spark_application_id"); !ok && v == "" {
+			err = identity.Set("spark_application_id", d.Get("spark_application_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting spark_application_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -1068,6 +1201,9 @@ func flattenDataprocGdcSparkApplicationEffectiveAnnotations(v interface{}, d *sc
 }
 
 func expandDataprocGdcSparkApplicationPysparkApplicationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1146,6 +1282,9 @@ func expandDataprocGdcSparkApplicationPysparkApplicationConfigArchiveUris(v inte
 }
 
 func expandDataprocGdcSparkApplicationSparkApplicationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1224,6 +1363,9 @@ func expandDataprocGdcSparkApplicationSparkApplicationConfigArchiveUris(v interf
 }
 
 func expandDataprocGdcSparkApplicationSparkRApplicationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1280,6 +1422,9 @@ func expandDataprocGdcSparkApplicationSparkRApplicationConfigArchiveUris(v inter
 }
 
 func expandDataprocGdcSparkApplicationSparkSqlApplicationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1324,6 +1469,9 @@ func expandDataprocGdcSparkApplicationSparkSqlApplicationConfigQueryFileUri(v in
 }
 
 func expandDataprocGdcSparkApplicationSparkSqlApplicationConfigQueryList(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

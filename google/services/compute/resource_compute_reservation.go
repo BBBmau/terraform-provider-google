@@ -20,22 +20,74 @@
 package compute
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+import "net/url"
+
+var _ = url.Parse
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceComputeReservation() *schema.Resource {
@@ -87,7 +139,8 @@ character, which cannot be a dash.`,
 						},
 						"instance_properties": {
 							Type:        schema.TypeList,
-							Required:    true,
+							Computed:    true,
+							Optional:    true,
 							ForceNew:    true,
 							Description: `The instance properties for the reservation.`,
 							MaxItems:    1,
@@ -161,8 +214,26 @@ reserves disks of type 'local-ssd'.`,
 the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones)
 for information on available CPU platforms.`,
 									},
+									"location_hint": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API.`,
+									},
 								},
 							},
+							ExactlyOneOf: []string{"specific_reservation.0.instance_properties", "specific_reservation.0.source_instance_template"},
+						},
+						"source_instance_template": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Description: `Specifies the instance template to create the reservation. If you use this field, you must exclude the
+instanceProperties field.`,
+							ExactlyOneOf: []string{"specific_reservation.0.instance_properties", "specific_reservation.0.source_instance_template"},
+						},
+						"assured_count": {
+							Type:        schema.TypeInt,
+							Computed:    true,
+							Description: `Indicates how many instances are actually usable currently.`,
 						},
 						"in_use_count": {
 							Type:        schema.TypeInt,
@@ -179,11 +250,63 @@ for information on available CPU platforms.`,
 				DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
 				Description:      `The zone where the reservation is made.`,
 			},
+			"delete_after_duration": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `Duration after which the reservation will be auto-deleted by Compute Engine. Cannot be used with delete_at_time.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"nanos": {
+							Type:          schema.TypeInt,
+							Optional:      true,
+							ForceNew:      true,
+							Description:   `Number of nanoseconds for the auto-delete duration.`,
+							ConflictsWith: []string{"delete_at_time"},
+						},
+						"seconds": {
+							Type:          schema.TypeString,
+							Optional:      true,
+							ForceNew:      true,
+							Description:   `Number of seconds for the auto-delete duration.`,
+							ConflictsWith: []string{"delete_at_time"},
+						},
+					},
+				},
+			},
+			"delete_at_time": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `Absolute time in future when the reservation will be auto-deleted by Compute Engine. Timestamp is represented in RFC3339 text format.
+Cannot be used with delete_after_duration.`,
+				ConflictsWith: []string{"delete_after_duration.0.nanos", "delete_after_duration.0.seconds"},
+			},
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
 				Description: `An optional description of this resource.`,
+			},
+			"reservation_sharing_policy": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Optional:    true,
+				Description: `Sharing policy for reservations with Google Cloud managed services.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"service_share_type": {
+							Type:         schema.TypeString,
+							Computed:     true,
+							Optional:     true,
+							ForceNew:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"ALLOW_ALL", "DISALLOW_ALL", ""}),
+							Description:  `Sharing config for all Google Cloud services. Possible values: ["ALLOW_ALL", "DISALLOW_ALL"]`,
+						},
+					},
+				},
 			},
 			"share_settings": {
 				Type:        schema.TypeList,
@@ -242,10 +365,200 @@ reservations that are tied to a commitment.`,
 				Computed:    true,
 				Description: `Creation timestamp in RFC3339 text format.`,
 			},
+			"id": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `The unique identifier for the resource. This identifier is defined by the server.`,
+			},
+			"kind": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Type of the resource. Always compute#reservations for reservations.`,
+			},
+			"linked_commitments": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `Full or partial URL to parent commitments. This field displays for reservations that are tied to multiple commitments.`,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"reservation_block_count": {
+				Type:        schema.TypeInt,
+				Computed:    true,
+				Description: `The number of reservation blocks associated with this reservation.`,
+			},
+			"resource_status": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `Status information for Reservation resource.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"health_info": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: `Health information for the reservation.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"degraded_block_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `The number of reservation blocks that are degraded.`,
+									},
+									"health_status": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `The health status of the reservation.`,
+									},
+									"healthy_block_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `The number of reservation blocks that are healthy.`,
+									},
+								},
+							},
+						},
+						"reservation_block_count": {
+							Type:        schema.TypeInt,
+							Computed:    true,
+							Description: `The number of reservation blocks associated with this reservation.`,
+						},
+						"reservation_maintenance": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: `Maintenance information for this reservation`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"instance_maintenance_ongoing_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `Describes number of instances that have ongoing maintenance.`,
+									},
+									"instance_maintenance_pending_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `Describes number of instances that have pending maintenance.`,
+									},
+									"maintenance_ongoing_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have ongoing maintenance.`,
+									},
+									"maintenance_pending_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have pending maintenance.`,
+									},
+									"scheduling_type": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `The type of maintenance for the reservation.`,
+									},
+									"subblock_infra_maintenance_ongoing_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `Describes number of subblock Infrastructure that has ongoing maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family(e.g. NVLink Domains). Not all VM Families will support this field.`,
+									},
+									"subblock_infra_maintenance_pending_count": {
+										Type:        schema.TypeInt,
+										Computed:    true,
+										Description: `Describes number of subblock Infrastructure that has pending maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family (e.g. NVLink Domains). Not all VM Families will support this field.`,
+									},
+									"upcoming_group_maintenance": {
+										Type:        schema.TypeList,
+										Computed:    true,
+										Description: `Maintenance information on this group of VMs.`,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"can_reschedule": {
+													Type:        schema.TypeBool,
+													Computed:    true,
+													Description: `Indicates if the maintenance can be customer triggered.`,
+												},
+												"latest_window_start_time": {
+													Type:        schema.TypeString,
+													Computed:    true,
+													Description: `The latest time for the planned maintenance window to start. This timestamp value is in RFC3339 text format.`,
+												},
+												"maintenance_on_shutdown": {
+													Type:        schema.TypeBool,
+													Computed:    true,
+													Description: `Indicates whether the UpcomingMaintenance will be triggered on VM shutdown.`,
+												},
+												"maintenance_reasons": {
+													Type:        schema.TypeList,
+													Computed:    true,
+													Description: `The reasons for the maintenance. Only valid for vms.`,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+													},
+												},
+												"maintenance_status": {
+													Type:        schema.TypeString,
+													Computed:    true,
+													Description: `Status of the maintenance.`,
+												},
+												"type": {
+													Type:        schema.TypeString,
+													Computed:    true,
+													Description: `Defines the type of maintenance.`,
+												},
+												"window_end_time": {
+													Type:        schema.TypeString,
+													Computed:    true,
+													Description: `The time by which the maintenance disruption will be completed. This timestamp value is in RFC3339 text format.`,
+												},
+												"window_start_time": {
+													Type:        schema.TypeString,
+													Computed:    true,
+													Description: `The current start time of the maintenance window. This timestamp value is in RFC3339 text format.`,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						"specific_sku_allocation": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: `Allocation Properties of this reservation.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"source_instance_template_id": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `ID of the instance template used to populate reservation properties.`,
+									},
+									"utilizations": {
+										Type:        schema.TypeMap,
+										Computed:    true,
+										Description: `Per service utilization breakdown. The Key is the Google Cloud managed service name.`,
+										Elem:        &schema.Schema{Type: schema.TypeString},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"satisfies_pzs": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: `Reserved for future use.`,
+			},
 			"status": {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: `The status of the reservation.`,
+			},
+			"block_names": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `List of all reservation block names in the parent reservation.`,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
 			},
 			"project": {
 				Type:     schema.TypeString,
@@ -299,6 +612,24 @@ func resourceComputeReservationCreate(d *schema.ResourceData, meta interface{}) 
 		return err
 	} else if v, ok := d.GetOkExists("specific_reservation"); !tpgresource.IsEmptyValue(reflect.ValueOf(specificReservationProp)) && (ok || !reflect.DeepEqual(v, specificReservationProp)) {
 		obj["specificReservation"] = specificReservationProp
+	}
+	deleteAtTimeProp, err := expandComputeReservationDeleteAtTime(d.Get("delete_at_time"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("delete_at_time"); !tpgresource.IsEmptyValue(reflect.ValueOf(deleteAtTimeProp)) && (ok || !reflect.DeepEqual(v, deleteAtTimeProp)) {
+		obj["deleteAtTime"] = deleteAtTimeProp
+	}
+	deleteAfterDurationProp, err := expandComputeReservationDeleteAfterDuration(d.Get("delete_after_duration"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("delete_after_duration"); !tpgresource.IsEmptyValue(reflect.ValueOf(deleteAfterDurationProp)) && (ok || !reflect.DeepEqual(v, deleteAfterDurationProp)) {
+		obj["deleteAfterDuration"] = deleteAfterDurationProp
+	}
+	reservationSharingPolicyProp, err := expandComputeReservationReservationSharingPolicy(d.Get("reservation_sharing_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("reservation_sharing_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(reservationSharingPolicyProp)) && (ok || !reflect.DeepEqual(v, reservationSharingPolicyProp)) {
+		obj["reservationSharingPolicy"] = reservationSharingPolicyProp
 	}
 	zoneProp, err := expandComputeReservationZone(d.Get("zone"), d, config)
 	if err != nil {
@@ -401,6 +732,44 @@ func resourceComputeReservationRead(d *schema.ResourceData, meta interface{}) er
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("ComputeReservation %q", d.Id()))
 	}
 
+	zone, err := tpgresource.GetZone(d, config)
+	if err != nil {
+		return err
+	}
+	name := d.Get("name").(string)
+
+	// Fetch the list of all reservation blocks from this reservation
+	listUrl := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/reservations/%s/reservationBlocks?alt=json&maxResults=500", project, zone, name)
+
+	listRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "GET",
+		Project:   project,
+		RawURL:    listUrl,
+		UserAgent: userAgent,
+	})
+	if err != nil {
+		return fmt.Errorf("Error listing ReservationBlocks: %s", err)
+	}
+
+	blockNames := []string{}
+	if listRes != nil {
+		if items, ok := listRes["items"].([]interface{}); ok {
+			for _, item := range items {
+				if block, ok := item.(map[string]interface{}); ok {
+					if blockName, ok := block["name"].(string); ok {
+						blockNames = append(blockNames, blockName)
+					}
+				}
+			}
+		}
+	}
+
+	if err := d.Set("block_names", blockNames); err != nil {
+		return fmt.Errorf("Error setting block_names: %s", err)
+	}
+
+	// Explicitly set virtual fields to default values if unset
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Reservation: %s", err)
 	}
@@ -424,6 +793,30 @@ func resourceComputeReservationRead(d *schema.ResourceData, meta interface{}) er
 		return fmt.Errorf("Error reading Reservation: %s", err)
 	}
 	if err := d.Set("specific_reservation", flattenComputeReservationSpecificReservation(res["specificReservation"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("delete_at_time", flattenComputeReservationDeleteAtTime(res["deleteAtTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("reservation_sharing_policy", flattenComputeReservationReservationSharingPolicy(res["reservationSharingPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("reservation_block_count", flattenComputeReservationReservationBlockCount(res["reservationBlockCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("kind", flattenComputeReservationKind(res["kind"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("id", flattenComputeReservationId(res["id"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("linked_commitments", flattenComputeReservationLinkedCommitments(res["linkedCommitments"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("satisfies_pzs", flattenComputeReservationSatisfiesPzs(res["satisfiesPzs"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err := d.Set("resource_status", flattenComputeReservationResourceStatus(res["resourceStatus"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Reservation: %s", err)
 	}
 	if err := d.Set("zone", flattenComputeReservationZone(res["zone"], d, config)); err != nil {
@@ -458,6 +851,18 @@ func resourceComputeReservationUpdate(d *schema.ResourceData, meta interface{}) 
 	} else if v, ok := d.GetOkExists("share_settings"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, shareSettingsProp)) {
 		obj["shareSettings"] = shareSettingsProp
 	}
+	deleteAfterDurationProp, err := expandComputeReservationDeleteAfterDuration(d.Get("delete_after_duration"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("delete_after_duration"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, deleteAfterDurationProp)) {
+		obj["deleteAfterDuration"] = deleteAfterDurationProp
+	}
+	reservationSharingPolicyProp, err := expandComputeReservationReservationSharingPolicy(d.Get("reservation_sharing_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("reservation_sharing_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, reservationSharingPolicyProp)) {
+		obj["reservationSharingPolicy"] = reservationSharingPolicyProp
+	}
 
 	obj, err = resourceComputeReservationUpdateEncoder(d, meta, obj)
 	if err != nil {
@@ -475,6 +880,14 @@ func resourceComputeReservationUpdate(d *schema.ResourceData, meta interface{}) 
 
 	if d.HasChange("share_settings") {
 		updateMask = append(updateMask, "shareSettings")
+	}
+
+	if d.HasChange("delete_after_duration") {
+		updateMask = append(updateMask, "deleteAfterDuration")
+	}
+
+	if d.HasChange("reservation_sharing_policy") {
+		updateMask = append(updateMask, "reservationSharingPolicy")
 	}
 	// updateMask is a URL parameter but not present in the schema, so ReplaceVars
 	// won't set it
@@ -669,6 +1082,8 @@ func resourceComputeReservationImport(d *schema.ResourceData, meta interface{}) 
 	}
 	d.SetId(id)
 
+	// Explicitly set virtual fields to default values on import
+
 	return []*schema.ResourceData{d}, nil
 }
 
@@ -709,8 +1124,12 @@ func flattenComputeReservationSpecificReservation(v interface{}, d *schema.Resou
 		flattenComputeReservationSpecificReservationCount(original["count"], d, config)
 	transformed["in_use_count"] =
 		flattenComputeReservationSpecificReservationInUseCount(original["inUseCount"], d, config)
+	transformed["assured_count"] =
+		flattenComputeReservationSpecificReservationAssuredCount(original["assuredCount"], d, config)
 	transformed["instance_properties"] =
 		flattenComputeReservationSpecificReservationInstanceProperties(original["instanceProperties"], d, config)
+	transformed["source_instance_template"] =
+		flattenComputeReservationSpecificReservationSourceInstanceTemplate(original["sourceInstanceTemplate"], d, config)
 	return []interface{}{transformed}
 }
 func flattenComputeReservationSpecificReservationCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -747,6 +1166,23 @@ func flattenComputeReservationSpecificReservationInUseCount(v interface{}, d *sc
 	return v // let terraform core handle it otherwise
 }
 
+func flattenComputeReservationSpecificReservationAssuredCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
 func flattenComputeReservationSpecificReservationInstanceProperties(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return nil
@@ -764,6 +1200,8 @@ func flattenComputeReservationSpecificReservationInstanceProperties(v interface{
 		flattenComputeReservationSpecificReservationInstancePropertiesGuestAccelerators(original["guestAccelerators"], d, config)
 	transformed["local_ssds"] =
 		flattenComputeReservationSpecificReservationInstancePropertiesLocalSsds(original["localSsds"], d, config)
+	transformed["location_hint"] =
+		flattenComputeReservationSpecificReservationInstancePropertiesLocationHint(original["locationHint"], d, config)
 	return []interface{}{transformed}
 }
 func flattenComputeReservationSpecificReservationInstancePropertiesMachineType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -854,6 +1292,374 @@ func flattenComputeReservationSpecificReservationInstancePropertiesLocalSsdsDisk
 	return v // let terraform core handle it otherwise
 }
 
+func flattenComputeReservationSpecificReservationInstancePropertiesLocationHint(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationSpecificReservationSourceInstanceTemplate(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationDeleteAtTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationReservationSharingPolicy(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["service_share_type"] =
+		flattenComputeReservationReservationSharingPolicyServiceShareType(original["serviceShareType"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeReservationReservationSharingPolicyServiceShareType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationReservationBlockCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationKind(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationLinkedCommitments(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationSatisfiesPzs(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatus(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["specific_sku_allocation"] =
+		flattenComputeReservationResourceStatusSpecificSkuAllocation(original["specificSkuAllocation"], d, config)
+	transformed["reservation_maintenance"] =
+		flattenComputeReservationResourceStatusReservationMaintenance(original["reservationMaintenance"], d, config)
+	transformed["reservation_block_count"] =
+		flattenComputeReservationResourceStatusReservationBlockCount(original["reservationBlockCount"], d, config)
+	transformed["health_info"] =
+		flattenComputeReservationResourceStatusHealthInfo(original["healthInfo"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeReservationResourceStatusSpecificSkuAllocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["source_instance_template_id"] =
+		flattenComputeReservationResourceStatusSpecificSkuAllocationSourceInstanceTemplateId(original["sourceInstanceTemplateId"], d, config)
+	transformed["utilizations"] =
+		flattenComputeReservationResourceStatusSpecificSkuAllocationUtilizations(original["utilizations"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeReservationResourceStatusSpecificSkuAllocationSourceInstanceTemplateId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusSpecificSkuAllocationUtilizations(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenance(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["upcoming_group_maintenance"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance(original["upcomingGroupMaintenance"], d, config)
+	transformed["maintenance_ongoing_count"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceMaintenanceOngoingCount(original["maintenanceOngoingCount"], d, config)
+	transformed["maintenance_pending_count"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceMaintenancePendingCount(original["maintenancePendingCount"], d, config)
+	transformed["scheduling_type"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceSchedulingType(original["schedulingType"], d, config)
+	transformed["subblock_infra_maintenance_ongoing_count"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceSubblockInfraMaintenanceOngoingCount(original["subblockInfraMaintenanceOngoingCount"], d, config)
+	transformed["subblock_infra_maintenance_pending_count"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceSubblockInfraMaintenancePendingCount(original["subblockInfraMaintenancePendingCount"], d, config)
+	transformed["instance_maintenance_ongoing_count"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceInstanceMaintenanceOngoingCount(original["instanceMaintenanceOngoingCount"], d, config)
+	transformed["instance_maintenance_pending_count"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceInstanceMaintenancePendingCount(original["instanceMaintenancePendingCount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["type"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceType(original["type"], d, config)
+	transformed["can_reschedule"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceCanReschedule(original["canReschedule"], d, config)
+	transformed["window_start_time"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceWindowStartTime(original["windowStartTime"], d, config)
+	transformed["window_end_time"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceWindowEndTime(original["windowEndTime"], d, config)
+	transformed["latest_window_start_time"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceLatestWindowStartTime(original["latestWindowStartTime"], d, config)
+	transformed["maintenance_status"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceMaintenanceStatus(original["maintenanceStatus"], d, config)
+	transformed["maintenance_on_shutdown"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceMaintenanceOnShutdown(original["maintenanceOnShutdown"], d, config)
+	transformed["maintenance_reasons"] =
+		flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceMaintenanceReasons(original["maintenanceReasons"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceCanReschedule(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceWindowStartTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceWindowEndTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceLatestWindowStartTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceMaintenanceStatus(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceMaintenanceOnShutdown(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceMaintenanceReasons(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceMaintenanceOngoingCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceMaintenancePendingCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceSchedulingType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceSubblockInfraMaintenanceOngoingCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceSubblockInfraMaintenancePendingCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceInstanceMaintenanceOngoingCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusReservationMaintenanceInstanceMaintenancePendingCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusReservationBlockCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusHealthInfo(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["health_status"] =
+		flattenComputeReservationResourceStatusHealthInfoHealthStatus(original["healthStatus"], d, config)
+	transformed["healthy_block_count"] =
+		flattenComputeReservationResourceStatusHealthInfoHealthyBlockCount(original["healthyBlockCount"], d, config)
+	transformed["degraded_block_count"] =
+		flattenComputeReservationResourceStatusHealthInfoDegradedBlockCount(original["degradedBlockCount"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeReservationResourceStatusHealthInfoHealthStatus(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeReservationResourceStatusHealthInfoHealthyBlockCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeReservationResourceStatusHealthInfoDegradedBlockCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
 func flattenComputeReservationZone(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -874,6 +1680,9 @@ func expandComputeReservationSpecificReservationRequired(v interface{}, d tpgres
 }
 
 func expandComputeReservationShareSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -933,6 +1742,9 @@ func expandComputeReservationShareSettingsProjectMapProjectId(v interface{}, d t
 }
 
 func expandComputeReservationSpecificReservation(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -955,11 +1767,25 @@ func expandComputeReservationSpecificReservation(v interface{}, d tpgresource.Te
 		transformed["inUseCount"] = transformedInUseCount
 	}
 
+	transformedAssuredCount, err := expandComputeReservationSpecificReservationAssuredCount(original["assured_count"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAssuredCount); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["assuredCount"] = transformedAssuredCount
+	}
+
 	transformedInstanceProperties, err := expandComputeReservationSpecificReservationInstanceProperties(original["instance_properties"], d, config)
 	if err != nil {
 		return nil, err
 	} else if val := reflect.ValueOf(transformedInstanceProperties); val.IsValid() && !tpgresource.IsEmptyValue(val) {
 		transformed["instanceProperties"] = transformedInstanceProperties
+	}
+
+	transformedSourceInstanceTemplate, err := expandComputeReservationSpecificReservationSourceInstanceTemplate(original["source_instance_template"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSourceInstanceTemplate); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["sourceInstanceTemplate"] = transformedSourceInstanceTemplate
 	}
 
 	return transformed, nil
@@ -973,7 +1799,14 @@ func expandComputeReservationSpecificReservationInUseCount(v interface{}, d tpgr
 	return v, nil
 }
 
+func expandComputeReservationSpecificReservationAssuredCount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandComputeReservationSpecificReservationInstanceProperties(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1010,6 +1843,13 @@ func expandComputeReservationSpecificReservationInstanceProperties(v interface{}
 		transformed["localSsds"] = transformedLocalSsds
 	}
 
+	transformedLocationHint, err := expandComputeReservationSpecificReservationInstancePropertiesLocationHint(original["location_hint"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedLocationHint); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["locationHint"] = transformedLocationHint
+	}
+
 	return transformed, nil
 }
 
@@ -1022,6 +1862,9 @@ func expandComputeReservationSpecificReservationInstancePropertiesMinCpuPlatform
 }
 
 func expandComputeReservationSpecificReservationInstancePropertiesGuestAccelerators(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1059,6 +1902,9 @@ func expandComputeReservationSpecificReservationInstancePropertiesGuestAccelerat
 }
 
 func expandComputeReservationSpecificReservationInstancePropertiesLocalSsds(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1092,6 +1938,81 @@ func expandComputeReservationSpecificReservationInstancePropertiesLocalSsdsInter
 }
 
 func expandComputeReservationSpecificReservationInstancePropertiesLocalSsdsDiskSizeGb(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeReservationSpecificReservationInstancePropertiesLocationHint(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeReservationSpecificReservationSourceInstanceTemplate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeReservationDeleteAtTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeReservationDeleteAfterDuration(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedSeconds, err := expandComputeReservationDeleteAfterDurationSeconds(original["seconds"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSeconds); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["seconds"] = transformedSeconds
+	}
+
+	transformedNanos, err := expandComputeReservationDeleteAfterDurationNanos(original["nanos"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedNanos); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["nanos"] = transformedNanos
+	}
+
+	return transformed, nil
+}
+
+func expandComputeReservationDeleteAfterDurationSeconds(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeReservationDeleteAfterDurationNanos(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeReservationReservationSharingPolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedServiceShareType, err := expandComputeReservationReservationSharingPolicyServiceShareType(original["service_share_type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedServiceShareType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["serviceShareType"] = transformedServiceShareType
+	}
+
+	return transformed, nil
+}
+
+func expandComputeReservationReservationSharingPolicyServiceShareType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

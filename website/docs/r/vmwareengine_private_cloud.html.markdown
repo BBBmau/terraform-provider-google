@@ -135,6 +135,24 @@ The following arguments are supported:
   The ID of the PrivateCloud.
 
 
+* `description` -
+  (Optional)
+  User-provided description for this private cloud.
+
+* `type` -
+  (Optional)
+  Initial type of the private cloud.
+  Possible values are: `STANDARD`, `TIME_LIMITED`, `STRETCHED`.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+* `deletion_delay_hours` - (Optional) The number of hours to delay this request. You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level.
+
+* `send_deletion_delay_hours_if_zero` - (Optional) While set true, deletion_delay_hours value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours.
+
+
+
 <a name="nested_network_config"></a>The `network_config` block supports:
 
 * `management_cidr` -
@@ -272,30 +290,20 @@ The following arguments are supported:
 * `cpu_thresholds` -
   (Optional)
   Utilization thresholds pertaining to CPU utilization.
-  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_cpu_thresholds).
+  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_cpu_thresholds).
 
 * `consumed_memory_thresholds` -
   (Optional)
   Utilization thresholds pertaining to amount of consumed memory.
-  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_consumed_memory_thresholds).
+  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_consumed_memory_thresholds).
 
 * `storage_thresholds` -
   (Optional)
   Utilization thresholds pertaining to amount of consumed storage.
-  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_storage_thresholds).
+  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_storage_thresholds).
 
 
-<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_cpu_thresholds"></a>The `cpu_thresholds` block supports:
-
-* `scale_out` -
-  (Required)
-  The utilization triggering the scale-out operation in percent.
-
-* `scale_in` -
-  (Required)
-  The utilization triggering the scale-in operation in percent.
-
-<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_consumed_memory_thresholds"></a>The `consumed_memory_thresholds` block supports:
+<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_cpu_thresholds"></a>The `cpu_thresholds` block supports:
 
 * `scale_out` -
   (Required)
@@ -305,7 +313,7 @@ The following arguments are supported:
   (Required)
   The utilization triggering the scale-in operation in percent.
 
-<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_storage_thresholds"></a>The `storage_thresholds` block supports:
+<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_consumed_memory_thresholds"></a>The `consumed_memory_thresholds` block supports:
 
 * `scale_out` -
   (Required)
@@ -315,31 +323,41 @@ The following arguments are supported:
   (Required)
   The utilization triggering the scale-in operation in percent.
 
-- - -
+<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_storage_thresholds"></a>The `storage_thresholds` block supports:
 
+* `scale_out` -
+  (Required)
+  The utilization triggering the scale-out operation in percent.
 
-* `description` -
-  (Optional)
-  User-provided description for this private cloud.
-
-* `type` -
-  (Optional)
-  Initial type of the private cloud.
-  Possible values are: `STANDARD`, `TIME_LIMITED`, `STRETCHED`.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-* `deletion_delay_hours` - (Optional) The number of hours to delay this request. You can set this value to an hour between 0 to 8, where setting it to 0 starts the deletion request immediately. If no value is set, a default value is set at the API Level.
-
-* `send_deletion_delay_hours_if_zero` - (Optional) While set true, deletion_delay_hours value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the deletion_delay_hours field. It can be used both alone and together with deletion_delay_hours.
-
+* `scale_in` -
+  (Required)
+  The utilization triggering the scale-in operation in percent.
 
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
 
 * `id` - an identifier for the resource with format `projects/{{project}}/locations/{{location}}/privateClouds/{{name}}`
+
+* `create_time` -
+  Creation time of this resource.
+  A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+  Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+
+* `update_time` -
+  Last update time of this resource.
+  A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+  Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+
+* `delete_time` -
+  Time when the resource was scheduled for deletion.
+  A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+  Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+
+* `expire_time` -
+  Time when the resource will be irreversibly deleted.
+  A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits.
+  Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
 
 * `uid` -
   System-generated unique identifier for the resource.
@@ -422,7 +440,7 @@ In addition to the arguments listed above, the following computed attributes are
 This resource provides the following
 [Timeouts](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/retries-and-customizable-timeouts) configuration options:
 
-- `create` - Default is 240 minutes.
+- `create` - Default is 360 minutes.
 - `update` - Default is 190 minutes.
 - `delete` - Default is 150 minutes.
 
@@ -435,6 +453,18 @@ PrivateCloud can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PrivateCloud using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_vmwareengine_private_cloud.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PrivateCloud using one of the formats above. For example:
 

@@ -20,20 +20,70 @@
 package networkservices
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceNetworkServicesEdgeCacheOrigin() *schema.Resource {
@@ -57,6 +107,22 @@ func ResourceNetworkServicesEdgeCacheOrigin() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -118,6 +184,32 @@ After maxAttempts is reached, the configured failoverOrigin will be used to fulf
 
 The value of timeout.maxAttemptsTimeout dictates the timeout across all origins.
 A reference to a Topic resource.`,
+			},
+			"flex_shielding": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Description: `The FlexShieldingOptions to be used for all routes to this origin.
+
+If not set, defaults to a global caching layer in front of the origin.`,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"flex_shielding_regions": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Description: `Whenever possible, content will be fetched from origin and cached in or
+near the specified origin. Best effort.
+
+You must specify exactly one FlexShieldingRegion. Possible values: ["AFRICA_SOUTH1", "ME_CENTRAL1"]`,
+							MinItems: 1,
+							MaxItems: 1,
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: verify.ValidateEnum([]string{"AFRICA_SOUTH1", "ME_CENTRAL1"}),
+							},
+						},
+					},
+				},
 			},
 			"labels": {
 				Type:     schema.TypeMap,
@@ -302,7 +394,7 @@ Valid values are:
 Defaults to 5 seconds. The timeout must be a value between 1s and 15s.
 
 The connectTimeout capped by the deadline set by the request's maxAttemptsTimeout.  The last connection attempt may have a smaller connectTimeout in order to adhere to the overall maxAttemptsTimeout.`,
-							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.response_timeout", "timeout.0.read_timeout"},
+							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.read_timeout", "timeout.0.response_timeout"},
 						},
 						"max_attempts_timeout": {
 							Type:     schema.TypeString,
@@ -312,7 +404,7 @@ The connectTimeout capped by the deadline set by the request's maxAttemptsTimeou
 Defaults to 15 seconds. The timeout must be a value between 1s and 30s.
 
 If a failoverOrigin is specified, the maxAttemptsTimeout of the first configured origin sets the deadline for all connection attempts across all failoverOrigins.`,
-							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.response_timeout", "timeout.0.read_timeout"},
+							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.read_timeout", "timeout.0.response_timeout"},
 						},
 						"read_timeout": {
 							Type:     schema.TypeString,
@@ -324,7 +416,7 @@ Defaults to 15 seconds.  The timeout must be a value between 1s and 30s.
 The readTimeout is capped by the responseTimeout.  All reads of the HTTP connection/stream must be completed by the deadline set by the responseTimeout.
 
 If the response headers have already been written to the connection, the response will be truncated and logged.`,
-							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.response_timeout", "timeout.0.read_timeout"},
+							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.read_timeout", "timeout.0.response_timeout"},
 						},
 						"response_timeout": {
 							Type:     schema.TypeString,
@@ -338,7 +430,7 @@ The responseTimeout starts after the connection has been established.
 This also applies to HTTP Chunked Transfer Encoding responses, and/or when an open-ended Range request is made to the origin. Origins that take longer to write additional bytes to the response than the configured responseTimeout will result in an error being returned to the client.
 
 If the response headers have already been written to the connection, the response will be truncated and logged.`,
-							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.response_timeout", "timeout.0.read_timeout"},
+							AtLeastOneOf: []string{"timeout.0.connect_timeout", "timeout.0.max_attempts_timeout", "timeout.0.read_timeout", "timeout.0.response_timeout"},
 						},
 					},
 				},
@@ -441,11 +533,17 @@ func resourceNetworkServicesEdgeCacheOriginCreate(d *schema.ResourceData, meta i
 	} else if v, ok := d.GetOkExists("origin_redirect"); !tpgresource.IsEmptyValue(reflect.ValueOf(originRedirectProp)) && (ok || !reflect.DeepEqual(v, originRedirectProp)) {
 		obj["originRedirect"] = originRedirectProp
 	}
-	labelsProp, err := expandNetworkServicesEdgeCacheOriginEffectiveLabels(d.Get("effective_labels"), d, config)
+	flexShieldingProp, err := expandNetworkServicesEdgeCacheOriginFlexShielding(d.Get("flex_shielding"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("flex_shielding"); !tpgresource.IsEmptyValue(reflect.ValueOf(flexShieldingProp)) && (ok || !reflect.DeepEqual(v, flexShieldingProp)) {
+		obj["flexShielding"] = flexShieldingProp
+	}
+	effectiveLabelsProp, err := expandNetworkServicesEdgeCacheOriginEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{NetworkServicesBasePath}}projects/{{project}}/locations/global/edgeCacheOrigins?edgeCacheOriginId={{name}}")
@@ -488,6 +586,22 @@ func resourceNetworkServicesEdgeCacheOriginCreate(d *schema.ResourceData, meta i
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = NetworkServicesOperationWaitTime(
 		config, res, project, "Creating EdgeCacheOrigin", userAgent,
@@ -582,11 +696,32 @@ func resourceNetworkServicesEdgeCacheOriginRead(d *schema.ResourceData, meta int
 	if err := d.Set("origin_redirect", flattenNetworkServicesEdgeCacheOriginOriginRedirect(res["originRedirect"], d, config)); err != nil {
 		return fmt.Errorf("Error reading EdgeCacheOrigin: %s", err)
 	}
+	if err := d.Set("flex_shielding", flattenNetworkServicesEdgeCacheOriginFlexShielding(res["flexShielding"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheOrigin: %s", err)
+	}
 	if err := d.Set("terraform_labels", flattenNetworkServicesEdgeCacheOriginTerraformLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading EdgeCacheOrigin: %s", err)
 	}
 	if err := d.Set("effective_labels", flattenNetworkServicesEdgeCacheOriginEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading EdgeCacheOrigin: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -597,6 +732,21 @@ func resourceNetworkServicesEdgeCacheOriginUpdate(d *schema.ResourceData, meta i
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -674,11 +824,17 @@ func resourceNetworkServicesEdgeCacheOriginUpdate(d *schema.ResourceData, meta i
 	} else if v, ok := d.GetOkExists("origin_redirect"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, originRedirectProp)) {
 		obj["originRedirect"] = originRedirectProp
 	}
-	labelsProp, err := expandNetworkServicesEdgeCacheOriginEffectiveLabels(d.Get("effective_labels"), d, config)
+	flexShieldingProp, err := expandNetworkServicesEdgeCacheOriginFlexShielding(d.Get("flex_shielding"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("flex_shielding"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, flexShieldingProp)) {
+		obj["flexShielding"] = flexShieldingProp
+	}
+	effectiveLabelsProp, err := expandNetworkServicesEdgeCacheOriginEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{NetworkServicesBasePath}}projects/{{project}}/locations/global/edgeCacheOrigins/{{name}}")
@@ -732,6 +888,10 @@ func resourceNetworkServicesEdgeCacheOriginUpdate(d *schema.ResourceData, meta i
 
 	if d.HasChange("origin_redirect") {
 		updateMask = append(updateMask, "originRedirect")
+	}
+
+	if d.HasChange("flex_shielding") {
+		updateMask = append(updateMask, "flexShielding")
 	}
 
 	if d.HasChange("effective_labels") {
@@ -1072,6 +1232,23 @@ func flattenNetworkServicesEdgeCacheOriginOriginRedirectRedirectConditions(v int
 	return v
 }
 
+func flattenNetworkServicesEdgeCacheOriginFlexShielding(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["flex_shielding_regions"] =
+		flattenNetworkServicesEdgeCacheOriginFlexShieldingFlexShieldingRegions(original["flexShieldingRegions"], d, config)
+	return []interface{}{transformed}
+}
+func flattenNetworkServicesEdgeCacheOriginFlexShieldingFlexShieldingRegions(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenNetworkServicesEdgeCacheOriginTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -1120,6 +1297,9 @@ func expandNetworkServicesEdgeCacheOriginRetryConditions(v interface{}, d tpgres
 }
 
 func expandNetworkServicesEdgeCacheOriginTimeout(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1176,6 +1356,9 @@ func expandNetworkServicesEdgeCacheOriginTimeoutReadTimeout(v interface{}, d tpg
 }
 
 func expandNetworkServicesEdgeCacheOriginAwsV4Authentication(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1221,6 +1404,9 @@ func expandNetworkServicesEdgeCacheOriginAwsV4AuthenticationOriginRegion(v inter
 }
 
 func expandNetworkServicesEdgeCacheOriginOriginOverrideAction(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1247,6 +1433,9 @@ func expandNetworkServicesEdgeCacheOriginOriginOverrideAction(v interface{}, d t
 }
 
 func expandNetworkServicesEdgeCacheOriginOriginOverrideActionUrlRewrite(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1270,6 +1459,9 @@ func expandNetworkServicesEdgeCacheOriginOriginOverrideActionUrlRewriteHostRewri
 }
 
 func expandNetworkServicesEdgeCacheOriginOriginOverrideActionHeaderAction(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1289,6 +1481,9 @@ func expandNetworkServicesEdgeCacheOriginOriginOverrideActionHeaderAction(v inte
 }
 
 func expandNetworkServicesEdgeCacheOriginOriginOverrideActionHeaderActionRequestHeadersToAdd(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1337,6 +1532,9 @@ func expandNetworkServicesEdgeCacheOriginOriginOverrideActionHeaderActionRequest
 }
 
 func expandNetworkServicesEdgeCacheOriginOriginRedirect(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1356,6 +1554,32 @@ func expandNetworkServicesEdgeCacheOriginOriginRedirect(v interface{}, d tpgreso
 }
 
 func expandNetworkServicesEdgeCacheOriginOriginRedirectRedirectConditions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetworkServicesEdgeCacheOriginFlexShielding(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedFlexShieldingRegions, err := expandNetworkServicesEdgeCacheOriginFlexShieldingFlexShieldingRegions(original["flex_shielding_regions"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedFlexShieldingRegions); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["flexShieldingRegions"] = transformedFlexShieldingRegions
+	}
+
+	return transformed, nil
+}
+
+func expandNetworkServicesEdgeCacheOriginFlexShieldingFlexShieldingRegions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

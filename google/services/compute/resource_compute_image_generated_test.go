@@ -19,15 +19,35 @@ package compute_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccComputeImage_imageBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccComputeImage_imageBasicExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"image_encryption_key.0.raw_key", "image_encryption_key.0.rsa_encrypted_key", "labels", "raw_disk", "source_disk", "source_disk_encryption_key", "source_image", "source_image_encryption_key", "source_snapshot", "source_snapshot_encryption_key", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_compute_image.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -98,6 +124,12 @@ func TestAccComputeImage_imageGuestOsExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"image_encryption_key.0.raw_key", "image_encryption_key.0.rsa_encrypted_key", "labels", "raw_disk", "source_disk", "source_disk_encryption_key", "source_image", "source_image_encryption_key", "source_snapshot", "source_snapshot_encryption_key", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_compute_image.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -166,6 +198,12 @@ func TestAccComputeImage_imageBasicStorageLocationExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"image_encryption_key.0.raw_key", "image_encryption_key.0.rsa_encrypted_key", "labels", "raw_disk", "source_disk", "source_disk_encryption_key", "source_image", "source_image_encryption_key", "source_snapshot", "source_snapshot_encryption_key", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_compute_image.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

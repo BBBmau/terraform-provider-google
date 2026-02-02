@@ -26,7 +26,7 @@ Represents an entity type. Entity types serve as a tool for extracting parameter
 
 To get more information about EntityType, see:
 
-* [API documentation](https://cloud.google.com/dialogflow/docs/reference/rest/v2/projects.agent.entityTypes)
+* [API documentation](https://docs.cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.agent.entityTypes)
 * How-to Guides
     * [Official Documentation](https://cloud.google.com/dialogflow/docs/)
 
@@ -42,7 +42,7 @@ resource "google_dialogflow_agent" "basic_agent" {
 
 resource "google_dialogflow_entity_type" "basic_entity_type" {
   depends_on = [google_dialogflow_agent.basic_agent]
-  display_name = ""
+  display_name = "basic-entity-type"
   kind = "KIND_MAP"
   entities {
     value = "value1"
@@ -74,9 +74,6 @@ The following arguments are supported:
   Possible values are: `KIND_MAP`, `KIND_LIST`, `KIND_REGEXP`.
 
 
-- - -
-
-
 * `enable_fuzzy_extraction` -
   (Optional)
   Enables fuzzy entity extraction during classification.
@@ -88,6 +85,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_entities"></a>The `entities` block supports:
@@ -135,6 +133,16 @@ EntityType can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import EntityType using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_dialogflow_entity_type.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import EntityType using one of the formats above. For example:
 

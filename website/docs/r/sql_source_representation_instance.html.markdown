@@ -31,7 +31,7 @@ affect billing. You cannot update the source representation instance.
 
 
 ~> **Warning:** All arguments including the following potentially sensitive
-values will be stored in the raw state as plain text: `on_premises_configuration.password`.
+values will be stored in the raw state as plain text: `password`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -93,9 +93,6 @@ The following arguments are supported:
   The IPv4 address and port for the external server, or the the DNS address for the external server. If the external server is hosted on Cloud SQL, the port is 5432.
 
 
-- - -
-
-
 * `region` -
   (Optional)
   The Region in which the created instance should reside.
@@ -135,6 +132,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -159,6 +157,17 @@ SourceRepresentationInstance can be imported using any of these accepted formats
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SourceRepresentationInstance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_sql_source_representation_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SourceRepresentationInstance using one of the formats above. For example:
 

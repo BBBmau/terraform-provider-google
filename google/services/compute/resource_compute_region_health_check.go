@@ -20,18 +20,70 @@
 package compute
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceComputeRegionHealthCheck() *schema.Resource {
@@ -55,6 +107,26 @@ func ResourceComputeRegionHealthCheck() *schema.Resource {
 			healthCheckCustomizeDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -100,7 +172,7 @@ The value of grpcServiceName has the following meanings by convention:
 * Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service.
 
 The grpcServiceName can only be ASCII.`,
-							AtLeastOneOf: []string{"grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification", "grpc_health_check.0.grpc_service_name"},
+							AtLeastOneOf: []string{"grpc_health_check.0.grpc_service_name", "grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification"},
 						},
 						"port": {
 							Type:     schema.TypeInt,
@@ -108,14 +180,14 @@ The grpcServiceName can only be ASCII.`,
 							Description: `The port number for the health check request.
 Must be specified if portName and portSpecification are not set
 or if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535.`,
-							AtLeastOneOf: []string{"grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification", "grpc_health_check.0.grpc_service_name"},
+							AtLeastOneOf: []string{"grpc_health_check.0.grpc_service_name", "grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification"},
 						},
 						"port_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Description: `Port name as defined in InstanceGroup#NamedPort#name. If both port and
 port_name are defined, port takes precedence.`,
-							AtLeastOneOf: []string{"grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification", "grpc_health_check.0.grpc_service_name"},
+							AtLeastOneOf: []string{"grpc_health_check.0.grpc_service_name", "grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification"},
 						},
 						"port_specification": {
 							Type:         schema.TypeString,
@@ -135,11 +207,61 @@ following values:
 
 If not specified, gRPC health check follows behavior specified in 'port' and
 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
-							AtLeastOneOf: []string{"grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification", "grpc_health_check.0.grpc_service_name"},
+							AtLeastOneOf: []string{"grpc_health_check.0.grpc_service_name", "grpc_health_check.0.port", "grpc_health_check.0.port_name", "grpc_health_check.0.port_specification"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"http_health_check", "https_health_check", "http2_health_check", "tcp_health_check", "ssl_health_check", "grpc_health_check"},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
+			},
+			"grpc_tls_health_check": {
+				Type:             schema.TypeList,
+				Optional:         true,
+				DiffSuppressFunc: portDiffSuppress,
+				Description:      `A nested object resource.`,
+				MaxItems:         1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"grpc_service_name": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Description: `The gRPC service name for the health check.
+The value of grpcServiceName has the following meanings by convention:
+
+* Empty serviceName means the overall status of all services at the backend.
+* Non-empty serviceName means the health of that gRPC service, as defined by the owner of the service.
+
+The grpcServiceName can only be ASCII.`,
+							AtLeastOneOf: []string{"grpc_tls_health_check.0.grpc_service_name", "grpc_tls_health_check.0.port", "grpc_tls_health_check.0.port_specification"},
+						},
+						"port": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Description: `The port number for the health check request.
+Must be specified if port_specification is USE_FIXED_PORT. Valid values are 1 through 65535.`,
+							AtLeastOneOf: []string{"grpc_tls_health_check.0.grpc_service_name", "grpc_tls_health_check.0.port", "grpc_tls_health_check.0.port_specification"},
+						},
+						"port_specification": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT", ""}),
+							Description: `Specifies how port is selected for health checking, can be one of the
+following values:
+
+  * 'USE_FIXED_PORT': The port number in 'port' is used for health checking.
+
+  * 'USE_NAMED_PORT': Not supported for GRPC with TLS health checking.
+
+  * 'USE_SERVING_PORT': For NetworkEndpointGroup, the port specified for each
+  network endpoint is used for health checking. For other backends, the
+  port or named port specified in the Backend Service is used for health
+  checking.
+
+If not specified, gRPC health check follows behavior specified in the 'port' field. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
+							AtLeastOneOf: []string{"grpc_tls_health_check.0.grpc_service_name", "grpc_tls_health_check.0.port", "grpc_tls_health_check.0.port_specification"},
+						},
+					},
+				},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
 			},
 			"healthy_threshold": {
 				Type:     schema.TypeInt,
@@ -162,21 +284,21 @@ consecutive successes. The default value is 2.`,
 							Description: `The value of the host header in the HTTP2 health check request.
 If left empty (default value), the public IP on behalf of which this health
 check is performed will be used.`,
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 						"port": {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Description: `The TCP port number for the HTTP2 health check request.
 The default value is 443.`,
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 						"port_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Description: `Port name as defined in InstanceGroup#NamedPort#name. If both port and
 port_name are defined, port takes precedence.`,
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 						"port_specification": {
 							Type:         schema.TypeString,
@@ -196,7 +318,7 @@ following values:
 
 If not specified, HTTP2 health check follows behavior specified in 'port' and
 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 						"proxy_header": {
 							Type:         schema.TypeString,
@@ -205,7 +327,7 @@ If not specified, HTTP2 health check follows behavior specified in 'port' and
 							Description: `Specifies the type of proxy header to append before sending data to the
 backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Default:      "NONE",
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 						"request_path": {
 							Type:     schema.TypeString,
@@ -213,7 +335,7 @@ backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Description: `The request path of the HTTP2 health check request.
 The default value is /.`,
 							Default:      "/",
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 						"response": {
 							Type:     schema.TypeString,
@@ -221,11 +343,11 @@ The default value is /.`,
 							Description: `The bytes to match against the beginning of the response data. If left empty
 (the default value), any response will indicate health. The response data
 can only be ASCII.`,
-							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.request_path", "http2_health_check.0.response", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.proxy_header", "http2_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http2_health_check.0.host", "http2_health_check.0.port", "http2_health_check.0.port_name", "http2_health_check.0.port_specification", "http2_health_check.0.proxy_header", "http2_health_check.0.request_path", "http2_health_check.0.response"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"http_health_check", "https_health_check", "http2_health_check", "tcp_health_check", "ssl_health_check", "grpc_health_check"},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
 			},
 			"http_health_check": {
 				Type:             schema.TypeList,
@@ -241,21 +363,21 @@ can only be ASCII.`,
 							Description: `The value of the host header in the HTTP health check request.
 If left empty (default value), the public IP on behalf of which this health
 check is performed will be used.`,
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 						"port": {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Description: `The TCP port number for the HTTP health check request.
 The default value is 80.`,
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 						"port_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Description: `Port name as defined in InstanceGroup#NamedPort#name. If both port and
 port_name are defined, port takes precedence.`,
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 						"port_specification": {
 							Type:         schema.TypeString,
@@ -275,7 +397,7 @@ following values:
 
 If not specified, HTTP health check follows behavior specified in 'port' and
 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 						"proxy_header": {
 							Type:         schema.TypeString,
@@ -284,7 +406,7 @@ If not specified, HTTP health check follows behavior specified in 'port' and
 							Description: `Specifies the type of proxy header to append before sending data to the
 backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Default:      "NONE",
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 						"request_path": {
 							Type:     schema.TypeString,
@@ -292,7 +414,7 @@ backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Description: `The request path of the HTTP health check request.
 The default value is /.`,
 							Default:      "/",
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 						"response": {
 							Type:     schema.TypeString,
@@ -300,11 +422,11 @@ The default value is /.`,
 							Description: `The bytes to match against the beginning of the response data. If left empty
 (the default value), any response will indicate health. The response data
 can only be ASCII.`,
-							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.request_path", "http_health_check.0.response", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.proxy_header", "http_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"http_health_check.0.host", "http_health_check.0.port", "http_health_check.0.port_name", "http_health_check.0.port_specification", "http_health_check.0.proxy_header", "http_health_check.0.request_path", "http_health_check.0.response"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"http_health_check", "https_health_check", "http2_health_check", "tcp_health_check", "ssl_health_check", "grpc_health_check"},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
 			},
 			"https_health_check": {
 				Type:             schema.TypeList,
@@ -320,21 +442,21 @@ can only be ASCII.`,
 							Description: `The value of the host header in the HTTPS health check request.
 If left empty (default value), the public IP on behalf of which this health
 check is performed will be used.`,
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 						"port": {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Description: `The TCP port number for the HTTPS health check request.
 The default value is 443.`,
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 						"port_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Description: `Port name as defined in InstanceGroup#NamedPort#name. If both port and
 port_name are defined, port takes precedence.`,
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 						"port_specification": {
 							Type:         schema.TypeString,
@@ -354,7 +476,7 @@ following values:
 
 If not specified, HTTPS health check follows behavior specified in 'port' and
 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 						"proxy_header": {
 							Type:         schema.TypeString,
@@ -363,7 +485,7 @@ If not specified, HTTPS health check follows behavior specified in 'port' and
 							Description: `Specifies the type of proxy header to append before sending data to the
 backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Default:      "NONE",
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 						"request_path": {
 							Type:     schema.TypeString,
@@ -371,7 +493,7 @@ backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Description: `The request path of the HTTPS health check request.
 The default value is /.`,
 							Default:      "/",
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 						"response": {
 							Type:     schema.TypeString,
@@ -379,11 +501,11 @@ The default value is /.`,
 							Description: `The bytes to match against the beginning of the response data. If left empty
 (the default value), any response will indicate health. The response data
 can only be ASCII.`,
-							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.request_path", "https_health_check.0.response", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.proxy_header", "https_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"https_health_check.0.host", "https_health_check.0.port", "https_health_check.0.port_name", "https_health_check.0.port_specification", "https_health_check.0.proxy_header", "https_health_check.0.request_path", "https_health_check.0.response"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"http_health_check", "https_health_check", "http2_health_check", "tcp_health_check", "ssl_health_check", "grpc_health_check"},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
 			},
 			"log_config": {
 				Type:        schema.TypeList,
@@ -425,14 +547,14 @@ If it is not provided, the provider region is used.`,
 							Optional: true,
 							Description: `The TCP port number for the SSL health check request.
 The default value is 443.`,
-							AtLeastOneOf: []string{"ssl_health_check.0.request", "ssl_health_check.0.response", "ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.proxy_header", "ssl_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.port_specification", "ssl_health_check.0.proxy_header", "ssl_health_check.0.request", "ssl_health_check.0.response"},
 						},
 						"port_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Description: `Port name as defined in InstanceGroup#NamedPort#name. If both port and
 port_name are defined, port takes precedence.`,
-							AtLeastOneOf: []string{"ssl_health_check.0.request", "ssl_health_check.0.response", "ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.proxy_header", "ssl_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.port_specification", "ssl_health_check.0.proxy_header", "ssl_health_check.0.request", "ssl_health_check.0.response"},
 						},
 						"port_specification": {
 							Type:         schema.TypeString,
@@ -452,7 +574,7 @@ following values:
 
 If not specified, SSL health check follows behavior specified in 'port' and
 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
-							AtLeastOneOf: []string{"ssl_health_check.0.request", "ssl_health_check.0.response", "ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.proxy_header", "ssl_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.port_specification", "ssl_health_check.0.proxy_header", "ssl_health_check.0.request", "ssl_health_check.0.response"},
 						},
 						"proxy_header": {
 							Type:         schema.TypeString,
@@ -461,7 +583,7 @@ If not specified, SSL health check follows behavior specified in 'port' and
 							Description: `Specifies the type of proxy header to append before sending data to the
 backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Default:      "NONE",
-							AtLeastOneOf: []string{"ssl_health_check.0.request", "ssl_health_check.0.response", "ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.proxy_header", "ssl_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.port_specification", "ssl_health_check.0.proxy_header", "ssl_health_check.0.request", "ssl_health_check.0.response"},
 						},
 						"request": {
 							Type:     schema.TypeString,
@@ -470,7 +592,7 @@ backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 established (default value is empty). If both request and response are
 empty, the connection establishment alone will indicate health. The request
 data can only be ASCII.`,
-							AtLeastOneOf: []string{"ssl_health_check.0.request", "ssl_health_check.0.response", "ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.proxy_header", "ssl_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.port_specification", "ssl_health_check.0.proxy_header", "ssl_health_check.0.request", "ssl_health_check.0.response"},
 						},
 						"response": {
 							Type:     schema.TypeString,
@@ -478,11 +600,11 @@ data can only be ASCII.`,
 							Description: `The bytes to match against the beginning of the response data. If left empty
 (the default value), any response will indicate health. The response data
 can only be ASCII.`,
-							AtLeastOneOf: []string{"ssl_health_check.0.request", "ssl_health_check.0.response", "ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.proxy_header", "ssl_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"ssl_health_check.0.port", "ssl_health_check.0.port_name", "ssl_health_check.0.port_specification", "ssl_health_check.0.proxy_header", "ssl_health_check.0.request", "ssl_health_check.0.response"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"http_health_check", "https_health_check", "http2_health_check", "tcp_health_check", "ssl_health_check", "grpc_health_check"},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
 			},
 			"tcp_health_check": {
 				Type:             schema.TypeList,
@@ -497,14 +619,14 @@ can only be ASCII.`,
 							Optional: true,
 							Description: `The TCP port number for the TCP health check request.
 The default value is 80.`,
-							AtLeastOneOf: []string{"tcp_health_check.0.request", "tcp_health_check.0.response", "tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.proxy_header", "tcp_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.port_specification", "tcp_health_check.0.proxy_header", "tcp_health_check.0.request", "tcp_health_check.0.response"},
 						},
 						"port_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Description: `Port name as defined in InstanceGroup#NamedPort#name. If both port and
 port_name are defined, port takes precedence.`,
-							AtLeastOneOf: []string{"tcp_health_check.0.request", "tcp_health_check.0.response", "tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.proxy_header", "tcp_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.port_specification", "tcp_health_check.0.proxy_header", "tcp_health_check.0.request", "tcp_health_check.0.response"},
 						},
 						"port_specification": {
 							Type:         schema.TypeString,
@@ -524,7 +646,7 @@ following values:
 
 If not specified, TCP health check follows behavior specified in 'port' and
 'portName' fields. Possible values: ["USE_FIXED_PORT", "USE_NAMED_PORT", "USE_SERVING_PORT"]`,
-							AtLeastOneOf: []string{"tcp_health_check.0.request", "tcp_health_check.0.response", "tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.proxy_header", "tcp_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.port_specification", "tcp_health_check.0.proxy_header", "tcp_health_check.0.request", "tcp_health_check.0.response"},
 						},
 						"proxy_header": {
 							Type:         schema.TypeString,
@@ -533,7 +655,7 @@ If not specified, TCP health check follows behavior specified in 'port' and
 							Description: `Specifies the type of proxy header to append before sending data to the
 backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 							Default:      "NONE",
-							AtLeastOneOf: []string{"tcp_health_check.0.request", "tcp_health_check.0.response", "tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.proxy_header", "tcp_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.port_specification", "tcp_health_check.0.proxy_header", "tcp_health_check.0.request", "tcp_health_check.0.response"},
 						},
 						"request": {
 							Type:     schema.TypeString,
@@ -542,7 +664,7 @@ backend. Default value: "NONE" Possible values: ["NONE", "PROXY_V1"]`,
 established (default value is empty). If both request and response are
 empty, the connection establishment alone will indicate health. The request
 data can only be ASCII.`,
-							AtLeastOneOf: []string{"tcp_health_check.0.request", "tcp_health_check.0.response", "tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.proxy_header", "tcp_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.port_specification", "tcp_health_check.0.proxy_header", "tcp_health_check.0.request", "tcp_health_check.0.response"},
 						},
 						"response": {
 							Type:     schema.TypeString,
@@ -550,11 +672,11 @@ data can only be ASCII.`,
 							Description: `The bytes to match against the beginning of the response data. If left empty
 (the default value), any response will indicate health. The response data
 can only be ASCII.`,
-							AtLeastOneOf: []string{"tcp_health_check.0.request", "tcp_health_check.0.response", "tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.proxy_header", "tcp_health_check.0.port_specification"},
+							AtLeastOneOf: []string{"tcp_health_check.0.port", "tcp_health_check.0.port_name", "tcp_health_check.0.port_specification", "tcp_health_check.0.proxy_header", "tcp_health_check.0.request", "tcp_health_check.0.response"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"http_health_check", "https_health_check", "http2_health_check", "tcp_health_check", "ssl_health_check", "grpc_health_check"},
+				ExactlyOneOf: []string{"grpc_health_check", "grpc_tls_health_check", "http2_health_check", "http_health_check", "https_health_check", "ssl_health_check", "tcp_health_check"},
 			},
 			"timeout_sec": {
 				Type:     schema.TypeInt,
@@ -681,6 +803,12 @@ func resourceComputeRegionHealthCheckCreate(d *schema.ResourceData, meta interfa
 	} else if v, ok := d.GetOkExists("grpc_health_check"); !tpgresource.IsEmptyValue(reflect.ValueOf(grpcHealthCheckProp)) && (ok || !reflect.DeepEqual(v, grpcHealthCheckProp)) {
 		obj["grpcHealthCheck"] = grpcHealthCheckProp
 	}
+	grpcTlsHealthCheckProp, err := expandComputeRegionHealthCheckGrpcTlsHealthCheck(d.Get("grpc_tls_health_check"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("grpc_tls_health_check"); !tpgresource.IsEmptyValue(reflect.ValueOf(grpcTlsHealthCheckProp)) && (ok || !reflect.DeepEqual(v, grpcTlsHealthCheckProp)) {
+		obj["grpcTlsHealthCheck"] = grpcTlsHealthCheckProp
+	}
 	logConfigProp, err := expandComputeRegionHealthCheckLogConfig(d.Get("log_config"), d, config)
 	if err != nil {
 		return err
@@ -739,6 +867,27 @@ func resourceComputeRegionHealthCheckCreate(d *schema.ResourceData, meta interfa
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating RegionHealthCheck", userAgent,
@@ -842,6 +991,9 @@ func resourceComputeRegionHealthCheckRead(d *schema.ResourceData, meta interface
 	if err := d.Set("grpc_health_check", flattenComputeRegionHealthCheckGrpcHealthCheck(res["grpcHealthCheck"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionHealthCheck: %s", err)
 	}
+	if err := d.Set("grpc_tls_health_check", flattenComputeRegionHealthCheckGrpcTlsHealthCheck(res["grpcTlsHealthCheck"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionHealthCheck: %s", err)
+	}
 	if err := d.Set("log_config", flattenComputeRegionHealthCheckLogConfig(res["logConfig"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionHealthCheck: %s", err)
 	}
@@ -852,6 +1004,30 @@ func resourceComputeRegionHealthCheckRead(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error reading RegionHealthCheck: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -860,6 +1036,26 @@ func resourceComputeRegionHealthCheckUpdate(d *schema.ResourceData, meta interfa
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -942,6 +1138,12 @@ func resourceComputeRegionHealthCheckUpdate(d *schema.ResourceData, meta interfa
 		return err
 	} else if v, ok := d.GetOkExists("grpc_health_check"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, grpcHealthCheckProp)) {
 		obj["grpcHealthCheck"] = grpcHealthCheckProp
+	}
+	grpcTlsHealthCheckProp, err := expandComputeRegionHealthCheckGrpcTlsHealthCheck(d.Get("grpc_tls_health_check"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("grpc_tls_health_check"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, grpcTlsHealthCheckProp)) {
+		obj["grpcTlsHealthCheck"] = grpcTlsHealthCheckProp
 	}
 	logConfigProp, err := expandComputeRegionHealthCheckLogConfig(d.Get("log_config"), d, config)
 	if err != nil {
@@ -1546,6 +1748,48 @@ func flattenComputeRegionHealthCheckGrpcHealthCheckGrpcServiceName(v interface{}
 	return v
 }
 
+func flattenComputeRegionHealthCheckGrpcTlsHealthCheck(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["port"] =
+		flattenComputeRegionHealthCheckGrpcTlsHealthCheckPort(original["port"], d, config)
+	transformed["port_specification"] =
+		flattenComputeRegionHealthCheckGrpcTlsHealthCheckPortSpecification(original["portSpecification"], d, config)
+	transformed["grpc_service_name"] =
+		flattenComputeRegionHealthCheckGrpcTlsHealthCheckGrpcServiceName(original["grpcServiceName"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeRegionHealthCheckGrpcTlsHealthCheckPort(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeRegionHealthCheckGrpcTlsHealthCheckPortSpecification(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeRegionHealthCheckGrpcTlsHealthCheckGrpcServiceName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenComputeRegionHealthCheckLogConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	transformed := make(map[string]interface{})
 	if v == nil {
@@ -1563,7 +1807,7 @@ func flattenComputeRegionHealthCheckRegion(v interface{}, d *schema.ResourceData
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func expandComputeRegionHealthCheckCheckIntervalSec(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
@@ -1591,6 +1835,9 @@ func expandComputeRegionHealthCheckTimeoutSec(v interface{}, d tpgresource.Terra
 }
 
 func expandComputeRegionHealthCheckHttpHealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1680,6 +1927,9 @@ func expandComputeRegionHealthCheckHttpHealthCheckPortSpecification(v interface{
 }
 
 func expandComputeRegionHealthCheckHttpsHealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1769,6 +2019,9 @@ func expandComputeRegionHealthCheckHttpsHealthCheckPortSpecification(v interface
 }
 
 func expandComputeRegionHealthCheckTcpHealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1847,6 +2100,9 @@ func expandComputeRegionHealthCheckTcpHealthCheckPortSpecification(v interface{}
 }
 
 func expandComputeRegionHealthCheckSslHealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1925,6 +2181,9 @@ func expandComputeRegionHealthCheckSslHealthCheckPortSpecification(v interface{}
 }
 
 func expandComputeRegionHealthCheckHttp2HealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2014,6 +2273,9 @@ func expandComputeRegionHealthCheckHttp2HealthCheckPortSpecification(v interface
 }
 
 func expandComputeRegionHealthCheckGrpcHealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2069,7 +2331,58 @@ func expandComputeRegionHealthCheckGrpcHealthCheckGrpcServiceName(v interface{},
 	return v, nil
 }
 
+func expandComputeRegionHealthCheckGrpcTlsHealthCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedPort, err := expandComputeRegionHealthCheckGrpcTlsHealthCheckPort(original["port"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedPort); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["port"] = transformedPort
+	}
+
+	transformedPortSpecification, err := expandComputeRegionHealthCheckGrpcTlsHealthCheckPortSpecification(original["port_specification"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedPortSpecification); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["portSpecification"] = transformedPortSpecification
+	}
+
+	transformedGrpcServiceName, err := expandComputeRegionHealthCheckGrpcTlsHealthCheckGrpcServiceName(original["grpc_service_name"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedGrpcServiceName); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["grpcServiceName"] = transformedGrpcServiceName
+	}
+
+	return transformed, nil
+}
+
+func expandComputeRegionHealthCheckGrpcTlsHealthCheckPort(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRegionHealthCheckGrpcTlsHealthCheckPortSpecification(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeRegionHealthCheckGrpcTlsHealthCheckGrpcServiceName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandComputeRegionHealthCheckLogConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2184,6 +2497,20 @@ func resourceComputeRegionHealthCheckEncoder(d *schema.ResourceData, meta interf
 			}
 		}
 		obj["type"] = "GRPC"
+		return obj, nil
+	}
+
+	if _, ok := d.GetOk("grpc_tls_health_check"); ok {
+		hc := d.Get("grpc_tls_health_check").([]interface{})[0]
+		ps := hc.(map[string]interface{})["port_specification"]
+
+		if ps == "USE_FIXED_PORT" || ps == "" {
+			m := obj["grpcTlsHealthCheck"].(map[string]interface{})
+			if m["port"] == nil {
+				return nil, fmt.Errorf("error in HealthCheck %s: `port` must be set for GRPC with TLS health checks`.", d.Get("name").(string))
+			}
+		}
+		obj["type"] = "GRPC_WITH_TLS"
 		return obj, nil
 	}
 

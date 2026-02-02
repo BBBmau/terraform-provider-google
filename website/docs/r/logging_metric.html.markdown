@@ -132,7 +132,7 @@ resource "google_logging_project_bucket_config" "logging_metric" {
 resource "google_logging_metric" "logging_metric" {
   name        = "my-(custom)/metric"
   filter      = "resource.type=gae_app AND severity>=ERROR"
-  bucket_name = google_logging_project_bucket_config.logging_metric.id
+  bucket_name = google_logging_project_bucket_config.logging_metric.name
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -172,9 +172,6 @@ The following arguments are supported:
   (Required)
   An advanced logs filter (https://cloud.google.com/logging/docs/view/advanced-filters) which
   is used to match log entries.
-
-
-- - -
 
 
 * `description` -
@@ -224,6 +221,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_metric_descriptor"></a>The `metric_descriptor` block supports:
@@ -357,6 +355,17 @@ Metric can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Metric using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_logging_metric.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Metric using one of the formats above. For example:
 

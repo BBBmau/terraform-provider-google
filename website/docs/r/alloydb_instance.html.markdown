@@ -60,6 +60,8 @@ resource "google_alloydb_cluster" "default" {
   initial_user {
     password = "alloydb-cluster"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -92,6 +94,8 @@ resource "google_alloydb_cluster" "primary" {
   network_config {
     network = google_compute_network.default.id
   }
+
+  deletion_protection = false
 }
 
 resource "google_alloydb_instance" "primary" {
@@ -131,6 +135,7 @@ resource "google_alloydb_cluster" "secondary" {
     ignore_changes = [instance_type]
   }
 
+  deletion_protection = false
   depends_on = [google_alloydb_instance.primary]
 }
 
@@ -193,9 +198,6 @@ The following arguments are supported:
   The ID of the alloydb instance.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   User-defined labels for the alloydb instance.
@@ -229,6 +231,18 @@ The following arguments are supported:
   can have regional availability (nodes are present in 2 or more zones in a region).
   Possible values are: `AVAILABILITY_TYPE_UNSPECIFIED`, `ZONAL`, `REGIONAL`.'
   Possible values are: `AVAILABILITY_TYPE_UNSPECIFIED`, `ZONAL`, `REGIONAL`.
+
+* `activation_policy` -
+  (Optional)
+  'Specifies whether an instance needs to spin up. Once the instance is
+  active, the activation policy can be updated to the `NEVER` to stop the
+  instance. Likewise, the activation policy can be updated to `ALWAYS` to
+  start the instance.
+  There are restrictions around when an instance can/cannot be activated (for
+  example, a read pool instance should be stopped before stopping primary
+  etc.). Please refer to the API documentation for more details.
+  Possible values are: `ACTIVATION_POLICY_UNSPECIFIED`, `ALWAYS`, `NEVER`.'
+  Possible values are: `ACTIVATION_POLICY_UNSPECIFIED`, `ALWAYS`, `NEVER`.
 
 * `query_insights_config` -
   (Optional)
@@ -264,6 +278,12 @@ The following arguments are supported:
   (Optional)
   Instance level network configuration.
   Structure is [documented below](#nested_network_config).
+
+* `connection_pool_config` -
+  (Optional)
+  Configuration for Managed Connection Pool.
+  Structure is [documented below](#nested_connection_pool_config).
+
 
 
 <a name="nested_query_insights_config"></a>The `query_insights_config` block supports:
@@ -383,6 +403,11 @@ The following arguments are supported:
   which are used for outbound connectivity. Currently, AlloyDB supports only 0 or 1 PSC interface.
   Structure is [documented below](#nested_psc_instance_config_psc_interface_configs).
 
+* `psc_auto_connections` -
+  (Optional)
+  Configurations for setting up PSC service automation.
+  Structure is [documented below](#nested_psc_instance_config_psc_auto_connections).
+
 
 <a name="nested_psc_instance_config_psc_interface_configs"></a>The `psc_interface_configs` block supports:
 
@@ -391,6 +416,34 @@ The following arguments are supported:
   The network attachment resource created in the consumer project to which the PSC interface will be linked.
   This is of the format: "projects/${CONSUMER_PROJECT}/regions/${REGION}/networkAttachments/${NETWORK_ATTACHMENT_NAME}".
   The network attachment must be in the same region as the instance.
+
+<a name="nested_psc_instance_config_psc_auto_connections"></a>The `psc_auto_connections` block supports:
+
+* `consumer_project` -
+  (Optional)
+  The consumer project to which the PSC service automation endpoint will
+  be created. The API expects the consumer project to be the project ID(
+  and not the project number).
+
+* `consumer_network` -
+  (Optional)
+  The consumer network for the PSC service automation, example:
+  "projects/vpc-host-project/global/networks/default".
+  The consumer network might be hosted a different project than the
+  consumer project. The API expects the consumer project specified to be
+  the project ID (and not the project number)
+
+* `ip_address` -
+  (Output)
+  The IP address of the PSC service automation endpoint.
+
+* `status` -
+  (Output)
+  The status of the PSC service automation connection.
+
+* `consumer_network_status` -
+  (Output)
+  The status of the service connection policy.
 
 <a name="nested_network_config"></a>The `network_config` block supports:
 
@@ -411,12 +464,40 @@ The following arguments are supported:
   (Optional)
   Enabling outbound public ip for the instance.
 
+* `allocated_ip_range_override` -
+  (Optional)
+  Name of the allocated IP range for the private IP AlloyDB instance, for example: "google-managed-services-default".
+  If set, the instance IPs will be created from this allocated range and will override the IP range used by the parent cluster.
+  The range name must comply with RFC 1035. Specifically, the name must be 1-63 characters long and match the regular expression [a-z]([-a-z0-9]*[a-z0-9])?.
+
 
 <a name="nested_network_config_authorized_external_networks"></a>The `authorized_external_networks` block supports:
 
 * `cidr_range` -
   (Optional)
   CIDR range for one authorized network of the instance.
+
+<a name="nested_connection_pool_config"></a>The `connection_pool_config` block supports:
+
+* `enabled` -
+  (Required)
+  Whether to enabled Managed Connection Pool.
+
+* `pooler_count` -
+  (Output)
+  The number of running poolers per instance.
+
+* `flags` -
+  (Optional)
+  Flags for configuring managed connection pooling when it is enabled.
+  These flags will only be set if `connection_pool_config.enabled` is
+  true.
+  Please see
+  https://cloud.google.com/alloydb/docs/configure-managed-connection-pooling#configuration-options
+  for a comprehensive list of flags that can be set. To specify the flags
+  in Terraform, please remove the "connection-pooling-" prefix and use
+  underscores instead of dashes in the name. For example,
+  "connection-pooling-pool-mode" would be "pool_mode".
 
 ## Attributes Reference
 
@@ -484,6 +565,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{cluster}}/{{instance_id}}`
 * `{{location}}/{{cluster}}/{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    cluster = "<-required value->"
+    instanceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_alloydb_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

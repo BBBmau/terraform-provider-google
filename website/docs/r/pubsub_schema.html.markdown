@@ -78,9 +78,6 @@ The following arguments are supported:
   The ID to use for the schema, which will become the final component of the schema's resource name.
 
 
-- - -
-
-
 * `type` -
   (Optional)
   The type of the schema definition
@@ -99,6 +96,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -126,6 +124,17 @@ Schema can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Schema using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_pubsub_schema.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Schema using one of the formats above. For example:
 

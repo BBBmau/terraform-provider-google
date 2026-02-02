@@ -49,8 +49,8 @@ To get more information about ServicePerimeterEgressPolicy, see:
 
 ```hcl
 resource "google_access_context_manager_service_perimeter" "storage-perimeter" {
-  parent = "accesspolicies/${google_access_context_manager_access_policy.access-policy.name}"
-  name   = "accesspolicies/${google_access_context_manager_access_policy.access-policy.name}/serviceperimeters/storage-perimeter"
+  parent = "accessPolicies/${google_access_context_manager_access_policy.access-policy.name}"
+  name   = "accessPolicies/${google_access_context_manager_access_policy.access-policy.name}/servicePerimeters/storage_perimeter"
   title  = "Storage Perimeter"
   status {
     restricted_services = ["storage.googleapis.com"]
@@ -91,8 +91,8 @@ resource "google_access_context_manager_access_policy" "access-policy" {
 
 ```hcl
 resource "google_access_context_manager_service_perimeter" "storage-perimeter" {
-  parent = "accesspolicies/${google_access_context_manager_access_policy.access-policy.name}"
-  name   = "accesspolicies/${google_access_context_manager_access_policy.access-policy.name}/serviceperimeters/storage-perimeter"
+  parent = "accessPolicies/${google_access_context_manager_access_policy.access-policy.name}"
+  name   = "accessPolicies/${google_access_context_manager_access_policy.access-policy.name}/servicePerimeters/storage_perimeter"
   title  = "Storage Perimeter"
   status {
     restricted_services = ["storage.googleapis.com"]
@@ -136,9 +136,6 @@ The following arguments are supported:
   The name of the Service Perimeter to add this resource to.
 
 
-- - -
-
-
 * `egress_from` -
   (Optional)
   Defines conditions on the source of a request causing this `EgressPolicy` to apply.
@@ -153,6 +150,7 @@ The following arguments are supported:
 * `title` -
   (Optional)
   Human readable title. Must be unique within the perimeter. Does not affect behavior.
+
 
 
 <a name="nested_egress_from"></a>The `egress_from` block supports:
@@ -241,10 +239,10 @@ The following arguments are supported:
   to the service specified by `serviceName` field. A single MethodSelector
   entry with `*` specified for the `method` field will allow all methods
   AND permissions for the service specified in `serviceName`.
-  Structure is [documented below](#nested_egress_to_operations_operations_method_selectors).
+  Structure is [documented below](#nested_egress_to_operations_method_selectors).
 
 
-<a name="nested_egress_to_operations_operations_method_selectors"></a>The `method_selectors` block supports:
+<a name="nested_egress_to_operations_method_selectors"></a>The `method_selectors` block supports:
 
 * `method` -
   (Optional)

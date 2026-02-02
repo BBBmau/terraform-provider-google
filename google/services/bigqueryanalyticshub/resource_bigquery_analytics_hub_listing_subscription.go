@@ -20,19 +20,70 @@
 package bigqueryanalyticshub
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceBigqueryAnalyticsHubListingSubscription() *schema.Resource {
@@ -53,6 +104,26 @@ func ResourceBigqueryAnalyticsHubListingSubscription() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"subscription_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"data_exchange_id": {
@@ -136,6 +207,29 @@ organize and group your datasets.`,
 				DiffSuppressFunc: tpgresource.CaseDiffSuppress,
 				Description:      `The name of the location of the data exchange. Distinct from the location of the destination data set.`,
 			},
+			"commercial_info": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `Commercial info metadata for this subscription. This is set if this is a commercial subscription i.e. if this subscription was created from subscribing to a commercial listing.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"cloud_marketplace": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: `Cloud Marketplace commercial metadata for this subscription.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"order": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `Resource name of the Marketplace Order.`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			"creation_time": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -188,6 +282,11 @@ e.g. projects/123/locations/US/dataExchanges/456/listings/789 -> projects/123/da
 						},
 					},
 				},
+			},
+			"log_linked_dataset_query_user_email": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: `Output only. By default, false. If true, the Subscriber agreed to the email sharing mandate that is enabled for Listing.`,
 			},
 			"name": {
 				Type:        schema.TypeString,
@@ -297,6 +396,27 @@ func resourceBigqueryAnalyticsHubListingSubscriptionCreate(d *schema.ResourceDat
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if subscriptionIdValue, ok := d.GetOk("subscription_id"); ok && subscriptionIdValue.(string) != "" {
+			if err = identity.Set("subscription_id", subscriptionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting subscription_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating ListingSubscription %q: %#v", d.Id(), res)
 
 	return resourceBigqueryAnalyticsHubListingSubscriptionRead(d, meta)
@@ -354,6 +474,18 @@ func resourceBigqueryAnalyticsHubListingSubscriptionRead(d *schema.ResourceData,
 	if err != nil {
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("BigqueryAnalyticsHubListingSubscription %q", d.Id()))
 	}
+	// Set data_exchange_id and listing_id from res["listing"]
+	listing := res["listing"].(string)
+	parts := strings.Split(listing, "/")
+	if len(parts) != 8 {
+		return fmt.Errorf("Listing name %q is not in the expected format projects/*/locations/*/dataExchanges/*/listings/*", listing)
+	}
+	if err := d.Set("data_exchange_id", parts[5]); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
+	if err := d.Set("listing_id", parts[7]); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
 
 	res, err = resourceBigqueryAnalyticsHubListingSubscriptionDecoder(d, meta, res)
 	if err != nil {
@@ -371,6 +503,9 @@ func resourceBigqueryAnalyticsHubListingSubscriptionRead(d *schema.ResourceData,
 		return fmt.Errorf("Error reading ListingSubscription: %s", err)
 	}
 
+	if err := d.Set("destination_dataset", flattenBigqueryAnalyticsHubListingSubscriptionDestinationDataset(res["destinationDataset"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
 	if err := d.Set("name", flattenBigqueryAnalyticsHubListingSubscriptionName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading ListingSubscription: %s", err)
 	}
@@ -403,6 +538,36 @@ func resourceBigqueryAnalyticsHubListingSubscriptionRead(d *schema.ResourceData,
 	}
 	if err := d.Set("linked_resources", flattenBigqueryAnalyticsHubListingSubscriptionLinkedResources(res["linkedResources"], d, config)); err != nil {
 		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
+	if err := d.Set("log_linked_dataset_query_user_email", flattenBigqueryAnalyticsHubListingSubscriptionLogLinkedDatasetQueryUserEmail(res["logLinkedDatasetQueryUserEmail"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
+	if err := d.Set("commercial_info", flattenBigqueryAnalyticsHubListingSubscriptionCommercialInfo(res["commercialInfo"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("subscription_id"); !ok && v == "" {
+			err = identity.Set("subscription_id", d.Get("subscription_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting subscription_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -513,6 +678,73 @@ func resourceBigqueryAnalyticsHubListingSubscriptionImport(d *schema.ResourceDat
 	return []*schema.ResourceData{d}, nil
 }
 
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDataset(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["location"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetLocation(original["location"], d, config)
+	transformed["dataset_reference"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReference(original["datasetReference"], d, config)
+	transformed["friendly_name"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetFriendlyName(original["friendlyName"], d, config)
+	transformed["description"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDescription(original["description"], d, config)
+	transformed["labels"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetLabels(original["labels"], d, config)
+	return []interface{}{transformed}
+}
+
+// Older Datasets in BigQuery have no Location set in the API response. This may be an issue when importing
+// datasets created before BigQuery was available in multiple zones. We can safely assume that these datasets
+// are in the US, as this was the default at the time.
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetLocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return "US"
+	}
+	return v
+}
+
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReference(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["dataset_id"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReferenceDatasetId(original["datasetId"], d, config)
+	transformed["project_id"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReferenceProjectId(original["projectId"], d, config)
+	return []interface{}{transformed}
+}
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReferenceDatasetId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReferenceProjectId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetFriendlyName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigqueryAnalyticsHubListingSubscriptionDestinationDatasetLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenBigqueryAnalyticsHubListingSubscriptionName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -601,7 +833,44 @@ func flattenBigqueryAnalyticsHubListingSubscriptionLinkedResourcesLinkedDataset(
 	return v
 }
 
+func flattenBigqueryAnalyticsHubListingSubscriptionLogLinkedDatasetQueryUserEmail(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigqueryAnalyticsHubListingSubscriptionCommercialInfo(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["cloud_marketplace"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionCommercialInfoCloudMarketplace(original["cloudMarketplace"], d, config)
+	return []interface{}{transformed}
+}
+func flattenBigqueryAnalyticsHubListingSubscriptionCommercialInfoCloudMarketplace(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["order"] =
+		flattenBigqueryAnalyticsHubListingSubscriptionCommercialInfoCloudMarketplaceOrder(original["order"], d, config)
+	return []interface{}{transformed}
+}
+func flattenBigqueryAnalyticsHubListingSubscriptionCommercialInfoCloudMarketplaceOrder(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func expandBigqueryAnalyticsHubListingSubscriptionDestinationDataset(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -653,6 +922,9 @@ func expandBigqueryAnalyticsHubListingSubscriptionDestinationDatasetLocation(v i
 }
 
 func expandBigqueryAnalyticsHubListingSubscriptionDestinationDatasetDatasetReference(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

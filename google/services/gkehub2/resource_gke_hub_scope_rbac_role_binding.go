@@ -20,19 +20,70 @@
 package gkehub2
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceGKEHub2ScopeRBACRoleBinding() *schema.Resource {
@@ -57,6 +108,26 @@ func ResourceGKEHub2ScopeRBACRoleBinding() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"scope_rbac_role_binding_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"scope_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"role": {
 				Type:        schema.TypeList,
@@ -65,11 +136,18 @@ func ResourceGKEHub2ScopeRBACRoleBinding() *schema.Resource {
 				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"custom_role": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Description:  `CustomRole is the custom Kubernetes ClusterRole to be used. The custom role format must be allowlisted in the rbacrolebindingactuation feature and RFC 1123 compliant.`,
+							ExactlyOneOf: []string{"role.0.custom_role", "role.0.predefined_role"},
+						},
 						"predefined_role": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ValidateFunc: verify.ValidateEnum([]string{"UNKNOWN", "ADMIN", "EDIT", "VIEW", ""}),
 							Description:  `PredefinedRole is an ENUM representation of the default Kubernetes Roles Possible values: ["UNKNOWN", "ADMIN", "EDIT", "VIEW"]`,
+							ExactlyOneOf: []string{"role.0.custom_role", "role.0.predefined_role"},
 						},
 					},
 				},
@@ -92,7 +170,7 @@ func ResourceGKEHub2ScopeRBACRoleBinding() *schema.Resource {
 				Description: `Principal that is be authorized in the cluster (at least of one the oneof
 is required). Updating one will unset the other automatically.
 group is the group, as seen by the kubernetes cluster.`,
-				ExactlyOneOf: []string{"user", "group"},
+				ExactlyOneOf: []string{"group", "user"},
 			},
 			"labels": {
 				Type:     schema.TypeMap,
@@ -111,7 +189,7 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 is required). Updating one will unset the other automatically.
 user is the name of the user as seen by the kubernetes cluster, example
 "alice" or "alice@domain.tld"`,
-				ExactlyOneOf: []string{"user", "group"},
+				ExactlyOneOf: []string{"group", "user"},
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -202,11 +280,11 @@ func resourceGKEHub2ScopeRBACRoleBindingCreate(d *schema.ResourceData, meta inte
 	} else if v, ok := d.GetOkExists("role"); !tpgresource.IsEmptyValue(reflect.ValueOf(roleProp)) && (ok || !reflect.DeepEqual(v, roleProp)) {
 		obj["role"] = roleProp
 	}
-	labelsProp, err := expandGKEHub2ScopeRBACRoleBindingEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandGKEHub2ScopeRBACRoleBindingEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{GKEHub2BasePath}}projects/{{project}}/locations/global/scopes/{{scope_id}}/rbacrolebindings/?rbacrolebinding_id={{scope_rbac_role_binding_id}}")
@@ -250,29 +328,36 @@ func resourceGKEHub2ScopeRBACRoleBindingCreate(d *schema.ResourceData, meta inte
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = GKEHub2OperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating ScopeRBACRoleBinding", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if scopeRbacRoleBindingIdValue, ok := d.GetOk("scope_rbac_role_binding_id"); ok && scopeRbacRoleBindingIdValue.(string) != "" {
+			if err = identity.Set("scope_rbac_role_binding_id", scopeRbacRoleBindingIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting scope_rbac_role_binding_id: %s", err)
+			}
+		}
+		if scopeIdValue, ok := d.GetOk("scope_id"); ok && scopeIdValue.(string) != "" {
+			if err = identity.Set("scope_id", scopeIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting scope_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = GKEHub2OperationWaitTime(
+		config, res, project, "Creating ScopeRBACRoleBinding", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create ScopeRBACRoleBinding: %s", err)
 	}
-
-	if err := d.Set("name", flattenGKEHub2ScopeRBACRoleBindingName(opRes["name"], d, config)); err != nil {
-		return err
-	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/global/scopes/{{scope_id}}/rbacrolebindings/{{scope_rbac_role_binding_id}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating ScopeRBACRoleBinding %q: %#v", d.Id(), res)
 
@@ -358,6 +443,30 @@ func resourceGKEHub2ScopeRBACRoleBindingRead(d *schema.ResourceData, meta interf
 		return fmt.Errorf("Error reading ScopeRBACRoleBinding: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("scope_rbac_role_binding_id"); !ok && v == "" {
+			err = identity.Set("scope_rbac_role_binding_id", d.Get("scope_rbac_role_binding_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting scope_rbac_role_binding_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("scope_id"); !ok && v == "" {
+			err = identity.Set("scope_id", d.Get("scope_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting scope_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -366,6 +475,26 @@ func resourceGKEHub2ScopeRBACRoleBindingUpdate(d *schema.ResourceData, meta inte
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if scopeRbacRoleBindingIdValue, ok := d.GetOk("scope_rbac_role_binding_id"); ok && scopeRbacRoleBindingIdValue.(string) != "" {
+			if err = identity.Set("scope_rbac_role_binding_id", scopeRbacRoleBindingIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting scope_rbac_role_binding_id: %s", err)
+			}
+		}
+		if scopeIdValue, ok := d.GetOk("scope_id"); ok && scopeIdValue.(string) != "" {
+			if err = identity.Set("scope_id", scopeIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting scope_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -395,11 +524,11 @@ func resourceGKEHub2ScopeRBACRoleBindingUpdate(d *schema.ResourceData, meta inte
 	} else if v, ok := d.GetOkExists("role"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, roleProp)) {
 		obj["role"] = roleProp
 	}
-	labelsProp, err := expandGKEHub2ScopeRBACRoleBindingEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandGKEHub2ScopeRBACRoleBindingEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{GKEHub2BasePath}}projects/{{project}}/locations/global/scopes/{{scope_id}}/rbacrolebindings/{{scope_rbac_role_binding_id}}")
@@ -601,9 +730,15 @@ func flattenGKEHub2ScopeRBACRoleBindingRole(v interface{}, d *schema.ResourceDat
 	transformed := make(map[string]interface{})
 	transformed["predefined_role"] =
 		flattenGKEHub2ScopeRBACRoleBindingRolePredefinedRole(original["predefinedRole"], d, config)
+	transformed["custom_role"] =
+		flattenGKEHub2ScopeRBACRoleBindingRoleCustomRole(original["customRole"], d, config)
 	return []interface{}{transformed}
 }
 func flattenGKEHub2ScopeRBACRoleBindingRolePredefinedRole(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenGKEHub2ScopeRBACRoleBindingRoleCustomRole(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -650,6 +785,9 @@ func expandGKEHub2ScopeRBACRoleBindingGroup(v interface{}, d tpgresource.Terrafo
 }
 
 func expandGKEHub2ScopeRBACRoleBindingRole(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -665,10 +803,21 @@ func expandGKEHub2ScopeRBACRoleBindingRole(v interface{}, d tpgresource.Terrafor
 		transformed["predefinedRole"] = transformedPredefinedRole
 	}
 
+	transformedCustomRole, err := expandGKEHub2ScopeRBACRoleBindingRoleCustomRole(original["custom_role"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedCustomRole); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["customRole"] = transformedCustomRole
+	}
+
 	return transformed, nil
 }
 
 func expandGKEHub2ScopeRBACRoleBindingRolePredefinedRole(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandGKEHub2ScopeRBACRoleBindingRoleCustomRole(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

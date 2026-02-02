@@ -21,18 +21,37 @@ package compute
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 // Hash based on key, which is either project_id_or_num or network_url.
@@ -71,6 +90,38 @@ func computeServiceAttachmentConsumerAcceptListsHash(v interface{}) int {
 	return tpgresource.Hashcode(buf.String())
 }
 
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceComputeServiceAttachment() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceComputeServiceAttachmentCreate,
@@ -92,6 +143,26 @@ func ResourceComputeServiceAttachment() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 			tpgresource.DefaultProviderRegion,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"connection_preference": {
@@ -178,7 +249,7 @@ This limit lets the service producer limit how many propagated Private Service C
 If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list.
 If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint.
 
-If unspecified, the default propagated connection limit is 250.`,
+If unspecified, the default propagated connection limit is 250. To explicitly send a zero value, set 'send_propagated_connection_limit_if_zero = true'.`,
 			},
 			"reconcile_connections": {
 				Type:     schema.TypeBool,
@@ -197,6 +268,11 @@ If true, update will affect both PENDING and ACCEPTED/REJECTED PSC endpoints. Fo
 				DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
 				Description:      `URL of the region where the resource resides.`,
 			},
+			"show_nat_ips": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: `If true, show NAT IPs of all connected endpoints.`,
+			},
 			"connected_endpoints": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -213,6 +289,14 @@ attachment.`,
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: `The URL of the consumer forwarding rule.`,
+						},
+						"nat_ips": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: `The nat IPs of the connected endpoint.`,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 						"propagated_connection_count": {
 							Type:        schema.TypeInt,
@@ -238,6 +322,34 @@ this service attachment.`,
 				Computed: true,
 				Description: `Fingerprint of this resource. This field is used internally during
 updates of this resource.`,
+			},
+			"psc_service_attachment_id": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `An 128-bit global unique ID of the PSC service attachment.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"high": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: `The high 64 bits of the PSC service attachment ID.`,
+						},
+						"low": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: `The low 64 bits of the PSC service attachment ID.`,
+						},
+					},
+				},
+			},
+			"send_propagated_connection_limit_if_zero": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Description: `Controls the behavior of propagated_connection_limit.
+When false, setting propagated_connection_limit to zero causes the provider to use to the API's default value.
+When true, the provider will set propagated_connection_limit to zero.
+Defaults to false.`,
+				Default: false,
 			},
 			"project": {
 				Type:     schema.TypeString,
@@ -367,6 +479,11 @@ func resourceComputeServiceAttachmentCreate(d *schema.ResourceData, meta interfa
 		obj["region"] = regionProp
 	}
 
+	obj, err = resourceComputeServiceAttachmentEncoder(d, meta, obj)
+	if err != nil {
+		return err
+	}
+
 	url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/regions/{{region}}/serviceAttachments")
 	if err != nil {
 		return err
@@ -407,6 +524,27 @@ func resourceComputeServiceAttachmentCreate(d *schema.ResourceData, meta interfa
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating ServiceAttachment", userAgent,
@@ -449,6 +587,10 @@ func resourceComputeServiceAttachmentRead(d *schema.ResourceData, meta interface
 	}
 
 	headers := make(http.Header)
+	if d.Get("show_nat_ips").(bool) {
+		url += "?showNatIps=true"
+	}
+
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "GET",
@@ -461,6 +603,12 @@ func resourceComputeServiceAttachmentRead(d *schema.ResourceData, meta interface
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("ComputeServiceAttachment %q", d.Id()))
 	}
 
+	// Explicitly set virtual fields to default values if unset
+	if _, ok := d.GetOkExists("send_propagated_connection_limit_if_zero"); !ok {
+		if err := d.Set("send_propagated_connection_limit_if_zero", false); err != nil {
+			return fmt.Errorf("Error setting send_propagated_connection_limit_if_zero: %s", err)
+		}
+	}
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ServiceAttachment: %s", err)
 	}
@@ -480,6 +628,9 @@ func resourceComputeServiceAttachmentRead(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error reading ServiceAttachment: %s", err)
 	}
 	if err := d.Set("fingerprint", flattenComputeServiceAttachmentFingerprint(res["fingerprint"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServiceAttachment: %s", err)
+	}
+	if err := d.Set("psc_service_attachment_id", flattenComputeServiceAttachmentPscServiceAttachmentId(res["pscServiceAttachmentId"], d, config)); err != nil {
 		return fmt.Errorf("Error reading ServiceAttachment: %s", err)
 	}
 	if err := d.Set("connection_preference", flattenComputeServiceAttachmentConnectionPreference(res["connectionPreference"], d, config)); err != nil {
@@ -516,6 +667,30 @@ func resourceComputeServiceAttachmentRead(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error reading ServiceAttachment: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -524,6 +699,26 @@ func resourceComputeServiceAttachmentUpdate(d *schema.ResourceData, meta interfa
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -710,6 +905,11 @@ func resourceComputeServiceAttachmentImport(d *schema.ResourceData, meta interfa
 	}
 	d.SetId(id)
 
+	// Explicitly set virtual fields to default values on import
+	if err := d.Set("send_propagated_connection_limit_if_zero", false); err != nil {
+		return nil, fmt.Errorf("Error setting send_propagated_connection_limit_if_zero: %s", err)
+	}
+
 	return []*schema.ResourceData{d}, nil
 }
 
@@ -722,6 +922,29 @@ func flattenComputeServiceAttachmentDescription(v interface{}, d *schema.Resourc
 }
 
 func flattenComputeServiceAttachmentFingerprint(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeServiceAttachmentPscServiceAttachmentId(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["high"] =
+		flattenComputeServiceAttachmentPscServiceAttachmentIdHigh(original["high"], d, config)
+	transformed["low"] =
+		flattenComputeServiceAttachmentPscServiceAttachmentIdLow(original["low"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeServiceAttachmentPscServiceAttachmentIdHigh(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeServiceAttachmentPscServiceAttachmentIdLow(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -747,6 +970,7 @@ func flattenComputeServiceAttachmentConnectedEndpoints(v interface{}, d *schema.
 			"consumer_network":            flattenComputeServiceAttachmentConnectedEndpointsConsumerNetwork(original["consumerNetwork"], d, config),
 			"psc_connection_id":           flattenComputeServiceAttachmentConnectedEndpointsPscConnectionId(original["pscConnectionId"], d, config),
 			"propagated_connection_count": flattenComputeServiceAttachmentConnectedEndpointsPropagatedConnectionCount(original["propagatedConnectionCount"], d, config),
+			"nat_ips":                     flattenComputeServiceAttachmentConnectedEndpointsNatIps(original["natIps"], d, config),
 		})
 	}
 	return transformed
@@ -782,6 +1006,10 @@ func flattenComputeServiceAttachmentConnectedEndpointsPropagatedConnectionCount(
 	}
 
 	return v // let terraform core handle it otherwise
+}
+
+func flattenComputeServiceAttachmentConnectedEndpointsNatIps(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
 }
 
 func flattenComputeServiceAttachmentTargetService(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -891,15 +1119,8 @@ func expandComputeServiceAttachmentConnectionPreference(v interface{}, d tpgreso
 
 func expandComputeServiceAttachmentTargetService(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	resource := strings.Split(v.(string), "/")
-	resourceKind := resource[len(resource)-2]
-	resourceBound := resource[len(resource)-4]
 	if len(resource) < 4 {
 		return nil, fmt.Errorf("invalid value for target_service")
-	}
-
-	_, err := tpgresource.ParseRegionalFieldValue(resourceKind, v.(string), "project", resourceBound, "zone", d, config, true)
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for target_service: %w", err)
 	}
 
 	return v, nil
@@ -935,6 +1156,9 @@ func expandComputeServiceAttachmentConsumerRejectLists(v interface{}, d tpgresou
 
 func expandComputeServiceAttachmentConsumerAcceptLists(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	v = v.(*schema.Set).List()
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -998,6 +1222,17 @@ func expandComputeServiceAttachmentRegion(v interface{}, d tpgresource.Terraform
 	return f.RelativeLink(), nil
 }
 
+func resourceComputeServiceAttachmentEncoder(d *schema.ResourceData, meta interface{}, obj map[string]interface{}) (map[string]interface{}, error) {
+	propagatedConnectionLimitProp := d.Get("propagated_connection_limit")
+	if sv, ok := d.GetOk("send_propagated_connection_limit_if_zero"); ok && sv.(bool) {
+		if v, ok := d.GetOkExists("propagated_connection_limit"); ok || !reflect.DeepEqual(v, propagatedConnectionLimitProp) {
+			obj["propagatedConnectionLimit"] = propagatedConnectionLimitProp
+		}
+	}
+
+	return obj, nil
+}
+
 func resourceComputeServiceAttachmentUpdateEncoder(d *schema.ResourceData, meta interface{}, obj map[string]interface{}) (map[string]interface{}, error) {
 	// need to send value in PATCH due to validation bug on api b/198329756
 	nameProp := d.Get("name")
@@ -1009,6 +1244,13 @@ func resourceComputeServiceAttachmentUpdateEncoder(d *schema.ResourceData, meta 
 	enableProxyProtocolProp := d.Get("enable_proxy_protocol")
 	if v, ok := d.GetOkExists("enable_proxy_protocol"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, enableProxyProtocolProp)) {
 		obj["enableProxyProtocol"] = enableProxyProtocolProp
+	}
+
+	propagatedConnectionLimitProp := d.Get("propagated_connection_limit")
+	if sv, ok := d.GetOk("send_propagated_connection_limit_if_zero"); ok && sv.(bool) {
+		if v, ok := d.GetOkExists("propagated_connection_limit"); ok || !reflect.DeepEqual(v, propagatedConnectionLimitProp) {
+			obj["propagatedConnectionLimit"] = propagatedConnectionLimitProp
+		}
 	}
 
 	return obj, nil

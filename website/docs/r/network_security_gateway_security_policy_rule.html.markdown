@@ -121,9 +121,6 @@ The following arguments are supported:
   The name of the gatewat security policy this rule belongs to.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Free-text description of the resource.
@@ -139,6 +136,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -179,6 +177,19 @@ GatewaySecurityPolicyRule can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{gateway_security_policy}}/{{name}}`
 * `{{location}}/{{gateway_security_policy}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GatewaySecurityPolicyRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    gateway_security_policy = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_gateway_security_policy_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GatewaySecurityPolicyRule using one of the formats above. For example:
 

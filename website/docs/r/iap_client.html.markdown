@@ -20,6 +20,7 @@ description: |-
 ---
 
 # google_iap_client
+~> **Warning:** This resource is deprecated on Jan 22, 2025. After Jan 19, 2026 the `google_iap_client` Terraform resource will no longer function as intended due to the deprecation of the IAP OAuth Admin APIs. New projects will not be able to use these APIs. March 19, 2026 The IAP OAuth Admin APIs will be permanently shut down. Access to this feature will no longer be available.
 
 Contains the data that describes an Identity Aware Proxy owned client.
 
@@ -82,8 +83,6 @@ The following arguments are supported:
   `projects/{project_number}/brands/{brand_id}`.
 
 
-- - -
-
 
 
 ## Attributes Reference
@@ -116,6 +115,17 @@ Client can be imported using any of these accepted formats:
 * `{{brand}}/identityAwareProxyClients/{{client_id}}`
 * `{{brand}}/{{client_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Client using identity values. For example:
+
+```tf
+import {
+  identity = {
+    clientId = "<-optional value->"
+    brand = "<-required value->"
+  }
+  to = google_iap_client.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Client using one of the formats above. For example:
 

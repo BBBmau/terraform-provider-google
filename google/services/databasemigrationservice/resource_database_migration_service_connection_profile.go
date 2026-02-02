@@ -20,19 +20,70 @@
 package databasemigrationservice
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceDatabaseMigrationServiceConnectionProfile() *schema.Resource {
@@ -56,6 +107,26 @@ func ResourceDatabaseMigrationServiceConnectionProfile() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"connection_profile_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"connection_profile_id": {
@@ -176,7 +247,7 @@ It is specified in the form: 'projects/{project_number}/global/networks/{network
 						},
 					},
 				},
-				ExactlyOneOf: []string{"mysql", "postgresql", "oracle", "cloudsql", "alloydb"},
+				ExactlyOneOf: []string{"alloydb", "cloudsql", "mysql", "oracle", "postgresql"},
 			},
 			"cloudsql": {
 				Type:        schema.TypeList,
@@ -360,7 +431,7 @@ For more information, see https://cloud.google.com/sql/docs/mysql/instance-setti
 						},
 					},
 				},
-				ExactlyOneOf: []string{"mysql", "postgresql", "oracle", "cloudsql", "alloydb"},
+				ExactlyOneOf: []string{"alloydb", "cloudsql", "mysql", "oracle", "postgresql"},
 			},
 			"display_name": {
 				Type:        schema.TypeString,
@@ -468,7 +539,7 @@ If this field is used then the 'clientCertificate' field is mandatory.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"mysql", "postgresql", "oracle", "cloudsql", "alloydb"},
+				ExactlyOneOf: []string{"alloydb", "cloudsql", "mysql", "oracle", "postgresql"},
 			},
 			"oracle": {
 				Type:        schema.TypeList,
@@ -561,7 +632,7 @@ This field is not returned on request, and the value is encrypted when stored in
 									},
 								},
 							},
-							ExactlyOneOf: []string{"oracle.0.static_service_ip_connectivity", "oracle.0.forward_ssh_connectivity", "oracle.0.private_connectivity"},
+							ExactlyOneOf: []string{"oracle.0.forward_ssh_connectivity", "oracle.0.private_connectivity", "oracle.0.static_service_ip_connectivity"},
 						},
 						"ssl": {
 							Type:        schema.TypeList,
@@ -623,7 +694,7 @@ Static IP address connectivity configured on service project.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"mysql", "postgresql", "oracle", "cloudsql", "alloydb"},
+				ExactlyOneOf: []string{"alloydb", "cloudsql", "mysql", "oracle", "postgresql"},
 			},
 			"postgresql": {
 				Type:        schema.TypeList,
@@ -646,7 +717,7 @@ Static IP address connectivity configured on service project.`,
 							Type:         schema.TypeString,
 							Optional:     true,
 							Description:  `The IP or hostname of the source MySQL database.`,
-							RequiredWith: []string{"postgresql.0.port", "postgresql.0.username", "postgresql.0.password"},
+							RequiredWith: []string{"postgresql.0.password", "postgresql.0.port", "postgresql.0.username"},
 						},
 						"password": {
 							Type:     schema.TypeString,
@@ -661,7 +732,7 @@ This field is not returned on request, and the value is encrypted when stored in
 							Type:         schema.TypeInt,
 							Optional:     true,
 							Description:  `The network port of the source MySQL database.`,
-							RequiredWith: []string{"postgresql.0.host", "postgresql.0.username", "postgresql.0.password"},
+							RequiredWith: []string{"postgresql.0.host", "postgresql.0.password", "postgresql.0.username"},
 						},
 						"ssl": {
 							Type:        schema.TypeList,
@@ -709,7 +780,7 @@ If this field is used then the 'clientCertificate' field is mandatory.`,
 							Type:         schema.TypeString,
 							Optional:     true,
 							Description:  `The username that Database Migration Service will use to connect to the database. The value is encrypted when stored in Database Migration Service.`,
-							RequiredWith: []string{"postgresql.0.host", "postgresql.0.port", "postgresql.0.password"},
+							RequiredWith: []string{"postgresql.0.host", "postgresql.0.password", "postgresql.0.port"},
 						},
 						"network_architecture": {
 							Type:        schema.TypeString,
@@ -723,7 +794,7 @@ If this field is used then the 'clientCertificate' field is mandatory.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"mysql", "postgresql", "oracle", "cloudsql", "alloydb"},
+				ExactlyOneOf: []string{"alloydb", "cloudsql", "mysql", "oracle", "postgresql"},
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -840,11 +911,11 @@ func resourceDatabaseMigrationServiceConnectionProfileCreate(d *schema.ResourceD
 	} else if v, ok := d.GetOkExists("alloydb"); !tpgresource.IsEmptyValue(reflect.ValueOf(alloydbProp)) && (ok || !reflect.DeepEqual(v, alloydbProp)) {
 		obj["alloydb"] = alloydbProp
 	}
-	labelsProp, err := expandDatabaseMigrationServiceConnectionProfileEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandDatabaseMigrationServiceConnectionProfileEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{DatabaseMigrationServiceBasePath}}projects/{{project}}/locations/{{location}}/connectionProfiles?connectionProfileId={{connection_profile_id}}")
@@ -887,6 +958,27 @@ func resourceDatabaseMigrationServiceConnectionProfileCreate(d *schema.ResourceD
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if connectionProfileIdValue, ok := d.GetOk("connection_profile_id"); ok && connectionProfileIdValue.(string) != "" {
+			if err = identity.Set("connection_profile_id", connectionProfileIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting connection_profile_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = DatabaseMigrationServiceOperationWaitTime(
 		config, res, project, "Creating ConnectionProfile", userAgent,
@@ -988,6 +1080,30 @@ func resourceDatabaseMigrationServiceConnectionProfileRead(d *schema.ResourceDat
 		return fmt.Errorf("Error reading ConnectionProfile: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("connection_profile_id"); !ok && v == "" {
+			err = identity.Set("connection_profile_id", d.Get("connection_profile_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting connection_profile_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -996,6 +1112,26 @@ func resourceDatabaseMigrationServiceConnectionProfileUpdate(d *schema.ResourceD
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if connectionProfileIdValue, ok := d.GetOk("connection_profile_id"); ok && connectionProfileIdValue.(string) != "" {
+			if err = identity.Set("connection_profile_id", connectionProfileIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting connection_profile_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1043,11 +1179,11 @@ func resourceDatabaseMigrationServiceConnectionProfileUpdate(d *schema.ResourceD
 	} else if v, ok := d.GetOkExists("alloydb"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, alloydbProp)) {
 		obj["alloydb"] = alloydbProp
 	}
-	labelsProp, err := expandDatabaseMigrationServiceConnectionProfileEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandDatabaseMigrationServiceConnectionProfileEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{DatabaseMigrationServiceBasePath}}projects/{{project}}/locations/{{location}}/connectionProfiles/{{connection_profile_id}}")
@@ -2044,6 +2180,9 @@ func expandDatabaseMigrationServiceConnectionProfileDisplayName(v interface{}, d
 }
 
 func expandDatabaseMigrationServiceConnectionProfileMysql(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2125,6 +2264,9 @@ func expandDatabaseMigrationServiceConnectionProfileMysqlPasswordSet(v interface
 }
 
 func expandDatabaseMigrationServiceConnectionProfileMysqlSsl(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2185,6 +2327,9 @@ func expandDatabaseMigrationServiceConnectionProfileMysqlCloudSqlId(v interface{
 }
 
 func expandDatabaseMigrationServiceConnectionProfilePostgresql(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2280,6 +2425,9 @@ func expandDatabaseMigrationServiceConnectionProfilePostgresqlPasswordSet(v inte
 }
 
 func expandDatabaseMigrationServiceConnectionProfilePostgresqlSsl(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2348,6 +2496,9 @@ func expandDatabaseMigrationServiceConnectionProfilePostgresqlNetworkArchitectur
 }
 
 func expandDatabaseMigrationServiceConnectionProfileOracle(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2454,6 +2605,9 @@ func expandDatabaseMigrationServiceConnectionProfileOracleDatabaseService(v inte
 }
 
 func expandDatabaseMigrationServiceConnectionProfileOracleSsl(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2510,6 +2664,9 @@ func expandDatabaseMigrationServiceConnectionProfileOracleSslCaCertificate(v int
 }
 
 func expandDatabaseMigrationServiceConnectionProfileOracleStaticServiceIpConnectivity(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 {
 		return nil, nil
@@ -2525,6 +2682,9 @@ func expandDatabaseMigrationServiceConnectionProfileOracleStaticServiceIpConnect
 }
 
 func expandDatabaseMigrationServiceConnectionProfileOracleForwardSshConnectivity(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2592,6 +2752,9 @@ func expandDatabaseMigrationServiceConnectionProfileOracleForwardSshConnectivity
 }
 
 func expandDatabaseMigrationServiceConnectionProfileOraclePrivateConnectivity(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2615,6 +2778,9 @@ func expandDatabaseMigrationServiceConnectionProfileOraclePrivateConnectivityPri
 }
 
 func expandDatabaseMigrationServiceConnectionProfileCloudsql(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2659,6 +2825,9 @@ func expandDatabaseMigrationServiceConnectionProfileCloudsqlCloudSqlId(v interfa
 }
 
 func expandDatabaseMigrationServiceConnectionProfileCloudsqlSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2817,6 +2986,9 @@ func expandDatabaseMigrationServiceConnectionProfileCloudsqlSettingsActivationPo
 }
 
 func expandDatabaseMigrationServiceConnectionProfileCloudsqlSettingsIpConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2869,6 +3041,9 @@ func expandDatabaseMigrationServiceConnectionProfileCloudsqlSettingsIpConfigRequ
 }
 
 func expandDatabaseMigrationServiceConnectionProfileCloudsqlSettingsIpConfigAuthorizedNetworks(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2987,6 +3162,9 @@ func expandDatabaseMigrationServiceConnectionProfileCloudsqlPublicIp(v interface
 }
 
 func expandDatabaseMigrationServiceConnectionProfileAlloydb(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3017,6 +3195,9 @@ func expandDatabaseMigrationServiceConnectionProfileAlloydbClusterId(v interface
 }
 
 func expandDatabaseMigrationServiceConnectionProfileAlloydbSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3057,6 +3238,9 @@ func expandDatabaseMigrationServiceConnectionProfileAlloydbSettings(v interface{
 }
 
 func expandDatabaseMigrationServiceConnectionProfileAlloydbSettingsInitialUser(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3117,6 +3301,9 @@ func expandDatabaseMigrationServiceConnectionProfileAlloydbSettingsLabels(v inte
 }
 
 func expandDatabaseMigrationServiceConnectionProfileAlloydbSettingsPrimaryInstanceSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3168,6 +3355,9 @@ func expandDatabaseMigrationServiceConnectionProfileAlloydbSettingsPrimaryInstan
 }
 
 func expandDatabaseMigrationServiceConnectionProfileAlloydbSettingsPrimaryInstanceSettingsMachineConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

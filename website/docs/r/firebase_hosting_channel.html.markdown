@@ -86,9 +86,6 @@ The following arguments are supported:
   Required. Immutable. A unique ID within the site that identifies the channel.
 
 
-- - -
-
-
 * `retained_release_count` -
   (Optional)
   The number of previous releases to retain on the channel for rollback or other
@@ -111,6 +108,7 @@ The following arguments are supported:
   Input only. A time-to-live for this channel. Sets `expire_time` to the provided
   duration past the time of the request. A duration in seconds with up to nine fractional
   digits, terminated by 's'. Example: "86400s" (one day).
+
 
 
 ## Attributes Reference
@@ -148,6 +146,17 @@ Channel can be imported using any of these accepted formats:
 * `sites/{{site_id}}/channels/{{channel_id}}`
 * `{{site_id}}/{{channel_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Channel using identity values. For example:
+
+```tf
+import {
+  identity = {
+    site_id = "<-required value->"
+    channel_id = "<-required value->"
+  }
+  to = google_firebase_hosting_channel.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Channel using one of the formats above. For example:
 

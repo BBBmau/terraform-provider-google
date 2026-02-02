@@ -23,12 +23,10 @@ description: |-
 
 Organization security policies are used to control incoming/outgoing traffic.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about OrganizationSecurityPolicy, see:
 
-* [API documentation](https://cloud.google.com/compute/docs/reference/rest/beta/organizationSecurityPolicies)
+* [API documentation](https://cloud.google.com/compute/docs/reference/rest/v1/organizationSecurityPolicies)
 * How-to Guides
     * [Creating a firewall policy](https://cloud.google.com/vpc/docs/using-firewall-policies#create-policy)
 
@@ -37,9 +35,9 @@ To get more information about OrganizationSecurityPolicy, see:
 
 ```hcl
 resource "google_compute_organization_security_policy" "policy" {
-  provider = google-beta
-  display_name = "tf-test%{random_suffix}"
-  parent       = "organizations/123456789"
+  short_name = "my-short-name"
+  parent     = "organizations/123456789"
+  type       = "CLOUD_ARMOR"
 }
 ```
 
@@ -48,30 +46,30 @@ resource "google_compute_organization_security_policy" "policy" {
 The following arguments are supported:
 
 
-* `display_name` -
-  (Required)
-  A textual name of the security policy.
-
 * `parent` -
   (Required)
   The parent of this OrganizationSecurityPolicy in the Cloud Resource Hierarchy.
   Format: organizations/{organization_id} or folders/{folder_id}
 
 
-- - -
-
+* `display_name` -
+  (Optional)
+  User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is FIREWALL.
 
 * `description` -
   (Optional)
   A textual description for the organization security policy.
 
+* `short_name` -
+  (Optional)
+  User-provided name of the organization security policy. The name should be unique in the organization in which the security policy is created. This should only be used when SecurityPolicyType is CLOUD_ARMOR.
+
 * `type` -
   (Optional)
-  The type indicates the intended use of the security policy.
-  For organization security policies, the only supported type
-  is "FIREWALL".
-  Default value is `FIREWALL`.
-  Possible values are: `FIREWALL`.
+  The type indicates the intended use of the security policy. This field can be set only at resource creation time.
+  **NOTE** : 'FIREWALL' type is deprecated and will be removed in a future major release. Please use 'google_compute_firewall_policy' instead."
+  Possible values are: `FIREWALL`, `CLOUD_ARMOR`, `CLOUD_ARMOR_EDGE`, `CLOUD_ARMOR_INTERNAL_SERVICE`, `CLOUD_ARMOR_NETWORK`.
+
 
 
 ## Attributes Reference
@@ -105,6 +103,16 @@ OrganizationSecurityPolicy can be imported using any of these accepted formats:
 * `locations/global/securityPolicies/{{policy_id}}`
 * `{{policy_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationSecurityPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    policy_id = "<-optional value->"
+  }
+  to = google_compute_organization_security_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationSecurityPolicy using one of the formats above. For example:
 

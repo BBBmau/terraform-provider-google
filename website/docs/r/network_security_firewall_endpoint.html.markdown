@@ -80,9 +80,6 @@ The following arguments are supported:
   Format: organizations/{organization_id}.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   A map of key/value label pairs to assign to the resource.
@@ -90,6 +87,18 @@ The following arguments are supported:
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
 
+* `endpoint_settings` -
+  (Optional)
+  Settings for the endpoint.
+  Structure is [documented below](#nested_endpoint_settings).
+
+
+
+<a name="nested_endpoint_settings"></a>The `endpoint_settings` block supports:
+
+* `jumbo_frames_enabled` -
+  (Optional)
+  Indicates whether Jumbo Frames are enabled for the firewall endpoint.
 
 ## Attributes Reference
 
@@ -142,6 +151,18 @@ FirewallEndpoint can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/firewallEndpoints/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FirewallEndpoint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    parent = "<-required value->"
+  }
+  to = google_network_security_firewall_endpoint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FirewallEndpoint using one of the formats above. For example:
 

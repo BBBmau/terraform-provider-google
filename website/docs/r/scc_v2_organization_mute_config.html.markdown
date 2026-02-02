@@ -75,9 +75,6 @@ The following arguments are supported:
   Unique identifier provided by the client within the parent scope.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A description of the mute config.
@@ -85,6 +82,7 @@ The following arguments are supported:
 * `location` -
   (Optional)
   location Id is provided by organization. If not provided, Use global as default.
+
 
 
 ## Attributes Reference
@@ -131,6 +129,18 @@ OrganizationMuteConfig can be imported using any of these accepted formats:
 * `organizations/{{organization}}/locations/{{location}}/muteConfigs/{{mute_config_id}}`
 * `{{organization}}/{{location}}/{{mute_config_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationMuteConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    organization = "<-required value->"
+    location = "<-optional value->"
+    mute_config_id = "<-required value->"
+  }
+  to = google_scc_v2_organization_mute_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationMuteConfig using one of the formats above. For example:
 

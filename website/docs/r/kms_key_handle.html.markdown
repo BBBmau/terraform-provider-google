@@ -28,8 +28,6 @@ A `KeyHandle` is a resource used to auto-provision CryptoKeys for CMEK.
 Destroying a Terraform-managed KeyHandle will remove it from state but
 *will not delete the resource from the project.*
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about KeyHandle, see:
 
@@ -44,7 +42,7 @@ To get more information about KeyHandle, see:
 # Create Folder in GCP Organization
 resource "google_folder" "autokms_folder" {
   provider     = google-beta
-  display_name = "my-folder"
+  display_name = "folder-kh"
   parent       = "organizations/123456789"
   deletion_protection = false
 }
@@ -76,7 +74,6 @@ resource "google_project_service" "kms_api_service" {
   provider                   = google-beta
   service                    = "cloudkms.googleapis.com"
   project                    = google_project.key_project.project_id
-  disable_on_destroy         = false
   disable_dependent_services = true
   depends_on                 = [google_project.key_project]
 }
@@ -159,11 +156,9 @@ The following arguments are supported:
   A full list of valid locations can be found by running `gcloud kms locations list`.
 
 
-- - -
-
-
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -195,6 +190,18 @@ KeyHandle can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import KeyHandle using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_kms_key_handle.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import KeyHandle using one of the formats above. For example:
 

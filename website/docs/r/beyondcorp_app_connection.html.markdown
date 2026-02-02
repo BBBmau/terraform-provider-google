@@ -128,19 +128,6 @@ The following arguments are supported:
   Structure is [documented below](#nested_application_endpoint).
 
 
-<a name="nested_application_endpoint"></a>The `application_endpoint` block supports:
-
-* `host` -
-  (Required)
-  Hostname or IP address of the remote application endpoint.
-
-* `port` -
-  (Required)
-  Port of the remote application endpoint.
-
-- - -
-
-
 * `region` -
   (Optional)
   The region of the AppConnection.
@@ -174,6 +161,17 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_application_endpoint"></a>The `application_endpoint` block supports:
+
+* `host` -
+  (Required)
+  Hostname or IP address of the remote application endpoint.
+
+* `port` -
+  (Required)
+  Port of the remote application endpoint.
 
 <a name="nested_gateway"></a>The `gateway` block supports:
 
@@ -228,6 +226,18 @@ AppConnection can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AppConnection using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_beyondcorp_app_connection.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AppConnection using one of the formats above. For example:
 

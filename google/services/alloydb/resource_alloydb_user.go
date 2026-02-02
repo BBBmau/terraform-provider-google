@@ -20,17 +20,70 @@
 package alloydb
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceAlloydbUser() *schema.Resource {
@@ -81,10 +134,25 @@ func ResourceAlloydbUser() *schema.Resource {
 				},
 			},
 			"password": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: `Password for this database user.`,
-				Sensitive:   true,
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   `Password for this database user.`,
+				Sensitive:     true,
+				ConflictsWith: []string{"password_wo"},
+			},
+			"password_wo": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   `Password for this database user.`,
+				WriteOnly:     true,
+				ConflictsWith: []string{"password"},
+				RequiredWith:  []string{"password_wo_version"},
+			},
+			"password_wo_version": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Description:  `Triggers update of 'password_wo' write-only. Increment this value when an update to 'password_wo' is needed. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)`,
+				RequiredWith: []string{"password_wo"},
 			},
 			"name": {
 				Type:        schema.TypeString,
@@ -115,6 +183,12 @@ func resourceAlloydbUserCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	} else if v, ok := d.GetOkExists("database_roles"); !tpgresource.IsEmptyValue(reflect.ValueOf(databaseRolesProp)) && (ok || !reflect.DeepEqual(v, databaseRolesProp)) {
 		obj["databaseRoles"] = databaseRolesProp
+	}
+	passwordWoProp, err := expandAlloydbUserPasswordWo(tpgresource.GetRawConfigAttributeAsString(d, "password_wo"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("password_wo"); !tpgresource.IsEmptyValue(reflect.ValueOf(passwordWoProp)) && (ok || !reflect.DeepEqual(v, passwordWoProp)) {
+		obj["password"] = passwordWoProp
 	}
 	userTypeProp, err := expandAlloydbUserUserType(d.Get("user_type"), d, config)
 	if err != nil {
@@ -201,6 +275,9 @@ func resourceAlloydbUserRead(d *schema.ResourceData, meta interface{}) error {
 	if err := d.Set("database_roles", flattenAlloydbUserDatabaseRoles(res["databaseRoles"], d, config)); err != nil {
 		return fmt.Errorf("Error reading User: %s", err)
 	}
+	if err := d.Set("password_wo_version", flattenAlloydbUserPasswordWoVersion(res["passwordWoVersion"], d, config)); err != nil {
+		return fmt.Errorf("Error reading User: %s", err)
+	}
 	if err := d.Set("user_type", flattenAlloydbUserUserType(res["userType"], d, config)); err != nil {
 		return fmt.Errorf("Error reading User: %s", err)
 	}
@@ -229,6 +306,12 @@ func resourceAlloydbUserUpdate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	} else if v, ok := d.GetOkExists("database_roles"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, databaseRolesProp)) {
 		obj["databaseRoles"] = databaseRolesProp
+	}
+	passwordWoProp, err := expandAlloydbUserPasswordWo(tpgresource.GetRawConfigAttributeAsString(d, "password_wo"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("password_wo"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, passwordWoProp)) {
+		obj["password"] = passwordWoProp
 	}
 	userTypeProp, err := expandAlloydbUserUserType(d.Get("user_type"), d, config)
 	if err != nil {
@@ -340,6 +423,10 @@ func flattenAlloydbUserDatabaseRoles(v interface{}, d *schema.ResourceData, conf
 	return v
 }
 
+func flattenAlloydbUserPasswordWoVersion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return d.Get("password_wo_version")
+}
+
 func flattenAlloydbUserUserType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -349,6 +436,10 @@ func expandAlloydbUserPassword(v interface{}, d tpgresource.TerraformResourceDat
 }
 
 func expandAlloydbUserDatabaseRoles(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandAlloydbUserPasswordWo(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

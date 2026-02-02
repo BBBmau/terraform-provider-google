@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Dataplex Asset
+
 Three different resources help you manage your IAM policy for Dataplex Asset. Each of these resources serves a different use case:
 
 * `google_dataplex_asset_iam_policy`: Authoritative. Sets the IAM policy for the asset and replaces any existing policy already attached.
@@ -93,6 +94,11 @@ resource "google_dataplex_asset_iam_member" "member" {
 
 The following arguments are supported:
 
+* `location` - (Optional)  Used to find the parent resource to bind the IAM policy to. If not specified,
+  the value will be parsed from the identifier of the parent resource. If no location is provided in the parent identifier and no
+  location is specified, it is taken from the provider configuration.
+* `lake` - (Required)  Used to find the parent resource to bind the IAM policy to
+* `dataplex_zone` - (Required)  Used to find the parent resource to bind the IAM policy to
 * `asset` - (Required) Used to find the parent resource to bind the IAM policy to
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
@@ -109,6 +115,7 @@ The following arguments are supported:
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_dataplex_asset_iam_binding` can be used per role. Note that custom roles must be of the format

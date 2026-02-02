@@ -81,6 +81,15 @@ The following arguments are supported:
   The Rule ID of the rule.
 
 
+* `retrohunt` -
+  (Optional)
+  The retrohunt ID of the Retrohunt. A retrohunt is an execution of a Rule over a time range in the past.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_process_interval"></a>The `process_interval` block supports:
 
 * `start_time` -
@@ -90,17 +99,6 @@ The following arguments are supported:
 * `end_time` -
   (Required)
   Exclusive end of the interval.
-
-- - -
-
-
-* `retrohunt` -
-  (Optional)
-  The retrohunt ID of the Retrohunt. A retrohunt is an execution of a Rule over a time range in the past.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -166,6 +164,20 @@ Retrohunt can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance}}/{{rule}}/{{retrohunt}}`
 * `{{location}}/{{instance}}/{{rule}}/{{retrohunt}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Retrohunt using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instance = "<-required value->"
+    rule = "<-required value->"
+    retrohunt = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_chronicle_retrohunt.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Retrohunt using one of the formats above. For example:
 

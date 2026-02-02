@@ -35,7 +35,7 @@ values will be stored in the raw state as plain text: `http_check.auth_info.pass
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 ~> **Note:**  All arguments marked as write-only values will not be stored in the state: `http_check.auth_info.password_wo`.
-[Read more about Write-only Attributes](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
+[Read more about Write-only Arguments](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
 
 ## Example Usage - Uptime Check Config Http
 
@@ -188,9 +188,6 @@ resource "google_monitoring_uptime_check_config" "https" {
     port = "443"
     use_ssl = true
     validate_ssl = true
-    service_agent_authentication {
-      type = "OIDC_TOKEN"
-    }
   }
 
   monitored_resource {
@@ -306,9 +303,6 @@ The following arguments are supported:
   The maximum amount of time to wait for the request to complete (must be between 1 and 60 seconds). [See the accepted formats]( https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Duration)
 
 
-- - -
-
-
 * `period` -
   (Optional)
   How often, in seconds, the uptime check is performed. Currently, the only supported values are 60s (1 minute), 300s (5 minutes), 600s (10 minutes), and 900s (15 minutes). Optional, defaults to 300s.
@@ -374,6 +368,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_content_matchers"></a>The `content_matchers` block supports:
 
 * `content` -
@@ -389,10 +384,10 @@ The following arguments are supported:
 * `json_path_matcher` -
   (Optional)
   Information needed to perform a JSONPath content match. Used for `ContentMatcherOption::MATCHES_JSON_PATH` and `ContentMatcherOption::NOT_MATCHES_JSON_PATH`.
-  Structure is [documented below](#nested_content_matchers_content_matchers_json_path_matcher).
+  Structure is [documented below](#nested_content_matchers_json_path_matcher).
 
 
-<a name="nested_content_matchers_content_matchers_json_path_matcher"></a>The `json_path_matcher` block supports:
+<a name="nested_content_matchers_json_path_matcher"></a>The `json_path_matcher` block supports:
 
 * `json_path` -
   (Required)
@@ -547,11 +542,6 @@ The following arguments are supported:
   (Required)
   The fully qualified name of the cloud function resource.
 
-## Ephemeral Attributes Reference
-
-The following write-only attributes are supported:
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -583,6 +573,17 @@ UptimeCheckConfig can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import UptimeCheckConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_monitoring_uptime_check_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import UptimeCheckConfig using one of the formats above. For example:
 

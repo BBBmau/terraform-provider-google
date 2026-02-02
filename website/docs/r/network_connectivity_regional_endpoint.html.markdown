@@ -54,12 +54,12 @@ resource "google_compute_subnetwork" "my_subnetwork" {
 resource "google_network_connectivity_regional_endpoint" "default" {
   name              = "my-rep"
   location          = "us-central1"
-  target_google_api = "storage.us-central1.p.rep.googleapis.com"
+  target_google_api = "storage.us-central1.rep.googleapis.com"
   access_type       = "REGIONAL"
   address           = "192.168.0.5"
   network           = google_compute_network.my_network.id
   subnetwork        = google_compute_subnetwork.my_subnetwork.id
-  description       = "My RegionalEndpoint targeting Google API storage.us-central1.p.rep.googleapis.com"
+  description       = "My RegionalEndpoint targeting Google API storage.us-central1.rep.googleapis.com"
   labels            = {env = "default"}
 }
 ```
@@ -87,7 +87,7 @@ resource "google_compute_subnetwork" "my_subnetwork" {
 resource "google_network_connectivity_regional_endpoint" "default" {
   name              = "my-rep"
   location          = "us-central1"
-  target_google_api = "storage.us-central1.p.rep.googleapis.com"
+  target_google_api = "storage.us-central1.rep.googleapis.com"
   access_type       = "GLOBAL"
   address           = "192.168.0.4"
   network           = google_compute_network.my_network.id
@@ -102,7 +102,7 @@ The following arguments are supported:
 
 * `target_google_api` -
   (Required)
-  The service endpoint this private regional endpoint connects to. Format: `{apiname}.{region}.p.rep.googleapis.com` Example: \"cloudkms.us-central1.p.rep.googleapis.com\".
+  The service endpoint this private regional endpoint connects to. Format: `{apiname}.{region}.rep.googleapis.com` Example: \"cloudkms.us-central1.rep.googleapis.com\".
 
 * `access_type` -
   (Required)
@@ -116,9 +116,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location of the RegionalEndpoint.
-
-
-- - -
 
 
 * `labels` -
@@ -147,6 +144,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -190,6 +188,18 @@ RegionalEndpoint can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionalEndpoint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_connectivity_regional_endpoint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionalEndpoint using one of the formats above. For example:
 

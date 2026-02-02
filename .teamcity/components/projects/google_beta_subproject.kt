@@ -12,6 +12,7 @@ import builds.*
 import jetbrains.buildServer.configs.kotlin.Project
 import projects.reused.mmUpstream
 import projects.reused.nightlyTests
+import projects.reused.weeklyDiffTests
 import projects.reused.vcrRecording
 import replaceCharsId
 import vcs_roots.HashiCorpVCSRootBeta
@@ -32,6 +33,9 @@ fun googleSubProjectBeta(allConfig: AllContextParameters): Project {
 
         // Nightly Test project that uses hashicorp/terraform-provider-google-beta
         subProject(nightlyTests(betaId, ProviderNameBeta, HashiCorpVCSRootBeta, betaConfig, NightlyTriggerConfiguration(nightlyTestsEnabled = false)))
+
+        // Beta Diff Test project that uses hashicorp/terraform-provider-google-beta-diff-test
+        subProject(weeklyDiffTests(betaId + "_DIFF_TEST", ProviderNameBeta, ModularMagicianVCSRootBeta, betaConfig, NightlyTriggerConfiguration(daysOfWeek = "SAT", nightlyTestsEnabled = false)))
 
         params {
             readOnlySettings()

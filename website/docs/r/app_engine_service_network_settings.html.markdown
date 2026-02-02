@@ -90,6 +90,11 @@ The following arguments are supported:
   Structure is [documented below](#nested_network_settings).
 
 
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_network_settings"></a>The `network_settings` block supports:
 
 * `ingress_traffic_allowed` -
@@ -97,13 +102,6 @@ The following arguments are supported:
   The ingress settings for version or service.
   Default value is `INGRESS_TRAFFIC_ALLOWED_UNSPECIFIED`.
   Possible values are: `INGRESS_TRAFFIC_ALLOWED_UNSPECIFIED`, `INGRESS_TRAFFIC_ALLOWED_ALL`, `INGRESS_TRAFFIC_ALLOWED_INTERNAL_ONLY`, `INGRESS_TRAFFIC_ALLOWED_INTERNAL_AND_LB`.
-
-- - -
-
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -130,6 +128,17 @@ ServiceNetworkSettings can be imported using any of these accepted formats:
 * `{{project}}/{{service}}`
 * `{{service}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServiceNetworkSettings using identity values. For example:
+
+```tf
+import {
+  identity = {
+    service = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_app_engine_service_network_settings.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServiceNetworkSettings using one of the formats above. For example:
 

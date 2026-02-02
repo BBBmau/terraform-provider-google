@@ -123,9 +123,6 @@ The following arguments are supported:
   The display name of the Index. The name can be up to 128 characters long and can consist of any UTF-8 characters.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   The description of the Index.
@@ -152,12 +149,18 @@ The following arguments are supported:
   (Optional)
   If true, the deployed index will be accessible through public endpoint.
 
+* `encryption_spec` -
+  (Optional)
+  Customer-managed encryption key spec for an IndexEndpoint. If set, this IndexEndpoint and all sub-resources of this IndexEndpoint will be secured by this key.
+  Structure is [documented below](#nested_encryption_spec).
+
 * `region` -
   (Optional)
   The region of the index endpoint. eg us-central1
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_private_service_connect_config"></a>The `private_service_connect_config` block supports:
@@ -169,6 +172,28 @@ The following arguments are supported:
 * `project_allowlist` -
   (Optional)
   A list of Projects from which the forwarding rule will target the service attachment.
+
+* `psc_automation_configs` -
+  (Optional)
+  List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+  Structure is [documented below](#nested_private_service_connect_config_psc_automation_configs).
+
+
+<a name="nested_private_service_connect_config_psc_automation_configs"></a>The `psc_automation_configs` block supports:
+
+* `project_id` -
+  (Required)
+  Project id used to create forwarding rule.
+
+* `network` -
+  (Required)
+  The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+
+<a name="nested_encryption_spec"></a>The `encryption_spec` block supports:
+
+* `kms_key_name` -
+  (Required)
+  Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
 
 ## Attributes Reference
 
@@ -218,6 +243,18 @@ IndexEndpoint can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import IndexEndpoint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_index_endpoint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import IndexEndpoint using one of the formats above. For example:
 

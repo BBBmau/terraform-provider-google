@@ -19,8 +19,11 @@ package logging_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccLoggingMetric_loggingMetricBasicExample(t *testing.T) {
@@ -50,6 +69,12 @@ func TestAccLoggingMetric_loggingMetricBasicExample(t *testing.T) {
 				ResourceName:      "google_logging_metric.logging_metric",
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+			{
+				ResourceName:       "google_logging_metric.logging_metric",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -112,6 +137,12 @@ func TestAccLoggingMetric_loggingMetricCounterBasicExample(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
+			{
+				ResourceName:       "google_logging_metric.logging_metric",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -148,6 +179,12 @@ func TestAccLoggingMetric_loggingMetricCounterLabelsExample(t *testing.T) {
 				ResourceName:      "google_logging_metric.logging_metric",
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+			{
+				ResourceName:       "google_logging_metric.logging_metric",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -195,6 +232,12 @@ func TestAccLoggingMetric_loggingMetricLoggingBucketExample(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
+			{
+				ResourceName:       "google_logging_metric.logging_metric",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -210,7 +253,7 @@ resource "google_logging_project_bucket_config" "logging_metric" {
 resource "google_logging_metric" "logging_metric" {
   name        = "tf-test-my-(custom)/metric%{random_suffix}"
   filter      = "resource.type=gae_app AND severity>=ERROR"
-  bucket_name = google_logging_project_bucket_config.logging_metric.id
+  bucket_name = google_logging_project_bucket_config.logging_metric.name
 }
 `, context)
 }
@@ -234,6 +277,12 @@ func TestAccLoggingMetric_loggingMetricDisabledExample(t *testing.T) {
 				ResourceName:      "google_logging_metric.logging_metric",
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+			{
+				ResourceName:       "google_logging_metric.logging_metric",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

@@ -20,17 +20,32 @@
 package bigquery
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
@@ -42,6 +57,38 @@ import (
 var (
 	bigqueryDatasetRegexp = regexp.MustCompile("projects/(.+)/datasets/(.+)")
 	bigqueryTableRegexp   = regexp.MustCompile("projects/(.+)/datasets/(.+)/tables/(.+)")
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceBigQueryJob() *schema.Resource {
@@ -198,7 +245,7 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 						},
 					},
 				},
-				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
+				ExactlyOneOf: []string{"copy", "extract", "load", "query"},
 			},
 			"extract": {
 				Type:        schema.TypeList,
@@ -277,7 +324,7 @@ Default is ','`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"extract.0.source_table", "extract.0.source_model"},
+							ExactlyOneOf: []string{"extract.0.source_model", "extract.0.source_table"},
 						},
 						"source_table": {
 							Type:        schema.TypeList,
@@ -311,7 +358,7 @@ or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}
 									},
 								},
 							},
-							ExactlyOneOf: []string{"extract.0.source_table", "extract.0.source_model"},
+							ExactlyOneOf: []string{"extract.0.source_model", "extract.0.source_table"},
 						},
 						"use_avro_logical_types": {
 							Type:        schema.TypeBool,
@@ -321,7 +368,7 @@ or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}
 						},
 					},
 				},
-				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
+				ExactlyOneOf: []string{"copy", "extract", "load", "query"},
 			},
 			"job_timeout_ms": {
 				Type:        schema.TypeString,
@@ -522,7 +569,7 @@ an empty value.`,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type.`,
-										AtLeastOneOf: []string{"load.0.parquet_options.0.enum_as_string", "load.0.parquet_options.0.enable_list_inference"},
+										AtLeastOneOf: []string{"load.0.parquet_options.0.enable_list_inference", "load.0.parquet_options.0.enum_as_string"},
 									},
 									"enum_as_string": {
 										Type:        schema.TypeBool,
@@ -640,7 +687,7 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 						},
 					},
 				},
-				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
+				ExactlyOneOf: []string{"copy", "extract", "load", "query"},
 			},
 			"query": {
 				Type:        schema.TypeList,
@@ -665,6 +712,35 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 							Description: `If true and query uses legacy SQL dialect, allows the query to produce arbitrarily large result tables at a slight cost in performance.
 Requires destinationTable to be set. For standard SQL queries, this flag is ignored and large results are always allowed.
 However, you must still set destinationTable when result size exceeds the allowed maximum response size.`,
+						},
+						"connection_properties": {
+							Type:     schema.TypeList,
+							Optional: true,
+							ForceNew: true,
+							Description: `Connection properties to customize query behavior. Under JDBC, these correspond
+directly to connection properties passed to the DriverManager. Under ODBC, these
+correspond to properties in the connection string.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"key": {
+										Type:     schema.TypeString,
+										Required: true,
+										ForceNew: true,
+										Description: `The key of the property to set. Currently supported connection properties:
+* 'dataset_project_id': represents the default project for datasets that are used in the query
+* 'time_zone': represents the default timezone used to run the query
+* 'session_id': associates the query with a given session
+* 'query_label': associates the query with a given job label
+* 'service_account': indicates the service account to use to run a continuous query`,
+									},
+									"value": {
+										Type:        schema.TypeString,
+										Required:    true,
+										ForceNew:    true,
+										Description: `The value of the property to set.`,
+									},
+								},
+							},
 						},
 						"create_disposition": {
 							Type:         schema.TypeString,
@@ -827,21 +903,21 @@ ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema t
 										ValidateFunc: verify.ValidateEnum([]string{"LAST", "FIRST_SELECT", ""}),
 										Description: `Determines which statement in the script represents the "key result",
 used to populate the schema and query results of the script job. Possible values: ["LAST", "FIRST_SELECT"]`,
-										AtLeastOneOf: []string{"query.0.script_options.0.statement_timeout_ms", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.key_result_statement"},
+										AtLeastOneOf: []string{"query.0.script_options.0.key_result_statement", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.statement_timeout_ms"},
 									},
 									"statement_byte_budget": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Limit on the number of bytes billed per statement. Exceeding this budget results in an error.`,
-										AtLeastOneOf: []string{"query.0.script_options.0.statement_timeout_ms", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.key_result_statement"},
+										AtLeastOneOf: []string{"query.0.script_options.0.key_result_statement", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.statement_timeout_ms"},
 									},
 									"statement_timeout_ms": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Timeout period for each statement in a script.`,
-										AtLeastOneOf: []string{"query.0.script_options.0.statement_timeout_ms", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.key_result_statement"},
+										AtLeastOneOf: []string{"query.0.script_options.0.key_result_statement", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.statement_timeout_ms"},
 									},
 								},
 							},
@@ -900,7 +976,7 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 						},
 					},
 				},
-				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
+				ExactlyOneOf: []string{"copy", "extract", "load", "query"},
 			},
 			"effective_labels": {
 				Type:        schema.TypeMap,
@@ -1353,6 +1429,8 @@ func flattenBigQueryJobConfigurationQuery(v interface{}, d *schema.ResourceData,
 		flattenBigQueryJobConfigurationQueryDestinationEncryptionConfiguration(original["destinationEncryptionConfiguration"], d, config)
 	transformed["script_options"] =
 		flattenBigQueryJobConfigurationQueryScriptOptions(original["scriptOptions"], d, config)
+	transformed["connection_properties"] =
+		flattenBigQueryJobConfigurationQueryConnectionProperties(original["connectionProperties"], d, config)
 	return []interface{}{transformed}
 }
 func flattenBigQueryJobConfigurationQueryQuery(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1533,6 +1611,33 @@ func flattenBigQueryJobConfigurationQueryScriptOptionsStatementByteBudget(v inte
 }
 
 func flattenBigQueryJobConfigurationQueryScriptOptionsKeyResultStatement(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigQueryJobConfigurationQueryConnectionProperties(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"key":   flattenBigQueryJobConfigurationQueryConnectionPropertiesKey(original["key"], d, config),
+			"value": flattenBigQueryJobConfigurationQueryConnectionPropertiesValue(original["value"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenBigQueryJobConfigurationQueryConnectionPropertiesKey(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenBigQueryJobConfigurationQueryConnectionPropertiesValue(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -2169,6 +2274,9 @@ func expandBigQueryJobConfigurationJobTimeoutMs(v interface{}, d tpgresource.Ter
 }
 
 func expandBigQueryJobConfigurationQuery(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2296,6 +2404,13 @@ func expandBigQueryJobConfigurationQuery(v interface{}, d tpgresource.TerraformR
 		transformed["scriptOptions"] = transformedScriptOptions
 	}
 
+	transformedConnectionProperties, err := expandBigQueryJobConfigurationQueryConnectionProperties(original["connection_properties"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedConnectionProperties); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["connectionProperties"] = transformedConnectionProperties
+	}
+
 	return transformed, nil
 }
 
@@ -2351,6 +2466,9 @@ func expandBigQueryJobConfigurationQueryDestinationTable(v interface{}, d tpgres
 }
 
 func expandBigQueryJobConfigurationQueryUserDefinedFunctionResources(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2459,6 +2577,9 @@ func expandBigQueryJobConfigurationQuerySchemaUpdateOptions(v interface{}, d tpg
 }
 
 func expandBigQueryJobConfigurationQueryDestinationEncryptionConfiguration(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2493,6 +2614,9 @@ func expandBigQueryJobConfigurationQueryDestinationEncryptionConfigurationKmsKey
 }
 
 func expandBigQueryJobConfigurationQueryScriptOptions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2537,7 +2661,50 @@ func expandBigQueryJobConfigurationQueryScriptOptionsKeyResultStatement(v interf
 	return v, nil
 }
 
+func expandBigQueryJobConfigurationQueryConnectionProperties(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	req := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		if raw == nil {
+			continue
+		}
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedKey, err := expandBigQueryJobConfigurationQueryConnectionPropertiesKey(original["key"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedKey); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+			transformed["key"] = transformedKey
+		}
+
+		transformedValue, err := expandBigQueryJobConfigurationQueryConnectionPropertiesValue(original["value"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedValue); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+			transformed["value"] = transformedValue
+		}
+
+		req = append(req, transformed)
+	}
+	return req, nil
+}
+
+func expandBigQueryJobConfigurationQueryConnectionPropertiesKey(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandBigQueryJobConfigurationQueryConnectionPropertiesValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandBigQueryJobConfigurationLoad(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2812,6 +2979,9 @@ func expandBigQueryJobConfigurationLoadSchemaUpdateOptions(v interface{}, d tpgr
 }
 
 func expandBigQueryJobConfigurationLoadTimePartitioning(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2857,6 +3027,9 @@ func expandBigQueryJobConfigurationLoadTimePartitioningField(v interface{}, d tp
 }
 
 func expandBigQueryJobConfigurationLoadDestinationEncryptionConfiguration(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2891,6 +3064,9 @@ func expandBigQueryJobConfigurationLoadDestinationEncryptionConfigurationKmsKeyV
 }
 
 func expandBigQueryJobConfigurationLoadParquetOptions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2925,6 +3101,9 @@ func expandBigQueryJobConfigurationLoadParquetOptionsEnableListInference(v inter
 }
 
 func expandBigQueryJobConfigurationCopy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3064,6 +3243,9 @@ func expandBigQueryJobConfigurationCopyWriteDisposition(v interface{}, d tpgreso
 }
 
 func expandBigQueryJobConfigurationCopyDestinationEncryptionConfiguration(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3098,6 +3280,9 @@ func expandBigQueryJobConfigurationCopyDestinationEncryptionConfigurationKmsKeyV
 }
 
 func expandBigQueryJobConfigurationExtract(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3237,6 +3422,9 @@ func expandBigQueryJobConfigurationExtractSourceTable(v interface{}, d tpgresour
 }
 
 func expandBigQueryJobConfigurationExtractSourceModel(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

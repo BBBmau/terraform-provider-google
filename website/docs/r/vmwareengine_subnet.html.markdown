@@ -87,8 +87,6 @@ The following arguments are supported:
   where n ranges from 1 to 5.
 
 
-- - -
-
 
 
 ## Attributes Reference
@@ -160,6 +158,17 @@ Subnet can be imported using any of these accepted formats:
 
 * `{{parent}}/subnets/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Subnet using identity values. For example:
+
+```tf
+import {
+  identity = {
+    parent = "<-required value->"
+    name = "<-required value->"
+  }
+  to = google_vmwareengine_subnet.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Subnet using one of the formats above. For example:
 

@@ -20,18 +20,70 @@
 package netapp
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceNetappBackupVault() *schema.Resource {
@@ -56,6 +108,26 @@ func ResourceNetappBackupVault() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
@@ -68,6 +140,53 @@ func ResourceNetappBackupVault() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 				Description: `The resource name of the backup vault. Needs to be unique per location.`,
+			},
+			"backup_region": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: `Region in which backup is stored.`,
+			},
+			"backup_retention_policy": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `Backup retention policy defining the retention of the backups.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"backup_minimum_enforced_retention_days": {
+							Type:        schema.TypeInt,
+							Required:    true,
+							Description: `Minimum retention duration in days for backups in the backup vault.`,
+						},
+						"daily_backup_immutable": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Description: `Indicates if the daily backups are immutable. At least one of daily_backup_immutable, weekly_backup_immutable, monthly_backup_immutable and manual_backup_immutable must be true.`,
+						},
+						"manual_backup_immutable": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Description: `Indicates if the manual backups are immutable. At least one of daily_backup_immutable, weekly_backup_immutable, monthly_backup_immutable and manual_backup_immutable must be true.`,
+						},
+						"monthly_backup_immutable": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Description: `Indicates if the monthly backups are immutable. At least one of daily_backup_immutable, weekly_backup_immutable, monthly_backup_immutable and manual_backup_immutable must be true.`,
+						},
+						"weekly_backup_immutable": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Description: `Indicates if the weekly backups are immutable. At least one of daily_backup_immutable, weekly_backup_immutable, monthly_backup_immutable and manual_backup_immutable must be true.`,
+						},
+					},
+				},
+			},
+			"backup_vault_type": {
+				Type:         schema.TypeString,
+				Computed:     true,
+				Optional:     true,
+				ValidateFunc: verify.ValidateEnum([]string{"BACKUP_VAULT_TYPE_UNSPECIFIED", "IN_REGION", "CROSS_REGION", ""}),
+				Description:  `Type of the backup vault to be created. Default is IN_REGION. Possible values: ["BACKUP_VAULT_TYPE_UNSPECIFIED", "IN_REGION", "CROSS_REGION"]`,
 			},
 			"description": {
 				Type:        schema.TypeString,
@@ -89,11 +208,26 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 				Computed:    true,
 				Description: `Create time of the backup vault. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".`,
 			},
+			"destination_backup_vault": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Name of the Backup vault created in backup region.`,
+			},
 			"effective_labels": {
 				Type:        schema.TypeMap,
 				Computed:    true,
 				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"source_backup_vault": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Name of the Backup vault created in source region.`,
+			},
+			"source_region": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Region in which the backup vault is created.`,
 			},
 			"state": {
 				Type:        schema.TypeString,
@@ -132,11 +266,29 @@ func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) e
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(descriptionProp)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	labelsProp, err := expandNetappBackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
+	backupVaultTypeProp, err := expandNetappBackupVaultBackupVaultType(d.Get("backup_vault_type"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("backup_vault_type"); !tpgresource.IsEmptyValue(reflect.ValueOf(backupVaultTypeProp)) && (ok || !reflect.DeepEqual(v, backupVaultTypeProp)) {
+		obj["backupVaultType"] = backupVaultTypeProp
+	}
+	backupRegionProp, err := expandNetappBackupVaultBackupRegion(d.Get("backup_region"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("backup_region"); !tpgresource.IsEmptyValue(reflect.ValueOf(backupRegionProp)) && (ok || !reflect.DeepEqual(v, backupRegionProp)) {
+		obj["backupRegion"] = backupRegionProp
+	}
+	backupRetentionPolicyProp, err := expandNetappBackupVaultBackupRetentionPolicy(d.Get("backup_retention_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("backup_retention_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(backupRetentionPolicyProp)) && (ok || !reflect.DeepEqual(v, backupRetentionPolicyProp)) {
+		obj["backupRetentionPolicy"] = backupRetentionPolicyProp
+	}
+	effectiveLabelsProp, err := expandNetappBackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{NetappBasePath}}projects/{{project}}/locations/{{location}}/backupVaults?backupVaultId={{name}}")
@@ -179,6 +331,27 @@ func resourceNetappBackupVaultCreate(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = NetappOperationWaitTime(
 		config, res, project, "Creating BackupVault", userAgent,
@@ -249,11 +422,53 @@ func resourceNetappBackupVaultRead(d *schema.ResourceData, meta interface{}) err
 	if err := d.Set("labels", flattenNetappBackupVaultLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupVault: %s", err)
 	}
+	if err := d.Set("backup_vault_type", flattenNetappBackupVaultBackupVaultType(res["backupVaultType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
+	if err := d.Set("backup_region", flattenNetappBackupVaultBackupRegion(res["backupRegion"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
+	if err := d.Set("source_region", flattenNetappBackupVaultSourceRegion(res["sourceRegion"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
+	if err := d.Set("source_backup_vault", flattenNetappBackupVaultSourceBackupVault(res["sourceBackupVault"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
+	if err := d.Set("destination_backup_vault", flattenNetappBackupVaultDestinationBackupVault(res["destinationBackupVault"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
+	if err := d.Set("backup_retention_policy", flattenNetappBackupVaultBackupRetentionPolicy(res["backupRetentionPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
 	if err := d.Set("terraform_labels", flattenNetappBackupVaultTerraformLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupVault: %s", err)
 	}
 	if err := d.Set("effective_labels", flattenNetappBackupVaultEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupVault: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -264,6 +479,26 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -281,11 +516,29 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
 		obj["description"] = descriptionProp
 	}
-	labelsProp, err := expandNetappBackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
+	backupVaultTypeProp, err := expandNetappBackupVaultBackupVaultType(d.Get("backup_vault_type"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("backup_vault_type"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, backupVaultTypeProp)) {
+		obj["backupVaultType"] = backupVaultTypeProp
+	}
+	backupRegionProp, err := expandNetappBackupVaultBackupRegion(d.Get("backup_region"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("backup_region"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, backupRegionProp)) {
+		obj["backupRegion"] = backupRegionProp
+	}
+	backupRetentionPolicyProp, err := expandNetappBackupVaultBackupRetentionPolicy(d.Get("backup_retention_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("backup_retention_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, backupRetentionPolicyProp)) {
+		obj["backupRetentionPolicy"] = backupRetentionPolicyProp
+	}
+	effectiveLabelsProp, err := expandNetappBackupVaultEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{NetappBasePath}}projects/{{project}}/locations/{{location}}/backupVaults/{{name}}")
@@ -299,6 +552,18 @@ func resourceNetappBackupVaultUpdate(d *schema.ResourceData, meta interface{}) e
 
 	if d.HasChange("description") {
 		updateMask = append(updateMask, "description")
+	}
+
+	if d.HasChange("backup_vault_type") {
+		updateMask = append(updateMask, "backupVaultType")
+	}
+
+	if d.HasChange("backup_region") {
+		updateMask = append(updateMask, "backupRegion")
+	}
+
+	if d.HasChange("backup_retention_policy") {
+		updateMask = append(updateMask, "backupRetentionPolicy")
 	}
 
 	if d.HasChange("effective_labels") {
@@ -450,6 +715,80 @@ func flattenNetappBackupVaultLabels(v interface{}, d *schema.ResourceData, confi
 	return transformed
 }
 
+func flattenNetappBackupVaultBackupVaultType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultBackupRegion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultSourceRegion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultSourceBackupVault(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultDestinationBackupVault(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultBackupRetentionPolicy(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["backup_minimum_enforced_retention_days"] =
+		flattenNetappBackupVaultBackupRetentionPolicyBackupMinimumEnforcedRetentionDays(original["backupMinimumEnforcedRetentionDays"], d, config)
+	transformed["daily_backup_immutable"] =
+		flattenNetappBackupVaultBackupRetentionPolicyDailyBackupImmutable(original["dailyBackupImmutable"], d, config)
+	transformed["weekly_backup_immutable"] =
+		flattenNetappBackupVaultBackupRetentionPolicyWeeklyBackupImmutable(original["weeklyBackupImmutable"], d, config)
+	transformed["monthly_backup_immutable"] =
+		flattenNetappBackupVaultBackupRetentionPolicyMonthlyBackupImmutable(original["monthlyBackupImmutable"], d, config)
+	transformed["manual_backup_immutable"] =
+		flattenNetappBackupVaultBackupRetentionPolicyManualBackupImmutable(original["manualBackupImmutable"], d, config)
+	return []interface{}{transformed}
+}
+func flattenNetappBackupVaultBackupRetentionPolicyBackupMinimumEnforcedRetentionDays(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenNetappBackupVaultBackupRetentionPolicyDailyBackupImmutable(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultBackupRetentionPolicyWeeklyBackupImmutable(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultBackupRetentionPolicyMonthlyBackupImmutable(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetappBackupVaultBackupRetentionPolicyManualBackupImmutable(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenNetappBackupVaultTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -470,6 +809,84 @@ func flattenNetappBackupVaultEffectiveLabels(v interface{}, d *schema.ResourceDa
 }
 
 func expandNetappBackupVaultDescription(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupVaultType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupRegion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupRetentionPolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedBackupMinimumEnforcedRetentionDays, err := expandNetappBackupVaultBackupRetentionPolicyBackupMinimumEnforcedRetentionDays(original["backup_minimum_enforced_retention_days"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedBackupMinimumEnforcedRetentionDays); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["backupMinimumEnforcedRetentionDays"] = transformedBackupMinimumEnforcedRetentionDays
+	}
+
+	transformedDailyBackupImmutable, err := expandNetappBackupVaultBackupRetentionPolicyDailyBackupImmutable(original["daily_backup_immutable"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedDailyBackupImmutable); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["dailyBackupImmutable"] = transformedDailyBackupImmutable
+	}
+
+	transformedWeeklyBackupImmutable, err := expandNetappBackupVaultBackupRetentionPolicyWeeklyBackupImmutable(original["weekly_backup_immutable"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedWeeklyBackupImmutable); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["weeklyBackupImmutable"] = transformedWeeklyBackupImmutable
+	}
+
+	transformedMonthlyBackupImmutable, err := expandNetappBackupVaultBackupRetentionPolicyMonthlyBackupImmutable(original["monthly_backup_immutable"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMonthlyBackupImmutable); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["monthlyBackupImmutable"] = transformedMonthlyBackupImmutable
+	}
+
+	transformedManualBackupImmutable, err := expandNetappBackupVaultBackupRetentionPolicyManualBackupImmutable(original["manual_backup_immutable"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedManualBackupImmutable); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["manualBackupImmutable"] = transformedManualBackupImmutable
+	}
+
+	return transformed, nil
+}
+
+func expandNetappBackupVaultBackupRetentionPolicyBackupMinimumEnforcedRetentionDays(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupRetentionPolicyDailyBackupImmutable(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupRetentionPolicyWeeklyBackupImmutable(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupRetentionPolicyMonthlyBackupImmutable(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetappBackupVaultBackupRetentionPolicyManualBackupImmutable(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

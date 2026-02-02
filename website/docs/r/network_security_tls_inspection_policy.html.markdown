@@ -271,9 +271,6 @@ The following arguments are supported:
   Short name of the TlsInspectionPolicy resource to be created.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Free-text description of the resource.
@@ -310,6 +307,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -341,6 +339,18 @@ TlsInspectionPolicy can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TlsInspectionPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_tls_inspection_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TlsInspectionPolicy using one of the formats above. For example:
 

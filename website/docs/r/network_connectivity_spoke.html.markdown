@@ -26,7 +26,7 @@ The NetworkConnectivity Spoke resource
 
 To get more information about Spoke, see:
 
-* [API documentation](https://cloud.google.com/network-connectivity/docs/reference/networkconnectivity/rest/v1beta/projects.locations.spokes)
+* [API documentation](https://cloud.google.com/network-connectivity/docs/reference/networkconnectivity/rest/v1/projects.locations.spokes)
 * How-to Guides
     * [Official Documentation](https://cloud.google.com/network-connectivity/docs/network-connectivity-center/concepts/overview)
 
@@ -531,6 +531,57 @@ resource "google_network_connectivity_spoke" "primary"  {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=network_connectivity_spoke_gateway&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Network Connectivity Spoke Gateway
+
+
+```hcl
+resource "google_compute_network" "network" {
+  provider = google-beta
+  name        = "net-spoke"
+  auto_create_subnetworks = false
+}
+
+resource "google_compute_subnetwork" "subnetwork" {
+  provider = google-beta
+  name          = "tf-test-subnet%{random_suffix}"
+  ip_cidr_range = "10.0.0.0/28"
+  region        = "us-central1"
+  network       = google_compute_network.network.self_link
+}
+
+resource "google_network_connectivity_hub" "basic_hub" {
+  provider = google-beta
+  name        = "hub"
+  description = "A sample hub"
+  labels = {
+    label-two = "value-one"
+  }
+  preset_topology = "HYBRID_INSPECTION"
+}
+
+resource "google_network_connectivity_spoke" "primary" {
+  provider = google-beta
+  name        = "gateway"
+  location = "us-central1"
+  description = "A sample spoke of type Gateway"
+  labels = {
+    label-one = "value-one"
+  }
+  hub =  google_network_connectivity_hub.basic_hub.id
+  gateway {
+    ip_range_reservations {
+      ip_range = "10.0.0.0/23"
+    }
+    capacity = "CAPACITY_1_GBPS"
+  }
+  group = "gateways"
+}
+```
 
 ## Argument Reference
 
@@ -548,9 +599,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location for the resource
-
-
-- - -
 
 
 * `labels` -
@@ -592,8 +640,14 @@ The following arguments are supported:
   Producer VPC network that is associated with the spoke.
   Structure is [documented below](#nested_linked_producer_vpc_network).
 
+* `gateway` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  This is a gateway that can apply specialized processing to traffic going through it.
+  Structure is [documented below](#nested_gateway).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_linked_vpn_tunnels"></a>The `linked_vpn_tunnels` block supports:
@@ -689,6 +743,29 @@ The following arguments are supported:
   (Optional)
   IP ranges encompassing the subnets to be excluded from peering.
 
+<a name="nested_gateway"></a>The `gateway` block supports:
+
+* `ip_range_reservations` -
+  (Required)
+  A list of IP ranges that are reserved for this gateway's internal infrastructure.
+  Structure is [documented below](#nested_gateway_ip_range_reservations).
+
+* `capacity` -
+  (Required)
+  the capacity of the gateway spoke, in Gbps.
+  Possible values are: `CAPACITY_1_GBPS`, `CAPACITY_10_GBPS`, `CAPACITY_100_GBPS`.
+
+* `routers` -
+  (Output, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Set of Cloud Routers that are attached to this NCC-GW
+
+
+<a name="nested_gateway_ip_range_reservations"></a>The `ip_range_reservations` block supports:
+
+* `ip_range` -
+  (Required)
+  A block of IP address ranges used to allocate supporting infrastructure for this gateway—for example, 10.1.2.0/23. The IP address block must be a /23 range. This IP address block must not overlap with subnets in any spoke or peer network that the gateway can communicate with.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -707,6 +784,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `state` -
   Output only. The current lifecycle state of this spoke.
 
+* `reasons` -
+  The reasons for the current state in the lifecycle
+  Structure is [documented below](#nested_reasons).
+
 * `terraform_labels` -
   The combination of labels configured directly on the resource
    and default labels configured on the provider.
@@ -714,6 +795,20 @@ In addition to the arguments listed above, the following computed attributes are
 * `effective_labels` -
   All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.
 
+
+<a name="nested_reasons"></a>The `reasons` block contains:
+
+* `code` -
+  (Optional)
+  The code associated with this reason.
+
+* `message` -
+  (Optional)
+  Human-readable details about this reason.
+
+* `user_details` -
+  (Optional)
+  Additional information provided by the user in the RejectSpoke call.
 
 ## Timeouts
 
@@ -733,6 +828,18 @@ Spoke can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Spoke using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_connectivity_spoke.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Spoke using one of the formats above. For example:
 

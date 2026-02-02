@@ -579,6 +579,24 @@ The following arguments are supported:
   The region of the Restore Plan.
 
 
+* `description` -
+  (Optional)
+  User specified descriptive string for this RestorePlan.
+
+* `labels` -
+  (Optional)
+  Description: A set of custom labels supplied by the user.
+  A list of key->value pairs.
+  Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
+
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_restore_config"></a>The `restore_config` block supports:
 
 * `all_namespaces` -
@@ -764,7 +782,7 @@ The following arguments are supported:
   determine which resources in backup should be acted upon by the
   supplied transformation rule actions, and this will ensure that only
   specific resources are affected by transformation rule actions.
-  Structure is [documented below](#nested_restore_config_transformation_rules_transformation_rules_resource_filter).
+  Structure is [documented below](#nested_restore_config_transformation_rules_resource_filter).
 
 * `field_actions` -
   (Required)
@@ -772,10 +790,10 @@ The following arguments are supported:
   resources. Actions are executed in order defined - this order
   matters, as they could potentially interfere with each other and
   the first operation could affect the outcome of the second operation.
-  Structure is [documented below](#nested_restore_config_transformation_rules_transformation_rules_field_actions).
+  Structure is [documented below](#nested_restore_config_transformation_rules_field_actions).
 
 
-<a name="nested_restore_config_transformation_rules_transformation_rules_resource_filter"></a>The `resource_filter` block supports:
+<a name="nested_restore_config_transformation_rules_resource_filter"></a>The `resource_filter` block supports:
 
 * `namespaces` -
   (Optional)
@@ -794,7 +812,7 @@ The following arguments are supported:
   no type filtering will be performed
   (all resources of all types matching previous filtering parameters
   will be candidates for transformation).
-  Structure is [documented below](#nested_restore_config_transformation_rules_transformation_rules_resource_filter_group_kinds).
+  Structure is [documented below](#nested_restore_config_transformation_rules_resource_filter_group_kinds).
 
 * `json_path` -
   (Optional)
@@ -804,7 +822,7 @@ The following arguments are supported:
   be candidates for transformation).
 
 
-<a name="nested_restore_config_transformation_rules_transformation_rules_resource_filter_group_kinds"></a>The `group_kinds` block supports:
+<a name="nested_restore_config_transformation_rules_resource_filter_group_kinds"></a>The `group_kinds` block supports:
 
 * `resource_group` -
   (Optional)
@@ -817,7 +835,7 @@ The following arguments are supported:
   Kind of a Kubernetes resource, e.g.
   "CustomResourceDefinition", "StorageClass", etc.
 
-<a name="nested_restore_config_transformation_rules_transformation_rules_field_actions"></a>The `field_actions` block supports:
+<a name="nested_restore_config_transformation_rules_field_actions"></a>The `field_actions` block supports:
 
 * `op` -
   (Required)
@@ -870,29 +888,16 @@ The following arguments are supported:
   (Required)
   The satisfying group kind must be restored first
   in order to satisfy the dependency.
-  Structure is [documented below](#nested_restore_config_restore_order_group_kind_dependencies_group_kind_dependencies_satisfying).
+  Structure is [documented below](#nested_restore_config_restore_order_group_kind_dependencies_satisfying).
 
 * `requiring` -
   (Required)
   The requiring group kind requires that the satisfying
   group kind be restored first.
-  Structure is [documented below](#nested_restore_config_restore_order_group_kind_dependencies_group_kind_dependencies_requiring).
+  Structure is [documented below](#nested_restore_config_restore_order_group_kind_dependencies_requiring).
 
 
-<a name="nested_restore_config_restore_order_group_kind_dependencies_group_kind_dependencies_satisfying"></a>The `satisfying` block supports:
-
-* `resource_group` -
-  (Optional)
-  API Group of a Kubernetes resource, e.g.
-  "apiextensions.k8s.io", "storage.k8s.io", etc.
-  Use empty string for core group.
-
-* `resource_kind` -
-  (Optional)
-  Kind of a Kubernetes resource, e.g.
-  "CustomResourceDefinition", "StorageClass", etc.
-
-<a name="nested_restore_config_restore_order_group_kind_dependencies_group_kind_dependencies_requiring"></a>The `requiring` block supports:
+<a name="nested_restore_config_restore_order_group_kind_dependencies_satisfying"></a>The `satisfying` block supports:
 
 * `resource_group` -
   (Optional)
@@ -905,25 +910,18 @@ The following arguments are supported:
   Kind of a Kubernetes resource, e.g.
   "CustomResourceDefinition", "StorageClass", etc.
 
-- - -
+<a name="nested_restore_config_restore_order_group_kind_dependencies_requiring"></a>The `requiring` block supports:
 
-
-* `description` -
+* `resource_group` -
   (Optional)
-  User specified descriptive string for this RestorePlan.
+  API Group of a Kubernetes resource, e.g.
+  "apiextensions.k8s.io", "storage.k8s.io", etc.
+  Use empty string for core group.
 
-* `labels` -
+* `resource_kind` -
   (Optional)
-  Description: A set of custom labels supplied by the user.
-  A list of key->value pairs.
-  Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
-
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
+  Kind of a Kubernetes resource, e.g.
+  "CustomResourceDefinition", "StorageClass", etc.
 
 ## Attributes Reference
 
@@ -966,6 +964,18 @@ RestorePlan can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RestorePlan using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gke_backup_restore_plan.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RestorePlan using one of the formats above. For example:
 

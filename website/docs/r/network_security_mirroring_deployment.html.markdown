@@ -128,9 +128,6 @@ The following arguments are supported:
   component of the deployment's resource name.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels are key/value pairs that help to organize and filter resources.
@@ -144,6 +141,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -208,6 +206,18 @@ MirroringDeployment can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{mirroring_deployment_id}}`
 * `{{location}}/{{mirroring_deployment_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MirroringDeployment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    mirroringDeploymentId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_mirroring_deployment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MirroringDeployment using one of the formats above. For example:
 

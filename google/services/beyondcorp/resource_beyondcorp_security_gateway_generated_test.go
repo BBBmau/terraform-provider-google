@@ -19,15 +19,35 @@ package beyondcorp_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccBeyondcorpSecurityGateway_beyondcorpSecurityGatewayBasicExample(t *testing.T) {
@@ -51,6 +71,12 @@ func TestAccBeyondcorpSecurityGateway_beyondcorpSecurityGatewayBasicExample(t *t
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"location", "security_gateway_id"},
 			},
+			{
+				ResourceName:       "google_beyondcorp_security_gateway.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -61,6 +87,74 @@ resource "google_beyondcorp_security_gateway" "example" {
   security_gateway_id = "default%{random_suffix}"
   display_name = "My Security Gateway resource"
   hubs { region = "us-central1" }
+}
+`, context)
+}
+
+func TestAccBeyondcorpSecurityGateway_beyondcorpSecurityGatewaySpaExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBeyondcorpSecurityGatewayDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBeyondcorpSecurityGateway_beyondcorpSecurityGatewaySpaExample(context),
+			},
+			{
+				ResourceName:            "google_beyondcorp_security_gateway.example-spa",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"location", "security_gateway_id"},
+			},
+			{
+				ResourceName:       "google_beyondcorp_security_gateway.example-spa",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBeyondcorpSecurityGateway_beyondcorpSecurityGatewaySpaExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_beyondcorp_security_gateway" "example-spa" {
+  security_gateway_id = "tf-test-default-spa%{random_suffix}"
+  display_name = "My SPA Security Gateway resource"
+  proxy_protocol_config {
+    allowed_client_headers = ["header1", "header2"]
+    contextual_headers {
+      user_info {
+        output_type = "PROTOBUF"
+      }
+      group_info {
+        output_type = "JSON"
+      }
+      device_info {
+        output_type = "NONE"
+      }
+      output_type = "NONE"
+    }
+    metadata_headers = {
+      metadata-header1 = "value1"
+      metadata-header2 = "value2"
+    }
+    gateway_identity = "RESOURCE_NAME"
+    client_ip = true
+  }
+  service_discovery {
+    api_gateway {
+      resource_override {
+        path = "/api/v1/routes"
+       }
+    }
+  }
 }
 `, context)
 }

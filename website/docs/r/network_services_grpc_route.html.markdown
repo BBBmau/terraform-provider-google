@@ -199,141 +199,6 @@ The following arguments are supported:
   Name of the GrpcRoute resource.
 
 
-<a name="nested_rules"></a>The `rules` block supports:
-
-* `matches` -
-  (Optional)
-  Matches define conditions used for matching the rule against incoming gRPC requests.
-  Structure is [documented below](#nested_rules_rules_matches).
-
-* `action` -
-  (Optional)
-  Required. A detailed rule defining how to route traffic.
-  Structure is [documented below](#nested_rules_rules_action).
-
-
-<a name="nested_rules_rules_matches"></a>The `matches` block supports:
-
-* `headers` -
-  (Optional)
-  Specifies a list of HTTP request headers to match against.
-  Structure is [documented below](#nested_rules_rules_matches_matches_headers).
-
-* `method` -
-  (Optional)
-  A gRPC method to match against. If this field is empty or omitted, will match all methods.
-  Structure is [documented below](#nested_rules_rules_matches_matches_method).
-
-
-<a name="nested_rules_rules_matches_matches_headers"></a>The `headers` block supports:
-
-* `key` -
-  (Required)
-  Required. The key of the header.
-
-* `value` -
-  (Required)
-  Required. The value of the header.
-
-* `type` -
-  (Optional)
-  The type of match.
-  Default value is `EXACT`.
-  Possible values are: `TYPE_UNSPECIFIED`, `EXACT`, `REGULAR_EXPRESSION`.
-
-<a name="nested_rules_rules_matches_matches_method"></a>The `method` block supports:
-
-* `grpc_service` -
-  (Required)
-  Required. Name of the service to match against.
-
-* `grpc_method` -
-  (Required)
-  Required. Name of the method to match against.
-
-* `case_sensitive` -
-  (Optional)
-  Specifies that matches are case sensitive. The default value is true.
-
-<a name="nested_rules_rules_action"></a>The `action` block supports:
-
-* `destinations` -
-  (Optional)
-  The destination to which traffic should be forwarded.
-  Structure is [documented below](#nested_rules_rules_action_destinations).
-
-* `fault_injection_policy` -
-  (Optional)
-  The specification for fault injection introduced into traffic to test the resiliency of clients to backend service failure.
-  Structure is [documented below](#nested_rules_rules_action_fault_injection_policy).
-
-* `timeout` -
-  (Optional)
-  Specifies the timeout for selected route.
-
-* `retry_policy` -
-  (Optional)
-  Specifies the retry policy associated with this route.
-  Structure is [documented below](#nested_rules_rules_action_retry_policy).
-
-
-<a name="nested_rules_rules_action_destinations"></a>The `destinations` block supports:
-
-* `service_name` -
-  (Optional)
-  The URL of a BackendService to route traffic to.
-
-* `weight` -
-  (Optional)
-  Specifies the proportion of requests forwarded to the backend referenced by the serviceName field.
-
-<a name="nested_rules_rules_action_fault_injection_policy"></a>The `fault_injection_policy` block supports:
-
-* `delay` -
-  (Optional)
-  Specification of how client requests are delayed as part of fault injection before being sent to a destination.
-  Structure is [documented below](#nested_rules_rules_action_fault_injection_policy_delay).
-
-* `abort` -
-  (Optional)
-  Specification of how client requests are aborted as part of fault injection before being sent to a destination.
-  Structure is [documented below](#nested_rules_rules_action_fault_injection_policy_abort).
-
-
-<a name="nested_rules_rules_action_fault_injection_policy_delay"></a>The `delay` block supports:
-
-* `fixed_delay` -
-  (Optional)
-  Specify a fixed delay before forwarding the request.
-
-* `percentage` -
-  (Optional)
-  The percentage of traffic on which delay will be injected.
-
-<a name="nested_rules_rules_action_fault_injection_policy_abort"></a>The `abort` block supports:
-
-* `http_status` -
-  (Optional)
-  The HTTP status code used to abort the request.
-
-* `percentage` -
-  (Optional)
-  The percentage of traffic which will be aborted.
-
-<a name="nested_rules_rules_action_retry_policy"></a>The `retry_policy` block supports:
-
-* `retry_conditions` -
-  (Optional)
-  Specifies one or more conditions when this retry policy applies.
-  Each value may be one of: `connect-failure`, `refused-stream`, `cancelled`, `deadline-exceeded`, `resource-exhausted`, `unavailable`.
-
-* `num_retries` -
-  (Optional)
-  Specifies the allowed number of retries.
-
-- - -
-
-
 * `labels` -
   (Optional)
   Set of label tags associated with the GrpcRoute resource.
@@ -359,6 +224,139 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_rules"></a>The `rules` block supports:
+
+* `matches` -
+  (Optional)
+  Matches define conditions used for matching the rule against incoming gRPC requests.
+  Structure is [documented below](#nested_rules_matches).
+
+* `action` -
+  (Optional)
+  Required. A detailed rule defining how to route traffic.
+  Structure is [documented below](#nested_rules_action).
+
+
+<a name="nested_rules_matches"></a>The `matches` block supports:
+
+* `headers` -
+  (Optional)
+  Specifies a list of HTTP request headers to match against.
+  Structure is [documented below](#nested_rules_matches_headers).
+
+* `method` -
+  (Optional)
+  A gRPC method to match against. If this field is empty or omitted, will match all methods.
+  Structure is [documented below](#nested_rules_matches_method).
+
+
+<a name="nested_rules_matches_headers"></a>The `headers` block supports:
+
+* `key` -
+  (Required)
+  Required. The key of the header.
+
+* `value` -
+  (Required)
+  Required. The value of the header.
+
+* `type` -
+  (Optional)
+  The type of match.
+  Default value is `EXACT`.
+  Possible values are: `TYPE_UNSPECIFIED`, `EXACT`, `REGULAR_EXPRESSION`.
+
+<a name="nested_rules_matches_method"></a>The `method` block supports:
+
+* `grpc_service` -
+  (Required)
+  Required. Name of the service to match against.
+
+* `grpc_method` -
+  (Required)
+  Required. Name of the method to match against.
+
+* `case_sensitive` -
+  (Optional)
+  Specifies that matches are case sensitive. The default value is true.
+
+<a name="nested_rules_action"></a>The `action` block supports:
+
+* `destinations` -
+  (Optional)
+  The destination to which traffic should be forwarded.
+  Structure is [documented below](#nested_rules_action_destinations).
+
+* `fault_injection_policy` -
+  (Optional)
+  The specification for fault injection introduced into traffic to test the resiliency of clients to backend service failure.
+  Structure is [documented below](#nested_rules_action_fault_injection_policy).
+
+* `timeout` -
+  (Optional)
+  Specifies the timeout for selected route.
+
+* `retry_policy` -
+  (Optional)
+  Specifies the retry policy associated with this route.
+  Structure is [documented below](#nested_rules_action_retry_policy).
+
+
+<a name="nested_rules_action_destinations"></a>The `destinations` block supports:
+
+* `service_name` -
+  (Optional)
+  The URL of a BackendService to route traffic to.
+
+* `weight` -
+  (Optional)
+  Specifies the proportion of requests forwarded to the backend referenced by the serviceName field.
+
+<a name="nested_rules_action_fault_injection_policy"></a>The `fault_injection_policy` block supports:
+
+* `delay` -
+  (Optional)
+  Specification of how client requests are delayed as part of fault injection before being sent to a destination.
+  Structure is [documented below](#nested_rules_action_fault_injection_policy_delay).
+
+* `abort` -
+  (Optional)
+  Specification of how client requests are aborted as part of fault injection before being sent to a destination.
+  Structure is [documented below](#nested_rules_action_fault_injection_policy_abort).
+
+
+<a name="nested_rules_action_fault_injection_policy_delay"></a>The `delay` block supports:
+
+* `fixed_delay` -
+  (Optional)
+  Specify a fixed delay before forwarding the request.
+
+* `percentage` -
+  (Optional)
+  The percentage of traffic on which delay will be injected.
+
+<a name="nested_rules_action_fault_injection_policy_abort"></a>The `abort` block supports:
+
+* `http_status` -
+  (Optional)
+  The HTTP status code used to abort the request.
+
+* `percentage` -
+  (Optional)
+  The percentage of traffic which will be aborted.
+
+<a name="nested_rules_action_retry_policy"></a>The `retry_policy` block supports:
+
+* `retry_conditions` -
+  (Optional)
+  Specifies one or more conditions when this retry policy applies.
+  Each value may be one of: `connect-failure`, `refused-stream`, `cancelled`, `deadline-exceeded`, `resource-exhausted`, `unavailable`.
+
+* `num_retries` -
+  (Optional)
+  Specifies the allowed number of retries.
 
 ## Attributes Reference
 
@@ -401,6 +399,18 @@ GrpcRoute can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GrpcRoute using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_grpc_route.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GrpcRoute using one of the formats above. For example:
 

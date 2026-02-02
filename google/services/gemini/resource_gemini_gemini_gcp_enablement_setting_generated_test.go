@@ -19,15 +19,35 @@ package gemini_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccGeminiGeminiGcpEnablementSetting_geminiGeminiGcpEnablementSettingBasicExample(t *testing.T) {
@@ -51,6 +71,12 @@ func TestAccGeminiGeminiGcpEnablementSetting_geminiGeminiGcpEnablementSettingBas
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"gemini_gcp_enablement_setting_id", "labels", "location", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_gemini_gemini_gcp_enablement_setting.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -62,6 +88,7 @@ resource "google_gemini_gemini_gcp_enablement_setting" "example" {
     location = "global"
     labels = {"my_key": "my_value"}
     enable_customer_data_sharing = true
+    web_grounding_type = "WEB_GROUNDING_FOR_ENTERPRISE"
 }
 `, context)
 }

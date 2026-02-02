@@ -20,16 +20,32 @@
 package monitoring
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
@@ -53,6 +69,38 @@ func validateAvailabilitySli(v interface{}, key string) (ws []string, errs []err
 	return
 }
 
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceMonitoringSlo() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceMonitoringSloCreate,
@@ -74,6 +122,22 @@ func ResourceMonitoringSlo() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"goal": {
 				Type:         schema.TypeFloat,
@@ -94,7 +158,7 @@ to be met. 0 < goal <= 0.999`,
 				ValidateFunc: verify.ValidateEnum([]string{"DAY", "WEEK", "FORTNIGHT", "MONTH", ""}),
 				Description: `A calendar period, semantically "since the start of the current
 <calendarPeriod>". Possible values: ["DAY", "WEEK", "FORTNIGHT", "MONTH"]`,
-				ExactlyOneOf: []string{"rolling_period_days", "calendar_period"},
+				ExactlyOneOf: []string{"calendar_period", "rolling_period_days"},
 			},
 			"display_name": {
 				Type:        schema.TypeString,
@@ -107,7 +171,7 @@ to be met. 0 < goal <= 0.999`,
 				ValidateFunc: validation.IntBetween(1, 30),
 				Description: `A rolling time period, semantically "in the past X days".
 Must be between 1 to 30 days, inclusive.`,
-				ExactlyOneOf: []string{"rolling_period_days", "calendar_period"},
+				ExactlyOneOf: []string{"calendar_period", "rolling_period_days"},
 			},
 			"basic_sli": {
 				Type:     schema.TypeList,
@@ -139,7 +203,7 @@ Exactly one of the following must be set:
 									},
 								},
 							},
-							ExactlyOneOf: []string{"basic_sli.0.latency", "basic_sli.0.availability"},
+							ExactlyOneOf: []string{"basic_sli.0.availability", "basic_sli.0.latency"},
 						},
 						"latency": {
 							Type:        schema.TypeList,
@@ -157,7 +221,7 @@ this service that return in no more than threshold.`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"basic_sli.0.latency", "basic_sli.0.availability"},
+							ExactlyOneOf: []string{"basic_sli.0.availability", "basic_sli.0.latency"},
 						},
 						"location": {
 							Type:     schema.TypeSet,
@@ -257,21 +321,21 @@ just one of min or max.`,
 													Optional: true,
 													Description: `max value for the range (inclusive). If not given,
 will be set to 0`,
-													AtLeastOneOf: []string{"request_based_sli.0.distribution_cut.0.range.0.min", "request_based_sli.0.distribution_cut.0.range.0.max"},
+													AtLeastOneOf: []string{"request_based_sli.0.distribution_cut.0.range.0.max", "request_based_sli.0.distribution_cut.0.range.0.min"},
 												},
 												"min": {
 													Type:     schema.TypeFloat,
 													Optional: true,
 													Description: `Min value for the range (inclusive). If not given,
 will be set to 0`,
-													AtLeastOneOf: []string{"request_based_sli.0.distribution_cut.0.range.0.min", "request_based_sli.0.distribution_cut.0.range.0.max"},
+													AtLeastOneOf: []string{"request_based_sli.0.distribution_cut.0.range.0.max", "request_based_sli.0.distribution_cut.0.range.0.min"},
 												},
 											},
 										},
 									},
 								},
 							},
-							ExactlyOneOf: []string{"request_based_sli.0.good_total_ratio", "request_based_sli.0.distribution_cut"},
+							ExactlyOneOf: []string{"request_based_sli.0.distribution_cut", "request_based_sli.0.good_total_ratio"},
 						},
 						"good_total_ratio": {
 							Type:     schema.TypeList,
@@ -299,7 +363,7 @@ must have MetricKind = DELTA or MetricKind = CUMULATIVE.
 
 Exactly two of 'good_service_filter','bad_service_filter','total_service_filter'
 must be set (good + bad = total is assumed).`,
-										AtLeastOneOf: []string{"request_based_sli.0.good_total_ratio.0.good_service_filter", "request_based_sli.0.good_total_ratio.0.bad_service_filter", "request_based_sli.0.good_total_ratio.0.total_service_filter"},
+										AtLeastOneOf: []string{"request_based_sli.0.good_total_ratio.0.bad_service_filter", "request_based_sli.0.good_total_ratio.0.good_service_filter", "request_based_sli.0.good_total_ratio.0.total_service_filter"},
 									},
 									"good_service_filter": {
 										Type:     schema.TypeString,
@@ -311,7 +375,7 @@ must have MetricKind = DELTA or MetricKind = CUMULATIVE.
 
 Exactly two of 'good_service_filter','bad_service_filter','total_service_filter'
 must be set (good + bad = total is assumed).`,
-										AtLeastOneOf: []string{"request_based_sli.0.good_total_ratio.0.good_service_filter", "request_based_sli.0.good_total_ratio.0.bad_service_filter", "request_based_sli.0.good_total_ratio.0.total_service_filter"},
+										AtLeastOneOf: []string{"request_based_sli.0.good_total_ratio.0.bad_service_filter", "request_based_sli.0.good_total_ratio.0.good_service_filter", "request_based_sli.0.good_total_ratio.0.total_service_filter"},
 									},
 									"total_service_filter": {
 										Type:     schema.TypeString,
@@ -324,11 +388,11 @@ must have MetricKind = DELTA or MetricKind = CUMULATIVE.
 
 Exactly two of 'good_service_filter','bad_service_filter','total_service_filter'
 must be set (good + bad = total is assumed).`,
-										AtLeastOneOf: []string{"request_based_sli.0.good_total_ratio.0.good_service_filter", "request_based_sli.0.good_total_ratio.0.bad_service_filter", "request_based_sli.0.good_total_ratio.0.total_service_filter"},
+										AtLeastOneOf: []string{"request_based_sli.0.good_total_ratio.0.bad_service_filter", "request_based_sli.0.good_total_ratio.0.good_service_filter", "request_based_sli.0.good_total_ratio.0.total_service_filter"},
 									},
 								},
 							},
-							ExactlyOneOf: []string{"request_based_sli.0.good_total_ratio", "request_based_sli.0.distribution_cut"},
+							ExactlyOneOf: []string{"request_based_sli.0.distribution_cut", "request_based_sli.0.good_total_ratio"},
 						},
 					},
 				},
@@ -393,7 +457,7 @@ high enough. One of 'good_bad_metric_filter',
 															},
 														},
 													},
-													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.latency", "windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.availability"},
+													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.availability", "windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.latency"},
 												},
 												"latency": {
 													Type:        schema.TypeList,
@@ -411,7 +475,7 @@ this service that return in no more than threshold.`,
 															},
 														},
 													},
-													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.latency", "windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.availability"},
+													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.availability", "windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance.0.latency"},
 												},
 												"location": {
 													Type:     schema.TypeSet,
@@ -457,7 +521,7 @@ field will result in an error.`,
 												},
 											},
 										},
-										ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance", "windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance"},
+										ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance", "windows_based_sli.0.good_total_ratio_threshold.0.performance"},
 									},
 									"performance": {
 										Type:        schema.TypeList,
@@ -502,21 +566,21 @@ just one of min or max.`,
 																			Optional: true,
 																			Description: `max value for the range (inclusive). If not given,
 will be set to 0`,
-																			AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.min", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.max"},
+																			AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.max", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.min"},
 																		},
 																		"min": {
 																			Type:     schema.TypeFloat,
 																			Optional: true,
 																			Description: `Min value for the range (inclusive). If not given,
 will be set to 0`,
-																			AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.min", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.max"},
+																			AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.max", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut.0.range.0.min"},
 																		},
 																	},
 																},
 															},
 														},
 													},
-													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut"},
+													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio"},
 												},
 												"good_total_ratio": {
 													Type:     schema.TypeList,
@@ -541,7 +605,7 @@ good + bad = total is assumed)
 
 Must have ValueType = DOUBLE or ValueType = INT64 and
 must have MetricKind = DELTA or MetricKind = CUMULATIVE.`,
-																AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.good_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.bad_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.total_service_filter"},
+																AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.bad_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.good_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.total_service_filter"},
 															},
 															"good_service_filter": {
 																Type:     schema.TypeString,
@@ -553,7 +617,7 @@ good + bad = total is assumed)
 
 Must have ValueType = DOUBLE or ValueType = INT64 and
 must have MetricKind = DELTA or MetricKind = CUMULATIVE.`,
-																AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.good_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.bad_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.total_service_filter"},
+																AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.bad_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.good_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.total_service_filter"},
 															},
 															"total_service_filter": {
 																Type:     schema.TypeString,
@@ -565,15 +629,15 @@ good + bad = total is assumed)
 
 Must have ValueType = DOUBLE or ValueType = INT64 and
 must have MetricKind = DELTA or MetricKind = CUMULATIVE.`,
-																AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.good_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.bad_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.total_service_filter"},
+																AtLeastOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.bad_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.good_service_filter", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio.0.total_service_filter"},
 															},
 														},
 													},
-													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut"},
+													ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance.0.distribution_cut", "windows_based_sli.0.good_total_ratio_threshold.0.performance.0.good_total_ratio"},
 												},
 											},
 										},
-										ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.performance", "windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance"},
+										ExactlyOneOf: []string{"windows_based_sli.0.good_total_ratio_threshold.0.basic_sli_performance", "windows_based_sli.0.good_total_ratio_threshold.0.performance"},
 									},
 									"threshold": {
 										Type:     schema.TypeFloat,
@@ -618,7 +682,7 @@ good service.`,
 													Description: `max value for the range (inclusive). If not given,
 will be set to "infinity", defining an open range
 ">= range.min"`,
-													AtLeastOneOf: []string{"windows_based_sli.0.metric_mean_in_range.0.range.0.min", "windows_based_sli.0.metric_mean_in_range.0.range.0.max"},
+													AtLeastOneOf: []string{"windows_based_sli.0.metric_mean_in_range.0.range.0.max", "windows_based_sli.0.metric_mean_in_range.0.range.0.min"},
 												},
 												"min": {
 													Type:     schema.TypeFloat,
@@ -626,7 +690,7 @@ will be set to "infinity", defining an open range
 													Description: `Min value for the range (inclusive). If not given,
 will be set to "-infinity", defining an open range
 "< range.max"`,
-													AtLeastOneOf: []string{"windows_based_sli.0.metric_mean_in_range.0.range.0.min", "windows_based_sli.0.metric_mean_in_range.0.range.0.max"},
+													AtLeastOneOf: []string{"windows_based_sli.0.metric_mean_in_range.0.range.0.max", "windows_based_sli.0.metric_mean_in_range.0.range.0.min"},
 												},
 											},
 										},
@@ -677,7 +741,7 @@ just one of min or max. Summed value 'X' should satisfy
 													Description: `max value for the range (inclusive). If not given,
 will be set to "infinity", defining an open range
 ">= range.min"`,
-													AtLeastOneOf: []string{"windows_based_sli.0.metric_sum_in_range.0.range.0.min", "windows_based_sli.0.metric_sum_in_range.0.range.0.max"},
+													AtLeastOneOf: []string{"windows_based_sli.0.metric_sum_in_range.0.range.0.max", "windows_based_sli.0.metric_sum_in_range.0.range.0.min"},
 												},
 												"min": {
 													Type:     schema.TypeFloat,
@@ -685,7 +749,7 @@ will be set to "infinity", defining an open range
 													Description: `Min value for the range (inclusive). If not given,
 will be set to "-infinity", defining an open range
 "< range.max"`,
-													AtLeastOneOf: []string{"windows_based_sli.0.metric_sum_in_range.0.range.0.min", "windows_based_sli.0.metric_sum_in_range.0.range.0.max"},
+													AtLeastOneOf: []string{"windows_based_sli.0.metric_sum_in_range.0.range.0.max", "windows_based_sli.0.metric_sum_in_range.0.range.0.min"},
 												},
 											},
 										},
@@ -773,11 +837,11 @@ func resourceMonitoringSloCreate(d *schema.ResourceData, meta interface{}) error
 	} else if v, ok := d.GetOkExists("goal"); !tpgresource.IsEmptyValue(reflect.ValueOf(goalProp)) && (ok || !reflect.DeepEqual(v, goalProp)) {
 		obj["goal"] = goalProp
 	}
-	rollingPeriodProp, err := expandMonitoringSloRollingPeriodDays(d.Get("rolling_period_days"), d, config)
+	rollingPeriodDaysProp, err := expandMonitoringSloRollingPeriodDays(d.Get("rolling_period_days"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("rolling_period_days"); !tpgresource.IsEmptyValue(reflect.ValueOf(rollingPeriodProp)) && (ok || !reflect.DeepEqual(v, rollingPeriodProp)) {
-		obj["rollingPeriod"] = rollingPeriodProp
+	} else if v, ok := d.GetOkExists("rolling_period_days"); !tpgresource.IsEmptyValue(reflect.ValueOf(rollingPeriodDaysProp)) && (ok || !reflect.DeepEqual(v, rollingPeriodDaysProp)) {
+		obj["rollingPeriod"] = rollingPeriodDaysProp
 	}
 	calendarPeriodProp, err := expandMonitoringSloCalendarPeriod(d.Get("calendar_period"), d, config)
 	if err != nil {
@@ -797,11 +861,11 @@ func resourceMonitoringSloCreate(d *schema.ResourceData, meta interface{}) error
 	} else if !tpgresource.IsEmptyValue(reflect.ValueOf(serviceLevelIndicatorProp)) {
 		obj["serviceLevelIndicator"] = serviceLevelIndicatorProp
 	}
-	nameProp, err := expandMonitoringSloSloId(d.Get("slo_id"), d, config)
+	sloIdProp, err := expandMonitoringSloSloId(d.Get("slo_id"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("slo_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(nameProp)) && (ok || !reflect.DeepEqual(v, nameProp)) {
-		obj["name"] = nameProp
+	} else if v, ok := d.GetOkExists("slo_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(sloIdProp)) && (ok || !reflect.DeepEqual(v, sloIdProp)) {
+		obj["name"] = sloIdProp
 	}
 
 	obj, err = resourceMonitoringSloEncoder(d, meta, obj)
@@ -862,6 +926,22 @@ func resourceMonitoringSloCreate(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	log.Printf("[DEBUG] Finished creating Slo %q: %#v", d.Id(), res)
 
@@ -947,6 +1027,24 @@ func resourceMonitoringSloRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error reading Slo: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -955,6 +1053,21 @@ func resourceMonitoringSloUpdate(d *schema.ResourceData, meta interface{}) error
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -978,11 +1091,11 @@ func resourceMonitoringSloUpdate(d *schema.ResourceData, meta interface{}) error
 	} else if v, ok := d.GetOkExists("goal"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, goalProp)) {
 		obj["goal"] = goalProp
 	}
-	rollingPeriodProp, err := expandMonitoringSloRollingPeriodDays(d.Get("rolling_period_days"), d, config)
+	rollingPeriodDaysProp, err := expandMonitoringSloRollingPeriodDays(d.Get("rolling_period_days"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("rolling_period_days"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, rollingPeriodProp)) {
-		obj["rollingPeriod"] = rollingPeriodProp
+	} else if v, ok := d.GetOkExists("rolling_period_days"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, rollingPeriodDaysProp)) {
+		obj["rollingPeriod"] = rollingPeriodDaysProp
 	}
 	calendarPeriodProp, err := expandMonitoringSloCalendarPeriod(d.Get("calendar_period"), d, config)
 	if err != nil {
@@ -1672,7 +1785,7 @@ func flattenMonitoringSloSloId(v interface{}, d *schema.ResourceData, config *tr
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func expandMonitoringSloDisplayName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
@@ -1739,6 +1852,9 @@ func expandMonitoringSloServiceLevelIndicator(v interface{}, d tpgresource.Terra
 }
 
 func expandMonitoringSloServiceLevelIndicatorBasicSli(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1801,6 +1917,9 @@ func expandMonitoringSloServiceLevelIndicatorBasicSliVersion(v interface{}, d tp
 }
 
 func expandMonitoringSloServiceLevelIndicatorBasicSliLatency(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1824,6 +1943,9 @@ func expandMonitoringSloServiceLevelIndicatorBasicSliLatencyThreshold(v interfac
 }
 
 func expandMonitoringSloServiceLevelIndicatorBasicSliAvailability(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1847,6 +1969,9 @@ func expandMonitoringSloServiceLevelIndicatorBasicSliAvailabilityEnabled(v inter
 }
 
 func expandMonitoringSloServiceLevelIndicatorRequestBasedSli(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1873,6 +1998,9 @@ func expandMonitoringSloServiceLevelIndicatorRequestBasedSli(v interface{}, d tp
 }
 
 func expandMonitoringSloServiceLevelIndicatorRequestBasedSliGoodTotalRatio(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1918,6 +2046,9 @@ func expandMonitoringSloServiceLevelIndicatorRequestBasedSliGoodTotalRatioTotalS
 }
 
 func expandMonitoringSloServiceLevelIndicatorRequestBasedSliDistributionCut(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1948,6 +2079,9 @@ func expandMonitoringSloServiceLevelIndicatorRequestBasedSliDistributionCutDistr
 }
 
 func expandMonitoringSloServiceLevelIndicatorRequestBasedSliDistributionCutRange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1982,6 +2116,9 @@ func expandMonitoringSloServiceLevelIndicatorRequestBasedSliDistributionCutRange
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSli(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2037,6 +2174,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodBadMetricFilter(
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThreshold(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2074,6 +2214,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdPerformance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2100,6 +2243,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdPerformanceGoodTotalRatio(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2145,6 +2291,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCut(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2175,6 +2324,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdPerformanceDistributionCutRange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2209,6 +2361,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2271,6 +2426,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceLatency(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2294,6 +2452,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresholdBasicSliPerformanceAvailability(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2317,6 +2478,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliGoodTotalRatioThresh
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricMeanInRange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2347,6 +2511,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricMeanInRangeTim
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricMeanInRangeRange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2381,6 +2548,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricMeanInRangeRan
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricSumInRange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2411,6 +2581,9 @@ func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricSumInRangeTime
 }
 
 func expandMonitoringSloServiceLevelIndicatorWindowsBasedSliMetricSumInRangeRange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

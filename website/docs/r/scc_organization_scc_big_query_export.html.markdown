@@ -40,7 +40,7 @@ To get more information about OrganizationSccBigQueryExport, see:
 
 ```hcl
 resource "google_bigquery_dataset" "default" {
-  dataset_id                  = ""
+  dataset_id                  = "my-dataset"
   friendly_name               = "test"
   description                 = "This is a test description"
   location                    = "US"
@@ -81,9 +81,6 @@ The following arguments are supported:
   This must be unique within the organization.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   The description of the notification config (max of 1024 characters).
@@ -115,6 +112,7 @@ The following arguments are supported:
   See
   [Filtering notifications](https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications)
   for information on how to write a filter.
+
 
 
 ## Attributes Reference
@@ -163,6 +161,17 @@ OrganizationSccBigQueryExport can be imported using any of these accepted format
 * `organizations/{{organization}}/bigQueryExports/{{big_query_export_id}}`
 * `{{organization}}/{{big_query_export_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationSccBigQueryExport using identity values. For example:
+
+```tf
+import {
+  identity = {
+    organization = "<-required value->"
+    bigQueryExportId = "<-required value->"
+  }
+  to = google_scc_organization_scc_big_query_export.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationSccBigQueryExport using one of the formats above. For example:
 

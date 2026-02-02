@@ -21,12 +21,22 @@ package bigquery_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
+	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccBigQueryTableIamBindingGenerated(t *testing.T) {
@@ -46,7 +56,7 @@ func TestAccBigQueryTableIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_bigquery_table_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/datasets/%s/tables/%s roles/bigquery.dataOwner", envvar.GetTestProjectFromEnv(), fmt.Sprintf("tf_test_dataset_id%s", context["random_suffix"]), fmt.Sprintf("tf_test_table_id%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBigQueryTableIAMBindingStateID("google_bigquery_table_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -56,7 +66,7 @@ func TestAccBigQueryTableIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_bigquery_table_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/datasets/%s/tables/%s roles/bigquery.dataOwner", envvar.GetTestProjectFromEnv(), fmt.Sprintf("tf_test_dataset_id%s", context["random_suffix"]), fmt.Sprintf("tf_test_table_id%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBigQueryTableIAMBindingStateID("google_bigquery_table_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -82,7 +92,7 @@ func TestAccBigQueryTableIamMemberGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_bigquery_table_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/datasets/%s/tables/%s roles/bigquery.dataOwner user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), fmt.Sprintf("tf_test_dataset_id%s", context["random_suffix"]), fmt.Sprintf("tf_test_table_id%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBigQueryTableIAMMemberStateID("google_bigquery_table_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -108,7 +118,7 @@ func TestAccBigQueryTableIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_bigquery_table_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/datasets/%s/tables/%s", envvar.GetTestProjectFromEnv(), fmt.Sprintf("tf_test_dataset_id%s", context["random_suffix"]), fmt.Sprintf("tf_test_table_id%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBigQueryTableIAMPolicyStateID("google_bigquery_table_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -117,7 +127,7 @@ func TestAccBigQueryTableIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_bigquery_table_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/datasets/%s/tables/%s", envvar.GetTestProjectFromEnv(), fmt.Sprintf("tf_test_dataset_id%s", context["random_suffix"]), fmt.Sprintf("tf_test_table_id%s", context["random_suffix"])),
+				ImportStateIdFunc: generateBigQueryTableIAMPolicyStateID("google_bigquery_table_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -475,4 +485,58 @@ resource "google_bigquery_table_iam_binding" "foo" {
   members = ["user:admin@hashicorptest.com", "user:gterraformtest1@gmail.com"]
 }
 `, context)
+}
+
+func generateBigQueryTableIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		dataset_id := tpgresource.GetResourceNameFromSelfLink(rawState["dataset_id"])
+		table_id := tpgresource.GetResourceNameFromSelfLink(rawState["table_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/datasets/%s/tables/%s", project, dataset_id, table_id), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateBigQueryTableIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		dataset_id := tpgresource.GetResourceNameFromSelfLink(rawState["dataset_id"])
+		table_id := tpgresource.GetResourceNameFromSelfLink(rawState["table_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/datasets/%s/tables/%s", project, dataset_id, table_id), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateBigQueryTableIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		dataset_id := tpgresource.GetResourceNameFromSelfLink(rawState["dataset_id"])
+		table_id := tpgresource.GetResourceNameFromSelfLink(rawState["table_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/datasets/%s/tables/%s", project, dataset_id, table_id), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

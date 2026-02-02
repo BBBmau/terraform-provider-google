@@ -58,7 +58,7 @@ resource "google_access_context_manager_authorized_orgs_desc" "authorized-orgs-d
 }
 
 resource "google_access_context_manager_access_policy" "test-access" {
-  parent = "organizations/"
+  parent = "organizations/123456789"
   title  = "my policy"
 }
 ```
@@ -79,9 +79,6 @@ The following arguments are supported:
   The `authorized_orgs_desc` component must begin with a letter, followed by
   alphanumeric characters or `_`.
   After you create an `AuthorizedOrgsDesc`, you cannot change its `name`.
-
-
-- - -
 
 
 * `orgs` -
@@ -121,6 +118,7 @@ The following arguments are supported:
   Possible values are: `AUTHORIZATION_TYPE_TRUST`.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -150,6 +148,16 @@ AuthorizedOrgsDesc can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AuthorizedOrgsDesc using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+  }
+  to = google_access_context_manager_authorized_orgs_desc.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AuthorizedOrgsDesc using one of the formats above. For example:
 

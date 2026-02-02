@@ -20,21 +20,38 @@
 package cloudscheduler
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 // Both oidc and oauth headers cannot be set
@@ -119,6 +136,38 @@ func validateHttpHeaders() schema.SchemaValidateFunc {
 	}
 }
 
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceCloudSchedulerJob() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceCloudSchedulerJobCreate,
@@ -141,6 +190,26 @@ func ResourceCloudSchedulerJob() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 			tpgresource.DefaultProviderRegion,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -179,21 +248,21 @@ No spaces are allowed, and the maximum length allowed is 2083 characters`,
 										Optional: true,
 										Description: `App instance.
 By default, the job is sent to an instance which is available when the job is attempted.`,
-										AtLeastOneOf: []string{"app_engine_http_target.0.app_engine_routing.0.service", "app_engine_http_target.0.app_engine_routing.0.version", "app_engine_http_target.0.app_engine_routing.0.instance"},
+										AtLeastOneOf: []string{"app_engine_http_target.0.app_engine_routing.0.instance", "app_engine_http_target.0.app_engine_routing.0.service", "app_engine_http_target.0.app_engine_routing.0.version"},
 									},
 									"service": {
 										Type:     schema.TypeString,
 										Optional: true,
 										Description: `App service.
 By default, the job is sent to the service which is the default service when the job is attempted.`,
-										AtLeastOneOf: []string{"app_engine_http_target.0.app_engine_routing.0.service", "app_engine_http_target.0.app_engine_routing.0.version", "app_engine_http_target.0.app_engine_routing.0.instance"},
+										AtLeastOneOf: []string{"app_engine_http_target.0.app_engine_routing.0.instance", "app_engine_http_target.0.app_engine_routing.0.service", "app_engine_http_target.0.app_engine_routing.0.version"},
 									},
 									"version": {
 										Type:     schema.TypeString,
 										Optional: true,
 										Description: `App version.
 By default, the job is sent to the version which is the default version when the job is attempted.`,
-										AtLeastOneOf: []string{"app_engine_http_target.0.app_engine_routing.0.service", "app_engine_http_target.0.app_engine_routing.0.version", "app_engine_http_target.0.app_engine_routing.0.instance"},
+										AtLeastOneOf: []string{"app_engine_http_target.0.app_engine_routing.0.instance", "app_engine_http_target.0.app_engine_routing.0.service", "app_engine_http_target.0.app_engine_routing.0.version"},
 									},
 								},
 							},
@@ -224,7 +293,7 @@ Headers can be set when the job is created.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pubsub_target", "http_target", "app_engine_http_target"},
+				ExactlyOneOf: []string{"app_engine_http_target", "http_target", "pubsub_target"},
 			},
 			"attempt_deadline": {
 				Type:             schema.TypeString,
@@ -334,7 +403,7 @@ the URI specified in target will be used.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pubsub_target", "http_target", "app_engine_http_target"},
+				ExactlyOneOf: []string{"app_engine_http_target", "http_target", "pubsub_target"},
 			},
 			"paused": {
 				Type:        schema.TypeBool,
@@ -377,7 +446,7 @@ Pubsub message must contain either non-empty data, or at least one attribute.
 						},
 					},
 				},
-				ExactlyOneOf: []string{"pubsub_target", "http_target", "app_engine_http_target"},
+				ExactlyOneOf: []string{"app_engine_http_target", "http_target", "pubsub_target"},
 			},
 			"region": {
 				Type:        schema.TypeString,
@@ -401,7 +470,7 @@ then it will be retried with exponential backoff according to the settings`,
 							Optional: true,
 							Description: `The maximum amount of time to wait before retrying a job after it fails.
 A duration in seconds with up to nine fractional digits, terminated by 's'.`,
-							AtLeastOneOf: []string{"retry_config.0.retry_count", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.max_backoff_duration", "retry_config.0.max_doublings"},
+							AtLeastOneOf: []string{"retry_config.0.max_backoff_duration", "retry_config.0.max_doublings", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.retry_count"},
 						},
 						"max_doublings": {
 							Type:     schema.TypeInt,
@@ -411,7 +480,7 @@ A duration in seconds with up to nine fractional digits, terminated by 's'.`,
 A job's retry interval starts at minBackoffDuration,
 then doubles maxDoublings times, then increases linearly,
 and finally retries retries at intervals of maxBackoffDuration up to retryCount times.`,
-							AtLeastOneOf: []string{"retry_config.0.retry_count", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.max_backoff_duration", "retry_config.0.max_doublings"},
+							AtLeastOneOf: []string{"retry_config.0.max_backoff_duration", "retry_config.0.max_doublings", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.retry_count"},
 						},
 						"max_retry_duration": {
 							Type:     schema.TypeString,
@@ -420,7 +489,7 @@ and finally retries retries at intervals of maxBackoffDuration up to retryCount 
 							Description: `The time limit for retrying a failed job, measured from time when an execution was first attempted.
 If specified with retryCount, the job will be retried until both limits are reached.
 A duration in seconds with up to nine fractional digits, terminated by 's'.`,
-							AtLeastOneOf: []string{"retry_config.0.retry_count", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.max_backoff_duration", "retry_config.0.max_doublings"},
+							AtLeastOneOf: []string{"retry_config.0.max_backoff_duration", "retry_config.0.max_doublings", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.retry_count"},
 						},
 						"min_backoff_duration": {
 							Type:     schema.TypeString,
@@ -428,7 +497,7 @@ A duration in seconds with up to nine fractional digits, terminated by 's'.`,
 							Optional: true,
 							Description: `The minimum amount of time to wait before retrying a job after it fails.
 A duration in seconds with up to nine fractional digits, terminated by 's'.`,
-							AtLeastOneOf: []string{"retry_config.0.retry_count", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.max_backoff_duration", "retry_config.0.max_doublings"},
+							AtLeastOneOf: []string{"retry_config.0.max_backoff_duration", "retry_config.0.max_doublings", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.retry_count"},
 						},
 						"retry_count": {
 							Type:     schema.TypeInt,
@@ -437,7 +506,7 @@ A duration in seconds with up to nine fractional digits, terminated by 's'.`,
 							Description: `The number of attempts that the system will make to run a
 job using the exponential backoff procedure described by maxDoublings.
 Values greater than 5 and negative values are not allowed.`,
-							AtLeastOneOf: []string{"retry_config.0.retry_count", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.max_backoff_duration", "retry_config.0.max_doublings"},
+							AtLeastOneOf: []string{"retry_config.0.max_backoff_duration", "retry_config.0.max_doublings", "retry_config.0.max_retry_duration", "retry_config.0.min_backoff_duration", "retry_config.0.retry_count"},
 						},
 					},
 				},
@@ -585,6 +654,27 @@ func resourceCloudSchedulerJobCreate(d *schema.ResourceData, meta interface{}) e
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	endpoint := "resume" // Default to enabled
 	logSuccessMsg := "Job state has been set to ENABLED"
 	if paused, pausedOk := d.GetOk("paused"); pausedOk && paused.(bool) {
@@ -704,6 +794,30 @@ func resourceCloudSchedulerJobRead(d *schema.ResourceData, meta interface{}) err
 		return fmt.Errorf("Error reading Job: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -712,6 +826,26 @@ func resourceCloudSchedulerJobUpdate(d *schema.ResourceData, meta interface{}) e
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -922,7 +1056,7 @@ func flattenCloudSchedulerJobName(v interface{}, d *schema.ResourceData, config 
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func flattenCloudSchedulerJobDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1105,19 +1239,29 @@ func flattenCloudSchedulerJobAppEngineHttpTargetBody(v interface{}, d *schema.Re
 }
 
 func flattenCloudSchedulerJobAppEngineHttpTargetHeaders(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	var headers = v.(map[string]interface{})
+	if v == nil {
+		return nil
+	}
+	headers, ok := v.(map[string]interface{})
+	if !ok {
+		return nil
+	}
 	if v, ok := headers["User-Agent"]; ok {
-		if v.(string) == "AppEngine-Google; (+http://code.google.com/appengine)" {
-			delete(headers, "User-Agent")
-		} else if v.(string) == "Google-Cloud-Scheduler" {
-			delete(headers, "User-Agent")
-		} else {
-			headers["User-Agent"] = strings.TrimSpace(strings.Replace(v.(string), "AppEngine-Google; (+http://code.google.com/appengine)", "", -1))
+		if userAgent, ok := v.(string); ok {
+			if userAgent == "AppEngine-Google; (+http://code.google.com/appengine)" {
+				delete(headers, "User-Agent")
+			} else if userAgent == "Google-Cloud-Scheduler" {
+				delete(headers, "User-Agent")
+			} else {
+				headers["User-Agent"] = strings.TrimSpace(strings.Replace(userAgent, "AppEngine-Google; (+http://code.google.com/appengine)", "", -1))
+			}
 		}
 	}
 	if v, ok := headers["Content-Type"]; ok {
-		if v.(string) == "application/octet-stream" {
-			delete(headers, "Content-Type")
+		if contentType, ok := v.(string); ok {
+			if contentType == "application/octet-stream" {
+				delete(headers, "Content-Type")
+			}
 		}
 	}
 	r := regexp.MustCompile(`(X-Google-|X-AppEngine-|Content-Length).*`)
@@ -1165,19 +1309,29 @@ func flattenCloudSchedulerJobHttpTargetBody(v interface{}, d *schema.ResourceDat
 }
 
 func flattenCloudSchedulerJobHttpTargetHeaders(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	var headers = v.(map[string]interface{})
+	if v == nil {
+		return nil
+	}
+	headers, ok := v.(map[string]interface{})
+	if !ok {
+		return nil
+	}
 	if v, ok := headers["User-Agent"]; ok {
-		if v.(string) == "AppEngine-Google; (+http://code.google.com/appengine)" {
-			delete(headers, "User-Agent")
-		} else if v.(string) == "Google-Cloud-Scheduler" {
-			delete(headers, "User-Agent")
-		} else {
-			headers["User-Agent"] = strings.TrimSpace(strings.Replace(v.(string), "AppEngine-Google; (+http://code.google.com/appengine)", "", -1))
+		if userAgent, ok := v.(string); ok {
+			if userAgent == "AppEngine-Google; (+http://code.google.com/appengine)" {
+				delete(headers, "User-Agent")
+			} else if userAgent == "Google-Cloud-Scheduler" {
+				delete(headers, "User-Agent")
+			} else {
+				headers["User-Agent"] = strings.TrimSpace(strings.Replace(userAgent, "AppEngine-Google; (+http://code.google.com/appengine)", "", -1))
+			}
 		}
 	}
 	if v, ok := headers["Content-Type"]; ok {
-		if v.(string) == "application/octet-stream" {
-			delete(headers, "Content-Type")
+		if contentType, ok := v.(string); ok {
+			if contentType == "application/octet-stream" {
+				delete(headers, "Content-Type")
+			}
 		}
 	}
 	r := regexp.MustCompile(`(X-Google-|X-AppEngine-|Content-Length).*`)
@@ -1260,6 +1414,9 @@ func expandCloudSchedulerJobAttemptDeadline(v interface{}, d tpgresource.Terrafo
 }
 
 func expandCloudSchedulerJobRetryConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1327,6 +1484,9 @@ func expandCloudSchedulerJobRetryConfigMaxDoublings(v interface{}, d tpgresource
 }
 
 func expandCloudSchedulerJobPubsubTarget(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1379,6 +1539,9 @@ func expandCloudSchedulerJobPubsubTargetAttributes(v interface{}, d tpgresource.
 }
 
 func expandCloudSchedulerJobAppEngineHttpTarget(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1430,6 +1593,9 @@ func expandCloudSchedulerJobAppEngineHttpTargetHttpMethod(v interface{}, d tpgre
 }
 
 func expandCloudSchedulerJobAppEngineHttpTargetAppEngineRouting(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1494,6 +1660,9 @@ func expandCloudSchedulerJobAppEngineHttpTargetHeaders(v interface{}, d tpgresou
 }
 
 func expandCloudSchedulerJobHttpTarget(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1571,6 +1740,9 @@ func expandCloudSchedulerJobHttpTargetHeaders(v interface{}, d tpgresource.Terra
 }
 
 func expandCloudSchedulerJobHttpTargetOauthToken(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1605,6 +1777,9 @@ func expandCloudSchedulerJobHttpTargetOauthTokenScope(v interface{}, d tpgresour
 }
 
 func expandCloudSchedulerJobHttpTargetOidcToken(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

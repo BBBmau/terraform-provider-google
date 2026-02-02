@@ -1367,9 +1367,6 @@ The following arguments are supported:
   lowercase letters and numbers and must start with a letter.
 
 
-- - -
-
-
 * `is_mirroring_collector` -
   (Optional)
   Indicates whether or not this load balancer can be used as a collector for
@@ -1442,6 +1439,9 @@ The following arguments are supported:
 * `load_balancing_scheme` -
   (Optional)
   Specifies the forwarding rule type.
+  Note that an empty string value (`""`) is also supported for some use
+  cases, for example PSC (private service connection) regional forwarding
+  rules.
   For more information about forwarding rules, refer to
   [Forwarding rule concepts](https://cloud.google.com/load-balancing/docs/forwarding-rule-concepts).
   Default value is `EXTERNAL`.
@@ -1519,9 +1519,6 @@ The following arguments are supported:
   load balancing resource.
   The forwarded traffic must be of a type appropriate to the target object.
   *  For load balancers, see the "Target" column in [Port specifications](https://cloud.google.com/load-balancing/docs/forwarding-rule-concepts#ip_address_specifications).
-  *  For Private Service Connect forwarding rules that forward traffic to Google APIs, provide the name of a supported Google API bundle:
-    *  `vpc-sc` - [ APIs that support VPC Service Controls](https://cloud.google.com/vpc-service-controls/docs/supported-products).
-    *  `all-apis` - [All supported Google APIs](https://cloud.google.com/vpc/docs/private-service-connect#supported-apis).
   For Private Service Connect forwarding rules that forward traffic to managed services, the target must be a service attachment.
 
 * `allow_global_access` -
@@ -1631,6 +1628,7 @@ The following arguments are supported:
 
 * `recreate_closed_psc` - (Optional) This is used in PSC consumer ForwardingRule to make terraform recreate the ForwardingRule when the status is closed
 
+
 <a name="nested_service_directory_registrations"></a>The `service_directory_registrations` block supports:
 
 * `namespace` -
@@ -1698,6 +1696,18 @@ ForwardingRule can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ForwardingRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_forwarding_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ForwardingRule using one of the formats above. For example:
 

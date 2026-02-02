@@ -20,18 +20,70 @@
 package compute
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceComputePacketMirroring() *schema.Resource {
@@ -54,6 +106,26 @@ func ResourceComputePacketMirroring() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"collector_ilb": {
@@ -83,36 +155,20 @@ set to true.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"instances": {
-							Type:        schema.TypeList,
-							Optional:    true,
-							Description: `All the listed instances will be mirrored.  Specify at most 50.`,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"url": {
-										Type:             schema.TypeString,
-										Required:         true,
-										DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
-										Description:      `The URL of the instances where this rule should be active.`,
-									},
-								},
-							},
-							AtLeastOneOf: []string{"mirrored_resources.0.subnetworks", "mirrored_resources.0.instances", "mirrored_resources.0.tags"},
+							Type:         schema.TypeSet,
+							Optional:     true,
+							Description:  `All the listed instances will be mirrored.  Specify at most 50.`,
+							Elem:         computePacketMirroringMirroredResourcesInstancesSchema(),
+							Set:          tpgresource.NestedUrlSetHashFunc,
+							AtLeastOneOf: []string{"mirrored_resources.0.instances", "mirrored_resources.0.subnetworks", "mirrored_resources.0.tags"},
 						},
 						"subnetworks": {
-							Type:        schema.TypeList,
-							Optional:    true,
-							Description: `All instances in one of these subnetworks will be mirrored.`,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"url": {
-										Type:             schema.TypeString,
-										Required:         true,
-										DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
-										Description:      `The URL of the subnetwork where this rule should be active.`,
-									},
-								},
-							},
-							AtLeastOneOf: []string{"mirrored_resources.0.subnetworks", "mirrored_resources.0.instances", "mirrored_resources.0.tags"},
+							Type:         schema.TypeSet,
+							Optional:     true,
+							Description:  `All instances in one of these subnetworks will be mirrored.`,
+							Elem:         computePacketMirroringMirroredResourcesSubnetworksSchema(),
+							Set:          tpgresource.NestedUrlSetHashFunc,
+							AtLeastOneOf: []string{"mirrored_resources.0.instances", "mirrored_resources.0.subnetworks", "mirrored_resources.0.tags"},
 						},
 						"tags": {
 							Type:        schema.TypeList,
@@ -121,7 +177,7 @@ set to true.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"mirrored_resources.0.subnetworks", "mirrored_resources.0.instances", "mirrored_resources.0.tags"},
+							AtLeastOneOf: []string{"mirrored_resources.0.instances", "mirrored_resources.0.subnetworks", "mirrored_resources.0.tags"},
 						},
 					},
 				},
@@ -215,6 +271,32 @@ If it is not provided, the provider region is used.`,
 			},
 		},
 		UseJSONNumber: true,
+	}
+}
+
+func computePacketMirroringMirroredResourcesSubnetworksSchema() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"url": {
+				Type:             schema.TypeString,
+				Required:         true,
+				DiffSuppressFunc: tpgresource.CompareSelfLinkRelativePaths,
+				Description:      `The URL of the subnetwork where this rule should be active.`,
+			},
+		},
+	}
+}
+
+func computePacketMirroringMirroredResourcesInstancesSchema() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"url": {
+				Type:             schema.TypeString,
+				Required:         true,
+				DiffSuppressFunc: tpgresource.CompareSelfLinkRelativePaths,
+				Description:      `The URL of the instances where this rule should be active.`,
+			},
+		},
 	}
 }
 
@@ -316,6 +398,27 @@ func resourceComputePacketMirroringCreate(d *schema.ResourceData, meta interface
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating PacketMirroring", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -398,6 +501,30 @@ func resourceComputePacketMirroringRead(d *schema.ResourceData, meta interface{}
 		return fmt.Errorf("Error reading PacketMirroring: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -406,6 +533,26 @@ func resourceComputePacketMirroringUpdate(d *schema.ResourceData, meta interface
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -584,7 +731,7 @@ func flattenComputePacketMirroringRegion(v interface{}, d *schema.ResourceData, 
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func flattenComputePacketMirroringNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -695,14 +842,14 @@ func flattenComputePacketMirroringMirroredResourcesSubnetworks(v interface{}, d 
 		return v
 	}
 	l := v.([]interface{})
-	transformed := make([]interface{}, 0, len(l))
+	transformed := schema.NewSet(tpgresource.NestedUrlSetHashFunc, []interface{}{})
 	for _, raw := range l {
 		original := raw.(map[string]interface{})
 		if len(original) < 1 {
 			// Do not include empty json objects coming back from the api
 			continue
 		}
-		transformed = append(transformed, map[string]interface{}{
+		transformed.Add(map[string]interface{}{
 			"url": flattenComputePacketMirroringMirroredResourcesSubnetworksUrl(original["url"], d, config),
 		})
 	}
@@ -720,14 +867,14 @@ func flattenComputePacketMirroringMirroredResourcesInstances(v interface{}, d *s
 		return v
 	}
 	l := v.([]interface{})
-	transformed := make([]interface{}, 0, len(l))
+	transformed := schema.NewSet(tpgresource.NestedUrlSetHashFunc, []interface{}{})
 	for _, raw := range l {
 		original := raw.(map[string]interface{})
 		if len(original) < 1 {
 			// Do not include empty json objects coming back from the api
 			continue
 		}
-		transformed = append(transformed, map[string]interface{}{
+		transformed.Add(map[string]interface{}{
 			"url": flattenComputePacketMirroringMirroredResourcesInstancesUrl(original["url"], d, config),
 		})
 	}
@@ -757,6 +904,9 @@ func expandComputePacketMirroringRegion(v interface{}, d tpgresource.TerraformRe
 }
 
 func expandComputePacketMirroringNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -788,6 +938,9 @@ func expandComputePacketMirroringPriority(v interface{}, d tpgresource.Terraform
 }
 
 func expandComputePacketMirroringCollectorIlb(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -815,6 +968,9 @@ func expandComputePacketMirroringCollectorIlbUrl(v interface{}, d tpgresource.Te
 }
 
 func expandComputePacketMirroringFilter(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -860,6 +1016,9 @@ func expandComputePacketMirroringFilterDirection(v interface{}, d tpgresource.Te
 }
 
 func expandComputePacketMirroringMirroredResources(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -893,6 +1052,10 @@ func expandComputePacketMirroringMirroredResources(v interface{}, d tpgresource.
 }
 
 func expandComputePacketMirroringMirroredResourcesSubnetworks(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	v = v.(*schema.Set).List()
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -923,6 +1086,10 @@ func expandComputePacketMirroringMirroredResourcesSubnetworksUrl(v interface{}, 
 }
 
 func expandComputePacketMirroringMirroredResourcesInstances(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	v = v.(*schema.Set).List()
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {

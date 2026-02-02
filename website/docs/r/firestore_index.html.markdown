@@ -239,6 +239,43 @@ resource "google_firestore_index" "my-index" {
 	}
 }
 ```
+## Example Usage - Firestore Index Unique
+
+
+```hcl
+resource "google_firestore_database" "database" {
+	project                  = "my-project-name"
+	name                     = "database-id-unique"
+	location_id              = "nam5"
+	type                     = "FIRESTORE_NATIVE"
+	database_edition         = "ENTERPRISE"
+
+	delete_protection_state = "DELETE_PROTECTION_DISABLED"
+	deletion_policy         = "DELETE"
+}
+
+resource "google_firestore_index" "my-index" {
+	project    = "my-project-name"
+	database   = google_firestore_database.database.name
+	collection = "atestcollection"
+
+	api_scope   = "MONGODB_COMPATIBLE_API"
+	query_scope = "COLLECTION_GROUP"
+	multikey    = true
+	density     = "DENSE"
+	unique      = true
+
+	fields {
+		field_path = "name"
+		order      = "ASCENDING"
+	}
+
+	fields {
+		field_path = "description"
+		order      = "DESCENDING"
+	}
+}
+```
 
 ## Argument Reference
 
@@ -258,45 +295,6 @@ The following arguments are supported:
   composite index is not directional, the `__name__` will be ordered
   `"ASCENDING"` (unless explicitly specified otherwise).
   Structure is [documented below](#nested_fields).
-
-
-<a name="nested_fields"></a>The `fields` block supports:
-
-* `field_path` -
-  (Optional)
-  Name of the field.
-
-* `order` -
-  (Optional)
-  Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=.
-  Only one of `order`, `arrayConfig`, and `vectorConfig` can be specified.
-  Possible values are: `ASCENDING`, `DESCENDING`.
-
-* `array_config` -
-  (Optional)
-  Indicates that this field supports operations on arrayValues. Only one of `order`, `arrayConfig`, and
-  `vectorConfig` can be specified.
-  Possible values are: `CONTAINS`.
-
-* `vector_config` -
-  (Optional)
-  Indicates that this field supports vector search operations. Only one of `order`, `arrayConfig`, and
-  `vectorConfig` can be specified. Vector Fields should come after the field path `__name__`.
-  Structure is [documented below](#nested_fields_fields_vector_config).
-
-
-<a name="nested_fields_fields_vector_config"></a>The `vector_config` block supports:
-
-* `dimension` -
-  (Optional)
-  The resulting index will only include vectors of this dimension, and can be used for vector search
-  with the same dimension.
-
-* `flat` -
-  (Optional)
-  Indicates the vector index is a flat index.
-
-- - -
 
 
 * `database` -
@@ -324,9 +322,50 @@ The following arguments are supported:
   (Optional)
   Optional. Whether the index is multikey. By default, the index is not multikey. For non-multikey indexes, none of the paths in the index definition reach or traverse an array, except via an explicit array index. For multikey indexes, at most one of the paths in the index definition reach or traverse an array, except via an explicit array index. Violations will result in errors. Note this field only applies to indexes with MONGODB_COMPATIBLE_API ApiScope.
 
+* `unique` -
+  (Optional)
+  Whether it is an unique index. Unique index ensures all values for the indexed field(s) are unique across documents.
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_fields"></a>The `fields` block supports:
+
+* `field_path` -
+  (Optional)
+  Name of the field.
+
+* `order` -
+  (Optional)
+  Indicates that this field supports ordering by the specified order or comparing using =, <, <=, >, >=.
+  Only one of `order`, `arrayConfig`, and `vectorConfig` can be specified.
+  Possible values are: `ASCENDING`, `DESCENDING`.
+
+* `array_config` -
+  (Optional)
+  Indicates that this field supports operations on arrayValues. Only one of `order`, `arrayConfig`, and
+  `vectorConfig` can be specified.
+  Possible values are: `CONTAINS`.
+
+* `vector_config` -
+  (Optional)
+  Indicates that this field supports vector search operations. Only one of `order`, `arrayConfig`, and
+  `vectorConfig` can be specified. Vector Fields should come after the field path `__name__`.
+  Structure is [documented below](#nested_fields_vector_config).
+
+
+<a name="nested_fields_vector_config"></a>The `vector_config` block supports:
+
+* `dimension` -
+  (Optional)
+  The resulting index will only include vectors of this dimension, and can be used for vector search
+  with the same dimension.
+
+* `flat` -
+  (Optional)
+  Indicates the vector index is a flat index.
 
 ## Attributes Reference
 
@@ -354,6 +393,16 @@ Index can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Index using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_firestore_index.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Index using one of the formats above. For example:
 

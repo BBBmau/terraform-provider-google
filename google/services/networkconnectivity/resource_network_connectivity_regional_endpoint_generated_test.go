@@ -19,15 +19,35 @@ package networkconnectivity_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccNetworkConnectivityRegionalEndpoint_networkConnectivityRegionalEndpointRegionalAccessExample(t *testing.T) {
@@ -51,6 +71,12 @@ func TestAccNetworkConnectivityRegionalEndpoint_networkConnectivityRegionalEndpo
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "name", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_network_connectivity_regional_endpoint.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -72,12 +98,12 @@ resource "google_compute_subnetwork" "my_subnetwork" {
 resource "google_network_connectivity_regional_endpoint" "default" {
   name              = "tf-test-my-rep%{random_suffix}"
   location          = "us-central1"
-  target_google_api = "storage.us-central1.p.rep.googleapis.com"
+  target_google_api = "storage.us-central1.rep.googleapis.com"
   access_type       = "REGIONAL"
   address           = "192.168.0.5"
   network           = google_compute_network.my_network.id
   subnetwork        = google_compute_subnetwork.my_subnetwork.id
-  description       = "My RegionalEndpoint targeting Google API storage.us-central1.p.rep.googleapis.com"
+  description       = "My RegionalEndpoint targeting Google API storage.us-central1.rep.googleapis.com"
   labels            = {env = "default"}
 }
 `, context)
@@ -104,6 +130,12 @@ func TestAccNetworkConnectivityRegionalEndpoint_networkConnectivityRegionalEndpo
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "name", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_network_connectivity_regional_endpoint.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -125,7 +157,7 @@ resource "google_compute_subnetwork" "my_subnetwork" {
 resource "google_network_connectivity_regional_endpoint" "default" {
   name              = "tf-test-my-rep%{random_suffix}"
   location          = "us-central1"
-  target_google_api = "storage.us-central1.p.rep.googleapis.com"
+  target_google_api = "storage.us-central1.rep.googleapis.com"
   access_type       = "GLOBAL"
   address           = "192.168.0.4"
   network           = google_compute_network.my_network.id

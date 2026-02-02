@@ -65,6 +65,7 @@ resource "google_looker_instance" "looker-instance" {
   platform_edition   = "LOOKER_CORE_STANDARD_ANNUAL"
   region             = "us-central1"
   public_ip_enabled  = true
+  gemini_enabled     = true
   admin_settings {
     allowed_email_domains = ["google.com"]
   }
@@ -132,6 +133,7 @@ resource "google_looker_instance" "looker-instance" {
   region             = "us-central1"
   private_ip_enabled = true
   public_ip_enabled  = false
+  gemini_enabled     = true
   reserved_range     = "${google_compute_global_address.looker_range.name}"
   consumer_network   = google_compute_network.looker_network.id
   admin_settings {
@@ -248,8 +250,24 @@ resource "google_looker_instance" "looker-instance" {
   }
   psc_config {
     allowed_vpcs = ["projects/test-project/global/networks/test"]
-    # update only
-    # service_attachments = [{local_fqdn: "www.local-fqdn.com" target_service_attachment_uri: "projects/my-project/regions/us-east1/serviceAttachments/sa"}]
+    
+    # First Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "www.example-one.com"
+    #   target_service_attachment_uri = "projects/my-project/regions/us-east1/serviceAttachments/sa-1"
+    # }
+
+    # Second Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "api.internal-partner.com"
+    #   target_service_attachment_uri = "projects/partner-project/regions/us-central1/serviceAttachments/sa-gateway"
+    # }
+
+    # Third Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "git.internal-repo.com"
+    #   target_service_attachment_uri = "projects/devops-project/regions/us-west1/serviceAttachments/gitlab-sa"
+    # }
   }
 }
 ```
@@ -289,19 +307,6 @@ The following arguments are supported:
   Structure is [documented below](#nested_oauth_config).
 
 
-<a name="nested_oauth_config"></a>The `oauth_config` block supports:
-
-* `client_id` -
-  (Required)
-  The client ID for the Oauth config.
-
-* `client_secret` -
-  (Required)
-  The client secret for the Oauth config.
-
-- - -
-
-
 * `admin_settings` -
   (Optional)
   Looker instance Admin settings.
@@ -312,6 +317,15 @@ The following arguments are supported:
   Network name in the consumer project in the format of: projects/{project}/global/networks/{network}
   Note that the consumer network may be in a different GCP project than the consumer
   project that is hosting the Looker Instance.
+
+* `controlled_egress_config` -
+  (Optional)
+  Controlled egress configuration.
+  Structure is [documented below](#nested_controlled_egress_config).
+
+* `controlled_egress_enabled` -
+  (Optional)
+  Whether controlled egress is enabled on the Looker instance.
 
 * `deny_maintenance_period` -
   (Optional)
@@ -329,6 +343,10 @@ The following arguments are supported:
   (Optional)
   FIPS 140-2 Encryption enablement for Looker (Google Cloud Core).
 
+* `gemini_enabled` -
+  (Optional)
+  Gemini enablement for Looker (Google Cloud Core).
+
 * `maintenance_window` -
   (Optional)
   Maintenance window for an instance.
@@ -336,6 +354,11 @@ The following arguments are supported:
   your instance to be restarted during updates, which will temporarily
   disrupt service.
   Structure is [documented below](#nested_maintenance_window).
+
+* `periodic_export_config` -
+  (Optional)
+  Configuration for periodic export.
+  Structure is [documented below](#nested_periodic_export_config).
 
 * `platform_edition` -
   (Optional)
@@ -348,8 +371,11 @@ The following arguments are supported:
   - LOOKER_CORE_NONPROD_STANDARD_ANNUAL: nonprod subscription standard instance
   - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance
   - LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance
+  - LOOKER_CORE_TRIAL_STANDARD: A standard trial edition of Looker (Google Cloud core) product.
+  - LOOKER_CORE_TRIAL_ENTERPRISE: An enterprise trial edition of Looker (Google Cloud core) product.
+  - LOOKER_CORE_TRIAL_EMBED: An embed trial edition of Looker (Google Cloud core) product.
   Default value is `LOOKER_CORE_TRIAL`.
-  Possible values are: `LOOKER_CORE_TRIAL`, `LOOKER_CORE_STANDARD`, `LOOKER_CORE_STANDARD_ANNUAL`, `LOOKER_CORE_ENTERPRISE_ANNUAL`, `LOOKER_CORE_EMBED_ANNUAL`, `LOOKER_CORE_NONPROD_STANDARD_ANNUAL`, `LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL`, `LOOKER_CORE_NONPROD_EMBED_ANNUAL`.
+  Possible values are: `LOOKER_CORE_TRIAL`, `LOOKER_CORE_STANDARD`, `LOOKER_CORE_STANDARD_ANNUAL`, `LOOKER_CORE_ENTERPRISE_ANNUAL`, `LOOKER_CORE_EMBED_ANNUAL`, `LOOKER_CORE_NONPROD_STANDARD_ANNUAL`, `LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL`, `LOOKER_CORE_NONPROD_EMBED_ANNUAL`, `LOOKER_CORE_TRIAL_STANDARD`, `LOOKER_CORE_TRIAL_ENTERPRISE`, `LOOKER_CORE_TRIAL_EMBED`.
 
 * `private_ip_enabled` -
   (Optional)
@@ -402,6 +428,17 @@ of its nested resources. If set to "DEFAULT", Looker instances that still have
 nested resources will return an error. Possible values: DEFAULT, FORCE
 
 
+
+<a name="nested_oauth_config"></a>The `oauth_config` block supports:
+
+* `client_id` -
+  (Required)
+  The client ID for the Oauth config.
+
+* `client_secret` -
+  (Required)
+  The client secret for the Oauth config.
+
 <a name="nested_admin_settings"></a>The `admin_settings` block supports:
 
 * `allowed_email_domains` -
@@ -411,6 +448,17 @@ nested resources will return an error. Possible values: DEFAULT, FORCE
   Updating this list will restart the instance. Updating the allowed email domains from terraform
   means the value provided will be considered as the entire list and not an amendment to the
   existing list of allowed email domains.
+
+<a name="nested_controlled_egress_config"></a>The `controlled_egress_config` block supports:
+
+* `marketplace_enabled` -
+  (Optional)
+  Whether the Looker Marketplace is enabled.
+
+* `egress_fqdns` -
+  (Optional)
+  List of fully qualified domain names to be added to the allowlist for
+  outbound traffic.
 
 <a name="nested_deny_maintenance_period"></a>The `deny_maintenance_period` block supports:
 
@@ -534,6 +582,43 @@ nested resources will return an error. Possible values: DEFAULT, FORCE
   (Optional)
   Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
+<a name="nested_periodic_export_config"></a>The `periodic_export_config` block supports:
+
+* `kms_key` -
+  (Required)
+  Name of the CMEK key in KMS.
+  Format:
+  projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}
+
+* `gcs_uri` -
+  (Required)
+  Cloud Storage bucket URI for periodic export.
+  Format: gs://{bucket_name}
+
+* `start_time` -
+  (Required)
+  Time in UTC to start the periodic export job.
+  Structure is [documented below](#nested_periodic_export_config_start_time).
+
+
+<a name="nested_periodic_export_config_start_time"></a>The `start_time` block supports:
+
+* `hours` -
+  (Optional)
+  Hours of day in 24 hour format. Should be from 0 to 23.
+
+* `minutes` -
+  (Optional)
+  Minutes of hour of day. Must be from 0 to 59.
+
+* `seconds` -
+  (Optional)
+  Seconds of minutes of the time. Must normally be from 0 to 59.
+
+* `nanos` -
+  (Optional)
+  Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
+
 <a name="nested_psc_config"></a>The `psc_config` block supports:
 
 * `allowed_vpcs` -
@@ -637,6 +722,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_looker_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

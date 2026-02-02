@@ -61,8 +61,6 @@ The following arguments are supported:
   Required. The resource name of the existing Metrics Scope that will monitor this project. Example: locations/global/metricsScopes/{SCOPING_PROJECT_ID_OR_NUMBER}
 
 
-- - -
-
 
 
 ## Attributes Reference
@@ -91,6 +89,16 @@ MonitoredProject can be imported using any of these accepted formats:
 * `v1/locations/global/metricsScopes/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MonitoredProject using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+  }
+  to = google_monitoring_monitored_project.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MonitoredProject using one of the formats above. For example:
 

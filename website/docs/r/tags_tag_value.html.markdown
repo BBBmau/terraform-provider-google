@@ -62,12 +62,10 @@ The following arguments are supported:
   The short name can have a maximum length of 256 characters. The permitted character set for the shortName includes all UTF-8 encoded Unicode characters except single quotes ('), double quotes ("), backslashes (\\), and forward slashes (/).
 
 
-- - -
-
-
 * `description` -
   (Optional)
   User-assigned description of the TagValue. Must not exceed 256 characters.
+
 
 
 ## Attributes Reference
@@ -108,6 +106,16 @@ TagValue can be imported using any of these accepted formats:
 * `tagValues/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TagValue using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_tags_tag_value.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TagValue using one of the formats above. For example:
 

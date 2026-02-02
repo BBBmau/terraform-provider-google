@@ -20,6 +20,7 @@ description: |-
 ---
 
 # google_iap_brand
+~> **Warning:** This resource is deprecated on Jan 22, 2025. After Jan 19, 2026 the `google_iap_brand` Terraform resource will no longer function as intended due to the deprecation of the IAP OAuth Admin APIs. New projects will not be able to use these APIs. March 19, 2026 The IAP OAuth Admin APIs will be permanently shut down. Access to this feature will no longer be available.
 
 OAuth brand data. Only "Organization Internal" brands can be created
 programmatically via API. To convert it into an external brands
@@ -79,11 +80,9 @@ The following arguments are supported:
   Application name displayed on OAuth consent screen.
 
 
-- - -
-
-
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -119,6 +118,16 @@ Brand can be imported using any of these accepted formats:
 * `projects/{{project_number}}/brands/{{brand_id}}`
 * `{{project_number}}/{{brand_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Brand using identity values. For example:
+
+```tf
+import {
+  identity = {
+    project = "<-required value->"
+  }
+  to = google_iap_brand.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Brand using one of the formats above. For example:
 

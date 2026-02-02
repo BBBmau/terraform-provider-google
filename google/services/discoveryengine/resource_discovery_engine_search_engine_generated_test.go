@@ -19,15 +19,35 @@ package discoveryengine_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccDiscoveryEngineSearchEngine_discoveryengineSearchengineBasicExample(t *testing.T) {
@@ -49,7 +69,13 @@ func TestAccDiscoveryEngineSearchEngine_discoveryengineSearchengineBasicExample(
 				ResourceName:            "google_discovery_engine_search_engine.basic",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"collection_id", "engine_id", "location"},
+				ImportStateVerifyIgnore: []string{"collection_id", "engine_id", "kms_key_name", "location"},
+			},
+			{
+				ResourceName:       "google_discovery_engine_search_engine.basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -72,6 +98,62 @@ resource "google_discovery_engine_search_engine" "basic" {
   location = google_discovery_engine_data_store.basic.location
   display_name = "Example Display Name"
   data_store_ids = [google_discovery_engine_data_store.basic.data_store_id]
+  search_engine_config {
+  }
+}
+`, context)
+}
+
+func TestAccDiscoveryEngineSearchEngine_discoveryengineSearchengineAgentspaceBasicExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckDiscoveryEngineSearchEngineDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDiscoveryEngineSearchEngine_discoveryengineSearchengineAgentspaceBasicExample(context),
+			},
+			{
+				ResourceName:            "google_discovery_engine_search_engine.agentspace_basic",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"collection_id", "engine_id", "kms_key_name", "location"},
+			},
+			{
+				ResourceName:       "google_discovery_engine_search_engine.agentspace_basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccDiscoveryEngineSearchEngine_discoveryengineSearchengineAgentspaceBasicExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_discovery_engine_data_store" "agentspace_basic" {
+  location                    = "global"
+  data_store_id               = "tf-test-example-datastore-id%{random_suffix}"
+  display_name                = "tf-test-structured-datastore"
+  industry_vertical           = "GENERIC"
+  content_config              = "NO_CONTENT"
+  solution_types              = ["SOLUTION_TYPE_SEARCH"]
+  create_advanced_site_search = false
+}
+resource "google_discovery_engine_search_engine" "agentspace_basic" {
+  engine_id                   = "tf-test-example-engine-id%{random_suffix}"
+  collection_id               = "default_collection"
+  location                    = google_discovery_engine_data_store.agentspace_basic.location
+  display_name                = "tf-test-agentspace-search-engine"
+  data_store_ids              = [google_discovery_engine_data_store.agentspace_basic.data_store_id]
+  industry_vertical           = "GENERIC"
+  app_type                    = "APP_TYPE_INTRANET"
   search_engine_config {
   }
 }

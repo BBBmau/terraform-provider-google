@@ -159,9 +159,6 @@ The following arguments are supported:
   last character, which cannot be a dash.
 
 
-- - -
-
-
 * `cdn_policy` -
   (Optional)
   Cloud CDN configuration for this Backend Bucket.
@@ -188,9 +185,23 @@ The following arguments are supported:
 * `enable_cdn` -
   (Optional)
   If true, enable Cloud CDN for this BackendBucket.
+  Note: This cannot be set to true when loadBalancingScheme is set to INTERNAL_MANAGED.
+
+* `load_balancing_scheme` -
+  (Optional)
+  The value can only be INTERNAL_MANAGED for cross-region internal layer 7 load balancer.
+  If loadBalancingScheme is not specified, the backend bucket can be used by classic global external load balancers, or global application external load balancers, or both.
+  Important: CDN cannot be enabled (enableCdn cannot be set to true) when loadBalancingScheme is set to INTERNAL_MANAGED.
+  Possible values are: `INTERNAL_MANAGED`.
+
+* `params` -
+  (Optional)
+  Additional params passed with the request, but not persisted as part of resource payload
+  Structure is [documented below](#nested_params).
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_cdn_policy"></a>The `cdn_policy` block supports:
@@ -214,15 +225,18 @@ The following arguments are supported:
 * `default_ttl` -
   (Optional)
   Specifies the default TTL for cached content served by this origin for responses
-  that do not have an existing valid TTL (max-age or s-max-age).
+  that do not have an existing valid TTL (max-age or s-max-age). When the `cache_mode`
+  is set to "USE_ORIGIN_HEADERS", you must omit this field.
 
 * `max_ttl` -
   (Optional)
-  Specifies the maximum allowed TTL for cached content served by this origin.
+  Specifies the maximum allowed TTL for cached content served by this origin. When the
+  `cache_mode` is set to "USE_ORIGIN_HEADERS", you must omit this field.
 
 * `client_ttl` -
   (Optional)
-  Specifies the maximum allowed TTL for cached content served by this origin.
+  Specifies the maximum allowed TTL for cached content served by this origin. When the
+  `cache_mode` is set to "USE_ORIGIN_HEADERS", you must omit this field.
 
 * `negative_caching` -
   (Optional)
@@ -285,6 +299,14 @@ The following arguments are supported:
   (Optional)
   The header field name to match on when bypassing cache. Values are case-insensitive.
 
+<a name="nested_params"></a>The `params` block supports:
+
+* `resource_manager_tags` -
+  (Optional)
+  Resource manager tags to be bound to the backend bucket. Tag keys and values have the
+  same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+  and values are in the format tagValues/456.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -314,6 +336,17 @@ BackendBucket can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackendBucket using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_backend_bucket.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackendBucket using one of the formats above. For example:
 

@@ -26,7 +26,7 @@ A Google Cloud Filestore backup.
 
 To get more information about Backup, see:
 
-* [API documentation](https://cloud.google.com/filestore/docs/reference/rest/v1/projects.locations.instances.backups)
+* [API documentation](https://cloud.google.com/filestore/docs/reference/rest/v1/projects.locations.backups)
 * How-to Guides
     * [Creating Backups](https://cloud.google.com/filestore/docs/create-backups)
     * [Official Documentation](https://cloud.google.com/filestore/docs/backups)
@@ -99,9 +99,6 @@ The following arguments are supported:
   The name of the location of the instance. This can be a region for ENTERPRISE tier instances.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A description of the backup with 2048 characters or less. Requests with longer descriptions will be rejected.
@@ -122,6 +119,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -177,6 +175,18 @@ Backup can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Backup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_filestore_backup.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Backup using one of the formats above. For example:
 

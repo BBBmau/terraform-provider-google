@@ -19,15 +19,35 @@ package oracledatabase_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseBasicExample(t *testing.T) {
@@ -36,7 +56,7 @@ func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseBas
 	context := map[string]interface{}{
 		"database_name":       fmt.Sprintf("tftestdatabase%s", acctest.RandString(t, 10)),
 		"deletion_protection": false,
-		"project":             "oci-terraform-testing",
+		"project":             "oci-terraform-testing-prod",
 		"random_suffix":       acctest.RandString(t, 10),
 	}
 
@@ -53,6 +73,12 @@ func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseBas
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"admin_password", "autonomous_database_id", "deletion_protection", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_oracle_database_autonomous_database.myADB",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -92,7 +118,7 @@ func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseFul
 		"database_name":       fmt.Sprintf("tftestdatabase%s", acctest.RandString(t, 10)),
 		"deletion_protection": false,
 		"endpoint_name":       fmt.Sprintf("tftestendpoint%s", acctest.RandString(t, 10)),
-		"project":             "oci-terraform-testing",
+		"project":             "oci-terraform-testing-prod",
 		"random_suffix":       acctest.RandString(t, 10),
 	}
 
@@ -109,6 +135,12 @@ func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseFul
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"admin_password", "autonomous_database_id", "deletion_protection", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_oracle_database_autonomous_database.myADB",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -155,6 +187,119 @@ resource "google_oracle_database_autonomous_database" "myADB"{
 data "google_compute_network" "default" {
   name     = "new"
   project = "%{project}"
+}
+`, context)
+}
+
+func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseOdbnetworkExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"database_name":       fmt.Sprintf("tftestdatabase%s", acctest.RandString(t, 10)),
+		"deletion_protection": false,
+		"odb_network":         "projects/oci-terraform-testing-prod/locations/europe-west2/odbNetworks/tf-test-permanent-odbnetwork",
+		"odb_subnet":          "projects/oci-terraform-testing-prod/locations/europe-west2/odbNetworks/tf-test-permanent-odbnetwork/odbSubnets/tf-test-permanent-client-odbsubnet",
+		"project":             "oci-terraform-testing-prod",
+		"random_suffix":       acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckOracleDatabaseAutonomousDatabaseDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseOdbnetworkExample(context),
+			},
+			{
+				ResourceName:            "google_oracle_database_autonomous_database.myADB",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"admin_password", "autonomous_database_id", "deletion_protection", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_oracle_database_autonomous_database.myADB",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabaseOdbnetworkExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_oracle_database_autonomous_database" "myADB"{
+  autonomous_database_id = "tf-test-my-instance%{random_suffix}"
+  location = "europe-west2"
+  project = "%{project}"
+  database = "%{database_name}"
+  admin_password = "123Abpassword"
+  odb_network = "%{odb_network}"
+  odb_subnet = "%{odb_subnet}"
+  properties {
+    compute_count = "2"
+    data_storage_size_tb="1"
+    db_version = "19c"
+    db_workload = "OLTP"
+    license_type = "LICENSE_INCLUDED"
+    }
+  deletion_protection = "%{deletion_protection}"
+}
+`, context)
+}
+
+func TestAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabasePublicipExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"database_name":       fmt.Sprintf("tftestdatabase%s", acctest.RandString(t, 10)),
+		"deletion_protection": false,
+		"project":             "oci-terraform-testing-prod",
+		"random_suffix":       acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckOracleDatabaseAutonomousDatabaseDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabasePublicipExample(context),
+			},
+			{
+				ResourceName:            "google_oracle_database_autonomous_database.myADB",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"admin_password", "autonomous_database_id", "deletion_protection", "labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_oracle_database_autonomous_database.myADB",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccOracleDatabaseAutonomousDatabase_oracledatabaseAutonomousDatabasePublicipExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_oracle_database_autonomous_database" "myADB"{
+  autonomous_database_id = "tf-test-my-instance%{random_suffix}"
+  location = "europe-west2"
+  project = "%{project}"
+  database = "%{database_name}"
+  admin_password = "123Abpassword"
+  properties {
+    compute_count = "2"
+    data_storage_size_tb="1"
+    db_version = "19c"
+    db_workload = "OLTP"
+    license_type = "LICENSE_INCLUDED"
+    mtls_connection_required = "true"
+    }
+  deletion_protection = "%{deletion_protection}"
 }
 `, context)
 }

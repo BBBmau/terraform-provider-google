@@ -47,7 +47,7 @@ resource "google_storage_bucket" "default" {
 resource "google_firebase_storage_bucket" "default" {
   provider  = google-beta
   project   = "my-project-name"
-  bucket_id = google_storage_bucket.default.id
+  bucket_id = google_storage_bucket.default.name
 }
 ```
 
@@ -57,15 +57,13 @@ The following arguments are supported:
 
 
 
-- - -
-
-
 * `bucket_id` -
   (Optional)
   Required. Immutable. The ID of the underlying Google Cloud Storage bucket
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -95,6 +93,17 @@ Bucket can be imported using any of these accepted formats:
 * `{{project}}/{{bucket_id}}`
 * `{{bucket_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Bucket using identity values. For example:
+
+```tf
+import {
+  identity = {
+    bucket_id = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_storage_bucket.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Bucket using one of the formats above. For example:
 

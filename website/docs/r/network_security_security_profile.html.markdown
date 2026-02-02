@@ -150,6 +150,73 @@ resource "google_network_security_security_profile" "default" {
   }
 }
 ```
+## Example Usage - Network Security Security Profile Url Filtering
+
+
+```hcl
+resource "google_network_security_security_profile" "default" {
+  provider    = google-beta
+  name        = "my-security-profile"
+  parent      = "organizations/123456789"
+  description = "my description"
+  type        = "URL_FILTERING"
+
+  url_filtering_profile {
+    url_filters {
+      priority = 1
+      filtering_action   = "ALLOW"
+      urls = ["*example.com", "*about.example.com", "*help.example.com"]
+    }
+    url_filters {
+      priority = 2
+      filtering_action   = "DENY"
+      urls = ["*restricted.example.com"]
+    }
+  }
+
+  labels = {
+    foo = "bar"
+  }
+}
+```
+## Example Usage - Network Security Security Profile Broker
+
+
+```hcl
+resource "google_compute_network" "default" {
+  provider                = google-beta
+  name                    = "my-network"
+  auto_create_subnetworks = false
+}
+
+resource "google_network_security_mirroring_deployment_group" "default" {
+  provider                      = google-beta
+  mirroring_deployment_group_id = "my-dg"
+  location                      = "global"
+  network                       = google_compute_network.default.id
+}
+
+resource "google_network_security_mirroring_endpoint_group" "default" {
+  provider                    = google-beta
+  mirroring_endpoint_group_id = "my-eg"
+  location                    = "global"
+  type                        = "BROKER"
+  mirroring_deployment_groups = [google_network_security_mirroring_deployment_group.default.id]
+}
+
+resource "google_network_security_security_profile" "default" {
+  provider    = google-beta
+  name        = "my-security-profile"
+  parent      = "organizations/123456789"
+  description = "my description"
+  type        = "CUSTOM_MIRRORING"
+
+  custom_mirroring_profile {
+    mirroring_endpoint_group    = google_network_security_mirroring_endpoint_group.default.id
+    mirroring_deployment_groups = [google_network_security_mirroring_deployment_group.default.id]
+  }
+}
+```
 
 ## Argument Reference
 
@@ -159,14 +226,11 @@ The following arguments are supported:
 * `type` -
   (Required)
   The type of security profile.
-  Possible values are: `THREAT_PREVENTION`, `CUSTOM_MIRRORING`, `CUSTOM_INTERCEPT`.
+  Possible values are: `THREAT_PREVENTION`, `URL_FILTERING`, `CUSTOM_MIRRORING`, `CUSTOM_INTERCEPT`.
 
 * `name` -
   (Required)
   The name of the security profile resource.
-
-
-- - -
 
 
 * `description` -
@@ -184,6 +248,11 @@ The following arguments are supported:
   (Optional)
   The threat prevention configuration for the security profile.
   Structure is [documented below](#nested_threat_prevention_profile).
+
+* `url_filtering_profile` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The url filtering configuration for the security profile.
+  Structure is [documented below](#nested_url_filtering_profile).
 
 * `custom_mirroring_profile` -
   (Optional)
@@ -206,6 +275,7 @@ The following arguments are supported:
   (Optional)
   The name of the parent this security profile belongs to.
   Format: organizations/{organization_id}.
+
 
 
 <a name="nested_threat_prevention_profile"></a>The `threat_prevention_profile` block supports:
@@ -267,12 +337,56 @@ The following arguments are supported:
   Threat action override. For some threat types, only a subset of actions applies.
   Possible values are: `ALERT`, `ALLOW`, `DEFAULT_ACTION`, `DENY`.
 
+<a name="nested_url_filtering_profile"></a>The `url_filtering_profile` block supports:
+
+* `url_filters` -
+  (Optional)
+  The configuration for action to take based on domain name match.
+  A domain name would be checked for matching filters through the list in order of highest to lowest priority,
+  and the first filter that a domain name matches with is the one whose actions gets applied.
+  Structure is [documented below](#nested_url_filtering_profile_url_filters).
+
+
+<a name="nested_url_filtering_profile_url_filters"></a>The `url_filters` block supports:
+
+* `filtering_action` -
+  (Required)
+  The action to take when the filter is applied.
+  Possible values are: `ALLOW`, `DENY`.
+
+* `urls` -
+  (Optional)
+  A list of domain matcher strings that a domain name gets compared with to determine if the filter is applicable.
+  A domain name must match with at least one of the strings in the list for a filter to be applicable.
+
+* `priority` -
+  (Required)
+  The priority of the filter within the URL filtering profile.
+  Must be an integer from 0 and 2147483647, inclusive. Lower integers indicate higher priorities.
+  The priority of a filter must be unique within a URL filtering profile.
+
 <a name="nested_custom_mirroring_profile"></a>The `custom_mirroring_profile` block supports:
 
 * `mirroring_endpoint_group` -
   (Required)
-  The Mirroring Endpoint Group to which matching traffic should be mirrored.
+  The target Mirroring Endpoint Group.
+  When a mirroring rule with this security profile attached matches a packet,
+  a replica will be mirrored to the location-local target in this group.
   Format: projects/{project_id}/locations/global/mirroringEndpointGroups/{endpoint_group_id}
+
+* `mirroring_deployment_groups` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The target downstream Mirroring Deployment Groups.
+  This field is used for Packet Broker mirroring endpoint groups to specify
+  the deployment groups that the packet should be mirrored to by the broker.
+  Format: projects/{project_id}/locations/global/mirroringDeploymentGroups/{deployment_group_id}
+
+* `mirroring_endpoint_group_type` -
+  (Output, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The type of the mirroring endpoint group this profile is attached to.
+  Possible values:
+  DIRECT
+  BROKER
 
 <a name="nested_custom_intercept_profile"></a>The `custom_intercept_profile` block supports:
 
@@ -325,6 +439,18 @@ SecurityProfile can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/securityProfiles/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecurityProfile using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    parent = "<-optional value->"
+  }
+  to = google_network_security_security_profile.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecurityProfile using one of the formats above. For example:
 

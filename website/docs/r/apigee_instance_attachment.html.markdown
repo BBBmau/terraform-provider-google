@@ -37,8 +37,8 @@ To get more information about InstanceAttachment, see:
 resource "google_project" "project" {
   project_id      = "my-project"
   name            = "my-project"
-  org_id          = ""
-  billing_account = ""
+  org_id          = "123456789"
+  billing_account = "000000-0000000-0000000-000000"
   deletion_policy = "DELETE"
 }
 
@@ -123,8 +123,6 @@ The following arguments are supported:
   in the format `organizations/{{org_name}}/instances/{{instance_name}}`.
 
 
-- - -
-
 
 
 ## Attributes Reference
@@ -153,6 +151,17 @@ InstanceAttachment can be imported using any of these accepted formats:
 * `{{instance_id}}/attachments/{{name}}`
 * `{{instance_id}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InstanceAttachment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    instanceId = "<-required value->"
+  }
+  to = google_apigee_instance_attachment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InstanceAttachment using one of the formats above. For example:
 

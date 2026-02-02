@@ -34,7 +34,7 @@ To get more information about FirewallPolicyAssociation, see:
 
 ```hcl
 resource "google_folder" "folder" {
-  display_name = "my-folder"
+  display_name = "folder-fpa"
   parent       = "organizations/123456789"
   deletion_protection = false
 }
@@ -56,7 +56,7 @@ resource "google_compute_firewall_policy_association" "default" {
 
 ```hcl
 resource "google_folder" "folder" {
-  display_name = "my-folder"
+  display_name = "folder-fpas"
   parent       = "organizations/123456789"
   deletion_protection = false
 }
@@ -99,8 +99,6 @@ The following arguments are supported:
   on your exisiting firewall policy so as to prevent a situation where your attachment target has no associated policy.
 
 
-- - -
-
 
 
 ## Attributes Reference
@@ -130,6 +128,17 @@ FirewallPolicyAssociation can be imported using any of these accepted formats:
 * `locations/global/firewallPolicies/{{firewall_policy}}/associations/{{name}}`
 * `{{firewall_policy}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FirewallPolicyAssociation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    firewallPolicy = "<-required value->"
+  }
+  to = google_compute_firewall_policy_association.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FirewallPolicyAssociation using one of the formats above. For example:
 

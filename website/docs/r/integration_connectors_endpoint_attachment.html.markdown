@@ -68,9 +68,6 @@ The following arguments are supported:
   Name of Endpoint Attachment needs to be created.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Description of the resource.
@@ -88,6 +85,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -131,6 +129,18 @@ EndpointAttachment can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import EndpointAttachment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_integration_connectors_endpoint_attachment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import EndpointAttachment using one of the formats above. For example:
 

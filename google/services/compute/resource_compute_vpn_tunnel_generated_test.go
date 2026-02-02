@@ -19,15 +19,35 @@ package compute_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccComputeVpnTunnel_vpnTunnelBasicExample(t *testing.T) {
@@ -49,7 +69,13 @@ func TestAccComputeVpnTunnel_vpnTunnelBasicExample(t *testing.T) {
 				ResourceName:            "google_compute_vpn_tunnel.tunnel1",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"labels", "peer_external_gateway", "peer_gcp_gateway", "region", "router", "shared_secret", "target_vpn_gateway", "terraform_labels", "vpn_gateway"},
+				ImportStateVerifyIgnore: []string{"labels", "peer_external_gateway", "peer_gcp_gateway", "region", "router", "shared_secret", "shared_secret_wo", "shared_secret_wo_version", "target_vpn_gateway", "terraform_labels", "vpn_gateway"},
+			},
+			{
+				ResourceName:       "google_compute_vpn_tunnel.tunnel1",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -63,6 +89,118 @@ resource "google_compute_vpn_tunnel" "tunnel1" {
   shared_secret = "a secret message"
 
   target_vpn_gateway = google_compute_vpn_gateway.target_gateway.id
+
+  depends_on = [
+    google_compute_forwarding_rule.fr_esp,
+    google_compute_forwarding_rule.fr_udp500,
+    google_compute_forwarding_rule.fr_udp4500,
+  ]
+
+  labels = {
+    foo = "bar"
+  }
+}
+
+resource "google_compute_vpn_gateway" "target_gateway" {
+  name    = "tf-test-vpn-1%{random_suffix}"
+  network = google_compute_network.network1.id
+}
+
+resource "google_compute_network" "network1" {
+  name = "tf-test-network-1%{random_suffix}"
+}
+
+resource "google_compute_address" "vpn_static_ip" {
+  name = "tf-test-vpn-static-ip%{random_suffix}"
+}
+
+resource "google_compute_forwarding_rule" "fr_esp" {
+  name        = "tf-test-fr-esp%{random_suffix}"
+  ip_protocol = "ESP"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.target_gateway.id
+}
+
+resource "google_compute_forwarding_rule" "fr_udp500" {
+  name        = "tf-test-fr-udp500%{random_suffix}"
+  ip_protocol = "UDP"
+  port_range  = "500"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.target_gateway.id
+}
+
+resource "google_compute_forwarding_rule" "fr_udp4500" {
+  name        = "tf-test-fr-udp4500%{random_suffix}"
+  ip_protocol = "UDP"
+  port_range  = "4500"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.target_gateway.id
+}
+
+resource "google_compute_route" "route1" {
+  name       = "route1%{random_suffix}"
+  network    = google_compute_network.network1.name
+  dest_range = "15.0.0.0/24"
+  priority   = 1000
+
+  next_hop_vpn_tunnel = google_compute_vpn_tunnel.tunnel1.id
+}
+`, context)
+}
+
+func TestAccComputeVpnTunnel_vpnTunnelCipherSuiteExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckComputeVpnTunnelDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccComputeVpnTunnel_vpnTunnelCipherSuiteExample(context),
+			},
+			{
+				ResourceName:            "google_compute_vpn_tunnel.tunnel1",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"labels", "peer_external_gateway", "peer_gcp_gateway", "region", "router", "shared_secret", "shared_secret_wo", "shared_secret_wo_version", "target_vpn_gateway", "terraform_labels", "vpn_gateway"},
+			},
+			{
+				ResourceName:       "google_compute_vpn_tunnel.tunnel1",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccComputeVpnTunnel_vpnTunnelCipherSuiteExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_compute_vpn_tunnel" "tunnel1" {
+  name          = "tf-test-tunnel-cipher%{random_suffix}"
+  peer_ip       = "15.0.0.120"
+  shared_secret = "a secret message"
+
+  target_vpn_gateway = google_compute_vpn_gateway.target_gateway.id
+
+  cipher_suite {
+    phase1 {
+      encryption = ["AES-CBC-256"]
+      integrity  = ["HMAC-SHA2-256-128"]
+      prf        = ["PRF-HMAC-SHA2-256"]
+      dh         = ["Group-14"]
+    }
+    phase2 {
+      encryption = ["AES-CBC-128"]
+      integrity  = ["HMAC-SHA2-256-128"]
+      pfs        = ["Group-14"]
+    }
+  }
 
   depends_on = [
     google_compute_forwarding_rule.fr_esp,

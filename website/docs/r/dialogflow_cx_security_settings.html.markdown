@@ -121,9 +121,6 @@ The following arguments are supported:
   The human-readable name of the security settings, unique within the location.
 
 
-- - -
-
-
 * `redaction_strategy` -
   (Optional)
   Defines how we redact data. If not set, defaults to not redacting.
@@ -180,6 +177,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_audio_export_settings"></a>The `audio_export_settings` block supports:
@@ -239,6 +237,18 @@ SecuritySettings can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecuritySettings using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_dialogflow_cx_security_settings.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecuritySettings using one of the formats above. For example:
 

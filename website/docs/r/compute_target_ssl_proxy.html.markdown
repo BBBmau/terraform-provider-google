@@ -91,9 +91,6 @@ The following arguments are supported:
   A reference to the BackendService resource.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource.
@@ -125,6 +122,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -159,6 +157,17 @@ TargetSslProxy can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TargetSslProxy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_target_ssl_proxy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TargetSslProxy using one of the formats above. For example:
 

@@ -209,7 +209,6 @@ resource "google_compute_resource_policy" "cgroup" {
 resource "google_compute_resource_policy" "bar" {
   name   = "gce-policy"
   region = "europe-west1"
-  provider = google-beta
   workload_policy {
     type = "HIGH_AVAILABILITY"
   }
@@ -227,10 +226,9 @@ resource "google_compute_resource_policy" "bar" {
 resource "google_compute_resource_policy" "bar" {
   name   = "gce-policy"
   region = "europe-west1"
-  provider = google-beta
   workload_policy {
     type = "HIGH_THROUGHPUT"
-    accelerator_topology = "SOME NEW TOPOLOGY"
+    accelerator_topology = "2x2"
   }
 }
 ```
@@ -246,7 +244,6 @@ resource "google_compute_resource_policy" "bar" {
 resource "google_compute_resource_policy" "bar" {
   name   = "gce-policy"
   region = "europe-west1"
-  provider = google-beta
   workload_policy {
     type = "HIGH_THROUGHPUT"
     max_topology_distance = "BLOCK"
@@ -263,11 +260,9 @@ resource "google_compute_resource_policy" "bar" {
 
 ```hcl
 resource "google_compute_resource_policy" "baz" {
-  provider = google-beta
   name   = "gce-policy"
   region = "europe-west9"
   group_placement_policy {
-    vm_count = 2
     collocation = "COLLOCATED"
     gpu_topology = "1x72"
   }
@@ -310,9 +305,6 @@ The following arguments are supported:
   which cannot be a dash.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource. Provide this property when you create the resource.
@@ -338,7 +330,7 @@ The following arguments are supported:
   Structure is [documented below](#nested_disk_consistency_group_policy).
 
 * `workload_policy` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Represents the workload policy.
   Structure is [documented below](#nested_workload_policy).
 
@@ -348,6 +340,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_snapshot_schedule_policy"></a>The `snapshot_schedule_policy` block supports:
@@ -490,7 +483,7 @@ The following arguments are supported:
   Specifies the number of max logical switches.
 
 * `gpu_topology` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Specifies the shape of the GPU slice, in slice based GPU families eg. A4X.
 
 * `tpu_topology` -
@@ -586,6 +579,18 @@ ResourcePolicy can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ResourcePolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_resource_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ResourcePolicy using one of the formats above. For example:
 

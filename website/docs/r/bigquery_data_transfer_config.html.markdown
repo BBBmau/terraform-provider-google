@@ -36,7 +36,7 @@ values will be stored in the raw state as plain text: `sensitive_params.secret_a
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 ~> **Note:**  All arguments marked as write-only values will not be stored in the state: `sensitive_params.secret_access_key_wo`.
-[Read more about Write-only Attributes](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
+[Read more about Write-only Arguments](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
 
 ## Example Usage - Bigquerydatatransfer Config Scheduled Query
 
@@ -91,7 +91,7 @@ resource "google_project_iam_member" "permissions" {
 resource "google_bigquery_data_transfer_config" "query_config_cmek" {
   depends_on = [google_project_iam_member.permissions]
 
-  display_name           = ""
+  display_name           = "display-name"
   location               = "asia-northeast1"
   data_source_id         = "scheduled_query"
   schedule               = "first sunday of quarter 00:00"
@@ -174,9 +174,6 @@ The following arguments are supported:
   **NOTE** : If you are attempting to update a parameter that cannot be updated (due to api limitations) [please force recreation of the resource](https://www.terraform.io/cli/state/taint#forcing-re-creation-of-resources).
 
 
-- - -
-
-
 * `destination_dataset_id` -
   (Optional)
   The BigQuery target dataset id.
@@ -251,6 +248,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_schedule_options"></a>The `schedule_options` block supports:
 
 * `disable_auto_scheduling` -
@@ -288,18 +286,6 @@ The following arguments are supported:
   (Required)
   The name of the KMS key used for encrypting BigQuery data.
 
-## Ephemeral Attributes Reference
-
-The following write-only attributes are supported:
-
-
-<a name="nested_sensitive_params"></a>The `sensitive_params` block supports:
-
-* `secret_access_key_wo` -
-  (Optional)
-  The Secret Access Key of the AWS account transferring data from.
-  **Note**: This property is write-only and will not be read from the API.
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -332,6 +318,17 @@ Config can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Config using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_bigquery_data_transfer_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Config using one of the formats above. For example:
 

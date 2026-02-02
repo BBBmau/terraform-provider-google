@@ -57,6 +57,7 @@ resource "google_spanner_database" "database" {
   instance = google_spanner_instance.main.name
   name     = "my-database"
   version_retention_period = "3d"
+  default_time_zone = "UTC"
   ddl = [
     "CREATE TABLE t1 (t1 INT64 NOT NULL,) PRIMARY KEY(t1)",
     "CREATE TABLE t2 (t2 INT64 NOT NULL,) PRIMARY KEY(t2)",
@@ -78,9 +79,6 @@ The following arguments are supported:
 * `instance` -
   (Required)
   The instance to create the database on.
-
-
-- - -
 
 
 * `version_retention_period` -
@@ -133,6 +131,10 @@ When the field is set to true or unset in Terraform state, a `terraform apply`
 or `terraform destroy` that would delete the database will fail.
 When the field is set to false, deleting the database is allowed.
 
+* `default_time_zone` - (Optional) The default time zone for the database. The default time zone must be a valid name
+from the tz database. Default value is "America/Los_angeles".
+
+
 
 <a name="nested_encryption_config"></a>The `encryption_config` block supports:
 
@@ -175,6 +177,18 @@ Database can be imported using any of these accepted formats:
 * `{{project}}/{{instance}}/{{name}}`
 * `{{instance}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Database using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    instance = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_spanner_database.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Database using one of the formats above. For example:
 

@@ -159,6 +159,21 @@ The following arguments are supported:
   Structure is [documented below](#nested_subject).
 
 
+* `subject_alternative_dns_names` -
+  (Optional)
+  List of alternative host names. Maximum length is 255 characters for each value.
+  Structure is [documented below](#nested_subject_alternative_dns_names).
+
+* `key_size` -
+  (Optional)
+  Key size. Default and maximum value is 2048 bits.
+
+* `cert_validity_in_days` -
+  (Optional)
+  Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365.
+
+
+
 <a name="nested_subject"></a>The `subject` block supports:
 
 * `country_code` -
@@ -188,23 +203,6 @@ The following arguments are supported:
 * `email` -
   (Optional)
   Email address. Max 255 characters.
-
-- - -
-
-
-* `subject_alternative_dns_names` -
-  (Optional)
-  List of alternative host names. Maximum length is 255 characters for each value.
-  Structure is [documented below](#nested_subject_alternative_dns_names).
-
-* `key_size` -
-  (Optional)
-  Key size. Default and maximum value is 2048 bits.
-
-* `cert_validity_in_days` -
-  (Optional)
-  Validity duration of certificate, in days. Accepts positive non-zero value. Defaults to 365.
-
 
 <a name="nested_subject_alternative_dns_names"></a>The `subject_alternative_dns_names` block supports:
 
@@ -297,6 +295,19 @@ KeystoresAliasesSelfSignedCert can be imported using any of these accepted forma
 * `organizations/{{org_id}}/environments/{{environment}}/keystores/{{keystore}}/aliases/{{alias}}`
 * `{{org_id}}/{{environment}}/{{keystore}}/{{alias}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import KeystoresAliasesSelfSignedCert using identity values. For example:
+
+```tf
+import {
+  identity = {
+    orgId = "<-required value->"
+    environment = "<-required value->"
+    keystore = "<-required value->"
+    alias = "<-required value->"
+  }
+  to = google_apigee_keystores_aliases_self_signed_cert.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import KeystoresAliasesSelfSignedCert using one of the formats above. For example:
 

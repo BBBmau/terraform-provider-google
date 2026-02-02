@@ -21,6 +21,7 @@ description: |-
 ---
 
 # google_pubsub_lite_subscription
+~> **Warning:** [Pubsub Lite is deprecated and will be turned down effective March 18, 2026](https://cloud.google.com/pubsub/lite/docs/release-notes#June_17_2024). The resource will be removed in a future major release, please use `google_pubsub_subscription` instead.
 
 A named resource representing the stream of messages from a single,
 specific topic, to be delivered to the subscribing application.
@@ -83,9 +84,6 @@ The following arguments are supported:
   Name of the subscription.
 
 
-- - -
-
-
 * `delivery_config` -
   (Optional)
   The settings for this subscription's message delivery.
@@ -101,6 +99,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_delivery_config"></a>The `delivery_config` block supports:
@@ -136,6 +135,18 @@ Subscription can be imported using any of these accepted formats:
 * `{{zone}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Subscription using identity values. For example:
+
+```tf
+import {
+  identity = {
+    zone = "<-optional value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_pubsub_lite_subscription.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Subscription using one of the formats above. For example:
 

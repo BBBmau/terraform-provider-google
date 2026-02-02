@@ -37,7 +37,7 @@ this, use the `create_before_destroy` field within the lifecycle block.
 For more details, refer to the [Terraform lifecycle documentation](https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle#the-lifecycle-meta-argument).
 
 ~> **Warning:** All arguments including the following potentially sensitive
-values will be stored in the raw state as plain text: `payload.secret_data`.
+values will be stored in the raw state as plain text: `secret_data`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -155,9 +155,6 @@ The following arguments are supported:
   Secret Manager regional secret resource.
 
 
-- - -
-
-
 * `enabled` -
   (Optional)
   The current state of the regional secret version.
@@ -170,6 +167,7 @@ disabled rather than deleted. Default is `DELETE`. Possible values are:
   * ABANDON
 
 * `is_secret_data_base64` - (Optional) If set to 'true', the secret data is expected to be base64-encoded string and would be sent as is.
+
 
 ## Attributes Reference
 
@@ -220,6 +218,18 @@ RegionalSecretVersion can be imported using any of these accepted formats:
 
 * `projects/{{project}}/locations/{{location}}/secrets/{{secret_id}}/versions/{{version}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionalSecretVersion using identity values. For example:
+
+```tf
+import {
+  identity = {
+    version = "<-optional value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_secret_manager_regional_secret_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionalSecretVersion using one of the formats above. For example:
 

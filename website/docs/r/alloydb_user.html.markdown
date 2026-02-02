@@ -34,6 +34,9 @@ To get more information about User, see:
 values will be stored in the raw state as plain text: `password`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
+~> **Note:**  All arguments marked as write-only values will not be stored in the state: `password_wo`.
+[Read more about Write-only Arguments](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/write-only-arguments).
+
 ## Example Usage - Alloydb User Builtin
 
 
@@ -55,6 +58,8 @@ resource "google_alloydb_cluster" "default" {
   initial_user {
     password = "cluster_secret"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -109,6 +114,8 @@ resource "google_alloydb_cluster" "default" {
   initial_user {
     password = "cluster_secret"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -161,9 +168,6 @@ The following arguments are supported:
   Possible values are: `ALLOYDB_BUILT_IN`, `ALLOYDB_IAM_USER`.
 
 
-- - -
-
-
 * `password` -
   (Optional)
   Password for this database user.
@@ -172,6 +176,18 @@ The following arguments are supported:
 * `database_roles` -
   (Optional)
   List of database roles this database user has.
+
+* `password_wo` -
+  (Optional, Write-Only)
+  Password for this database user.
+  **Note**: This property is write-only and will not be read from the API.
+
+  ~> **Note:** One of `password` or `password_wo` can only be set.
+
+* `password_wo_version` -
+  (Optional)
+  Triggers update of `password_wo` write-only. Increment this value when an update to `password_wo` is needed. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
+
 
 
 ## Attributes Reference
@@ -202,6 +218,18 @@ User can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{cluster}}/{{user_id}}`
 * `{{location}}/{{cluster}}/{{user_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import User using identity values. For example:
+
+```tf
+import {
+  identity = {
+    cluster = "<-required value->"
+    userId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_alloydb_user.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import User using one of the formats above. For example:
 

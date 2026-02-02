@@ -20,23 +20,104 @@
 package secretmanager
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
 
 	"google.golang.org/api/googleapi"
+)
+
+func setEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) error {
+	name := d.Get("name").(string)
+	if name == "" {
+		return nil
+	}
+
+	url, err := tpgresource.ReplaceVars(d, config, "{{SecretManagerBasePath}}{{name}}")
+	if err != nil {
+		return err
+	}
+	if v == true {
+		url = fmt.Sprintf("%s:enable", url)
+	} else {
+		url = fmt.Sprintf("%s:disable", url)
+	}
+
+	parts := strings.Split(name, "/")
+	project := parts[1]
+
+	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
+	if err != nil {
+		return err
+	}
+
+	_, err = transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "POST",
+		Project:   project,
+		RawURL:    url,
+		UserAgent: userAgent,
+	})
+	return err
+}
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceSecretManagerSecretVersion() *schema.Resource {
@@ -56,16 +137,12 @@ func ResourceSecretManagerSecretVersion() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
-		ValidateRawResourceConfigFuncs: []schema.ValidateRawResourceConfigFunc{
-			validation.PreferWriteOnlyAttribute(cty.GetAttrPath("secret_data"), cty.GetAttrPath("secret_data_wo")),
-		},
-
 		Schema: map[string]*schema.Schema{
 			"secret_data_wo_version": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				ForceNew:    true,
-				Description: `Triggers update of secret data write-only. For more info see [updating write-only attributes](/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)`,
+				Description: `Triggers update of secret data write-only. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)`,
 				Default:     0,
 			},
 			"secret_data": {
@@ -79,7 +156,7 @@ func ResourceSecretManagerSecretVersion() *schema.Resource {
 			"secret_data_wo": {
 				Type:          schema.TypeString,
 				Optional:      true,
-				Description:   `The secret data. Must be no larger than 64KiB. For more info see [updating write-only attributes](/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)`,
+				Description:   `The secret data. Must be no larger than 64KiB. For more info see [updating write-only arguments](/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)`,
 				WriteOnly:     true,
 				ConflictsWith: []string{"secret_data"},
 				RequiredWith:  []string{},
@@ -97,6 +174,14 @@ func ResourceSecretManagerSecretVersion() *schema.Resource {
 				Optional:    true,
 				Description: `The current state of the SecretVersion.`,
 				Default:     true,
+			},
+			"project": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `The ID of the project in which the resource belongs. If it is not provided,
+the provider project is used`,
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -134,7 +219,6 @@ disabled rather than deleted. Default is 'DELETE'. Possible values are:
 				Type:        schema.TypeBool,
 				Optional:    true,
 				ForceNew:    true,
-				Default:     false,
 				Description: `If set to 'true', the secret data is expected to be base64-encoded string and would be sent as is.`,
 			},
 		},
@@ -150,11 +234,11 @@ func resourceSecretManagerSecretVersionCreate(d *schema.ResourceData, meta inter
 	}
 
 	obj := make(map[string]interface{})
-	stateProp, err := expandSecretManagerSecretVersionEnabled(d.Get("enabled"), d, config)
+	enabledProp, err := expandSecretManagerSecretVersionEnabled(d.Get("enabled"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(stateProp)) && (ok || !reflect.DeepEqual(v, stateProp)) {
-		obj["state"] = stateProp
+	} else if v, ok := d.GetOkExists("enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(enabledProp)) && (ok || !reflect.DeepEqual(v, enabledProp)) {
+		obj["state"] = enabledProp
 	}
 	payloadProp, err := expandSecretManagerSecretVersionPayload(nil, d, config)
 	if err != nil {
@@ -177,6 +261,39 @@ func resourceSecretManagerSecretVersionCreate(d *schema.ResourceData, meta inter
 	}
 
 	headers := make(http.Header)
+	secret := d.Get("secret").(string)
+	secretRegex := regexp.MustCompile("^(?:projects/([^/]+)/secrets/)?([^/]+)$")
+
+	parts := secretRegex.FindStringSubmatch(secret)
+	if len(parts) != 2 && len(parts) != 3 {
+		return fmt.Errorf("secret does not fit any of the expected formats `projects/{{project}}/secrets/{{secret}}` or `{{secret}}`. Got: %s", secret)
+	}
+
+	// Add project ID to secret if only its name is provided
+	if parts[1] == "" {
+		project, err := tpgresource.GetProject(d, config)
+		if err != nil {
+			return fmt.Errorf("error fetching project for DomainTrust: %s", err)
+		}
+
+		if err = d.Set("project", project); err != nil {
+			return fmt.Errorf("error updating the project in state: %s", err)
+		}
+
+		if err = d.Set("secret", fmt.Sprintf("projects/%s/secrets/%s", project, parts[2])); err != nil {
+			return fmt.Errorf("error updating the secret with its project ID: %s", err)
+		}
+
+		// Override the url after updating the secret
+		url, err = tpgresource.ReplaceVars(d, config, "{{SecretManagerBasePath}}{{secret}}:addVersion")
+		if err != nil {
+			return err
+		}
+	} else if configProject, hasConfigProject := d.GetOk("project"); hasConfigProject {
+		if configProject != parts[1] {
+			return fmt.Errorf("project %s was supplied on the secret and %s supplied on the config, values conflict", parts[1], configProject)
+		}
+	}
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "POST",
@@ -214,7 +331,7 @@ func resourceSecretManagerSecretVersionCreate(d *schema.ResourceData, meta inter
 	}
 	d.SetId(name.(string))
 
-	_, err = expandSecretManagerSecretVersionEnabled(d.Get("enabled"), d, config)
+	err = setEnabled(d.Get("enabled"), d, config)
 	if err != nil {
 		return err
 	}
@@ -317,7 +434,7 @@ func resourceSecretManagerSecretVersionRead(d *schema.ResourceData, meta interfa
 
 func resourceSecretManagerSecretVersionUpdate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*transport_tpg.Config)
-	_, err := expandSecretManagerSecretVersionEnabled(d.Get("enabled"), d, config)
+	err := setEnabled(d.Get("enabled"), d, config)
 	if err != nil {
 		return err
 	}
@@ -444,29 +561,49 @@ func flattenSecretManagerSecretVersionDestroyTime(v interface{}, d *schema.Resou
 }
 
 func flattenSecretManagerSecretVersionPayload(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	transformed := make(map[string]interface{})
-	// write-only attributes are null on reads, secret_data_wo_version is used instead to return empty transformed that resolves a diff.
+	// helper: always return []interface{}{map} with the safest value
+	safeTransformed := func(val interface{}) []interface{} {
+		m := make(map[string]interface{})
+		if val != nil {
+			m["secret_data"] = val
+		}
+		return []interface{}{m}
+	}
+
+	// write-only: during read, resolve diff with empty object
 	if _, ok := d.GetOkExists("secret_data_wo_version"); ok {
-		return []interface{}{transformed}
+		return safeTransformed(nil)
 	}
 
-	// if this secret version is disabled, the api will return an error, as the value cannot be accessed, return what we have
-	if d.Get("enabled").(bool) == false {
-		transformed["secret_data"] = d.Get("secret_data")
-		return []interface{}{transformed}
+	// if "enabled" does not exist or is false, preserve what we already have in the state
+	enabledVal, exists := d.GetOk("enabled")
+	if !exists {
+		return safeTransformed(d.Get("secret_data"))
+	}
+	if enabled, _ := enabledVal.(bool); !enabled {
+		return safeTransformed(d.Get("secret_data"))
 	}
 
+	// build access URL; if it fails, preserve state
 	url, err := tpgresource.ReplaceVars(d, config, "{{SecretManagerBasePath}}{{name}}:access")
 	if err != nil {
-		return err
+		log.Printf("[ERROR] Failed to build secret access URL: %v", err)
+		return safeTransformed(d.Get("secret_data"))
 	}
 
-	parts := strings.Split(d.Get("name").(string), "/")
+	// safely extract project
+	nameStr, _ := d.Get("name").(string)
+	parts := strings.Split(nameStr, "/")
+	if len(parts) < 2 {
+		log.Printf("[WARN] Unexpected secret name format %q, preserving state", nameStr)
+		return safeTransformed(d.Get("secret_data"))
+	}
 	project := parts[1]
 
-	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
+	ua, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
-		return err
+		log.Printf("[ERROR] Failed to generate user agent string: %v", err)
+		return safeTransformed(d.Get("secret_data"))
 	}
 
 	accessRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
@@ -474,60 +611,43 @@ func flattenSecretManagerSecretVersionPayload(v interface{}, d *schema.ResourceD
 		Method:    "GET",
 		Project:   project,
 		RawURL:    url,
-		UserAgent: userAgent,
+		UserAgent: ua,
 	})
 	if err != nil {
-		return err
+		// per review: add explicit log to diagnose underlying url/transport error
+		log.Printf("[ERROR] Failed to access secret version at %q: %v", url, err)
+		return safeTransformed(d.Get("secret_data"))
 	}
 
-	if d.Get("is_secret_data_base64").(bool) {
-		transformed["secret_data"] = accessRes["payload"].(map[string]interface{})["data"].(string)
-	} else {
-		data, err := base64.StdEncoding.DecodeString(accessRes["payload"].(map[string]interface{})["data"].(string))
-		if err != nil {
-			return err
+	// safely fetch payload.data
+	var dataB64 string
+	if payloadAny, ok := accessRes["payload"]; ok {
+		if payloadMap, ok := payloadAny.(map[string]interface{}); ok {
+			if s, ok := payloadMap["data"].(string); ok {
+				dataB64 = s
+			}
 		}
-		transformed["secret_data"] = string(data)
 	}
-	return []interface{}{transformed}
+	if dataB64 == "" {
+		log.Printf("[WARN] No payload.data found in secret access response for %q, preserving state", nameStr)
+		return safeTransformed(d.Get("secret_data"))
+	}
+
+	// decide whether to keep pure base64 or decode it
+	isB64, _ := d.Get("is_secret_data_base64").(bool)
+	if isB64 {
+		return safeTransformed(dataB64)
+	}
+
+	decoded, decErr := base64.StdEncoding.DecodeString(dataB64)
+	if decErr != nil {
+		log.Printf("[ERROR] Failed to decode base64 secret payload for %q: %v", nameStr, decErr)
+		return safeTransformed(d.Get("secret_data"))
+	}
+	return safeTransformed(string(decoded))
 }
 
-func expandSecretManagerSecretVersionEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	name := d.Get("name").(string)
-	if name == "" {
-		return "", nil
-	}
-
-	url, err := tpgresource.ReplaceVars(d, config, "{{SecretManagerBasePath}}{{name}}")
-	if err != nil {
-		return nil, err
-	}
-
-	if v == true {
-		url = fmt.Sprintf("%s:enable", url)
-	} else {
-		url = fmt.Sprintf("%s:disable", url)
-	}
-
-	parts := strings.Split(name, "/")
-	project := parts[1]
-
-	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "POST",
-		Project:   project,
-		RawURL:    url,
-		UserAgent: userAgent,
-	})
-	if err != nil {
-		return nil, err
-	}
-
+func expandSecretManagerSecretVersionEnabled(_ interface{}, _ tpgresource.TerraformResourceData, _ *transport_tpg.Config) (interface{}, error) {
 	return nil, nil
 }
 

@@ -239,64 +239,6 @@ The following arguments are supported:
   Name of the TcpRoute resource.
 
 
-<a name="nested_rules"></a>The `rules` block supports:
-
-* `matches` -
-  (Optional)
-  RouteMatch defines the predicate used to match requests to a given action. Multiple match types are "OR"ed for evaluation.
-  If no routeMatch field is specified, this rule will unconditionally match traffic.
-  Structure is [documented below](#nested_rules_rules_matches).
-
-* `action` -
-  (Required)
-  A detailed rule defining how to route traffic.
-  Structure is [documented below](#nested_rules_rules_action).
-
-
-<a name="nested_rules_rules_matches"></a>The `matches` block supports:
-
-* `address` -
-  (Required)
-  Must be specified in the CIDR range format. A CIDR range consists of an IP Address and a prefix length to construct the subnet mask.
-  By default, the prefix length is 32 (i.e. matches a single IP address). Only IPV4 addresses are supported. Examples: "10.0.0.1" - matches against this exact IP address. "10.0.0.0/8" - matches against any IP address within the 10.0.0.0 subnet and 255.255.255.0 mask. "0.0.0.0/0" - matches against any IP address'.
-
-* `port` -
-  (Required)
-  Specifies the destination port to match against.
-
-<a name="nested_rules_rules_action"></a>The `action` block supports:
-
-* `destinations` -
-  (Optional)
-  The destination services to which traffic should be forwarded. At least one destination service is required.
-  Structure is [documented below](#nested_rules_rules_action_destinations).
-
-* `original_destination` -
-  (Optional)
-  If true, Router will use the destination IP and port of the original connection as the destination of the request.
-
-* `idle_timeout` -
-  (Optional)
-  Specifies the idle timeout for the selected route. The idle timeout is defined as the period in which there are no bytes sent or received on either the upstream or downstream connection. If not set, the default idle timeout is 30 seconds. If set to 0s, the timeout will be disabled.
-  A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
-
-
-<a name="nested_rules_rules_action_destinations"></a>The `destinations` block supports:
-
-* `service_name` -
-  (Optional)
-  The URL of a BackendService to route traffic to.
-
-* `weight` -
-  (Optional)
-  Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports.
-  If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend.
-  If weights are specified for any one service name, they need to be specified for all of them.
-  If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them.
-
-- - -
-
-
 * `labels` -
   (Optional)
   Set of label tags associated with the TcpRoute resource.
@@ -321,6 +263,62 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_rules"></a>The `rules` block supports:
+
+* `matches` -
+  (Optional)
+  RouteMatch defines the predicate used to match requests to a given action. Multiple match types are "OR"ed for evaluation.
+  If no routeMatch field is specified, this rule will unconditionally match traffic.
+  Structure is [documented below](#nested_rules_matches).
+
+* `action` -
+  (Required)
+  A detailed rule defining how to route traffic.
+  Structure is [documented below](#nested_rules_action).
+
+
+<a name="nested_rules_matches"></a>The `matches` block supports:
+
+* `address` -
+  (Required)
+  Must be specified in the CIDR range format. A CIDR range consists of an IP Address and a prefix length to construct the subnet mask.
+  By default, the prefix length is 32 (i.e. matches a single IP address). Only IPV4 addresses are supported. Examples: "10.0.0.1" - matches against this exact IP address. "10.0.0.0/8" - matches against any IP address within the 10.0.0.0 subnet and 255.255.255.0 mask. "0.0.0.0/0" - matches against any IP address'.
+
+* `port` -
+  (Required)
+  Specifies the destination port to match against.
+
+<a name="nested_rules_action"></a>The `action` block supports:
+
+* `destinations` -
+  (Optional)
+  The destination services to which traffic should be forwarded. At least one destination service is required.
+  Structure is [documented below](#nested_rules_action_destinations).
+
+* `original_destination` -
+  (Optional)
+  If true, Router will use the destination IP and port of the original connection as the destination of the request.
+
+* `idle_timeout` -
+  (Optional)
+  Specifies the idle timeout for the selected route. The idle timeout is defined as the period in which there are no bytes sent or received on either the upstream or downstream connection. If not set, the default idle timeout is 30 seconds. If set to 0s, the timeout will be disabled.
+  A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
+
+
+<a name="nested_rules_action_destinations"></a>The `destinations` block supports:
+
+* `service_name` -
+  (Optional)
+  The URL of a BackendService to route traffic to.
+
+* `weight` -
+  (Optional)
+  Specifies the proportion of requests forwarded to the backend referenced by the serviceName field. This is computed as: weight/Sum(weights in this destination list). For non-zero values, there may be some epsilon from the exact proportion defined here depending on the precision an implementation supports.
+  If only one serviceName is specified and it has a weight greater than 0, 100% of the traffic is forwarded to that backend.
+  If weights are specified for any one service name, they need to be specified for all of them.
+  If weights are unspecified for all services, then, traffic is distributed in equal proportions to all of them.
 
 ## Attributes Reference
 
@@ -363,6 +361,17 @@ TcpRoute can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import TcpRoute using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_tcp_route.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import TcpRoute using one of the formats above. For example:
 

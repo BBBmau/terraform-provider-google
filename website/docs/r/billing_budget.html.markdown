@@ -276,6 +276,38 @@ The following arguments are supported:
   ID of the billing account to set a budget on.
 
 
+* `display_name` -
+  (Optional)
+  User data for display name in UI. Must be <= 60 chars.
+
+* `budget_filter` -
+  (Optional)
+  Filters that define which resources are used to compute the actual
+  spend against the budget.
+  Structure is [documented below](#nested_budget_filter).
+
+* `threshold_rules` -
+  (Optional)
+  Rules that trigger alerts (notifications of thresholds being
+  crossed) when spend exceeds the specified percentages of the
+  budget.
+  Structure is [documented below](#nested_threshold_rules).
+
+* `all_updates_rule` -
+  (Optional)
+  Defines notifications that are sent on every update to the
+  billing account's spend, regardless of the thresholds defined
+  using threshold rules.
+  Structure is [documented below](#nested_all_updates_rule).
+
+* `ownership_scope` -
+  (Optional)
+  The ownership scope of the budget. The ownership scope and users'
+  IAM permissions determine who has full access to the budget's data.
+  Possible values are: `OWNERSHIP_SCOPE_UNSPECIFIED`, `ALL_USERS`, `BILLING_ACCOUNT`.
+
+
+
 <a name="nested_amount"></a>The `amount` block supports:
 
 * `specified_amount` -
@@ -313,40 +345,6 @@ The following arguments are supported:
   negative. If units is negative, nanos must be negative or
   zero. For example $-1.75 is represented as units=-1 and
   nanos=-750,000,000.
-
-- - -
-
-
-* `display_name` -
-  (Optional)
-  User data for display name in UI. Must be <= 60 chars.
-
-* `budget_filter` -
-  (Optional)
-  Filters that define which resources are used to compute the actual
-  spend against the budget.
-  Structure is [documented below](#nested_budget_filter).
-
-* `threshold_rules` -
-  (Optional)
-  Rules that trigger alerts (notifications of thresholds being
-  crossed) when spend exceeds the specified percentages of the
-  budget.
-  Structure is [documented below](#nested_threshold_rules).
-
-* `all_updates_rule` -
-  (Optional)
-  Defines notifications that are sent on every update to the
-  billing account's spend, regardless of the thresholds defined
-  using threshold rules.
-  Structure is [documented below](#nested_all_updates_rule).
-
-* `ownership_scope` -
-  (Optional)
-  The ownership scope of the budget. The ownership scope and users'
-  IAM permissions determine who has full access to the budget's data.
-  Possible values are: `OWNERSHIP_SCOPE_UNSPECIFIED`, `ALL_USERS`, `BILLING_ACCOUNT`.
-
 
 <a name="nested_budget_filter"></a>The `budget_filter` block supports:
 
@@ -386,7 +384,6 @@ The following arguments are supported:
   Optional. If creditTypesTreatment is INCLUDE_SPECIFIED_CREDITS,
   this is a list of credit types to be subtracted from gross cost to determine the spend for threshold calculations. See a list of acceptable credit type values.
   If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty.
-  **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config.
 
 * `subaccounts` -
   (Optional)
@@ -396,7 +393,6 @@ The following arguments are supported:
   the parent account, usage from the parent account will be included.
   If the field is omitted, the report will include usage from the parent
   account and all subaccounts, if they exist.
-  **Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config.
 
 * `labels` -
   (Optional)
@@ -541,6 +537,17 @@ Budget can be imported using any of these accepted formats:
 * `{{billing_account}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Budget using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    billingAccount = "<-required value->"
+  }
+  to = google_billing_budget.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Budget using one of the formats above. For example:
 

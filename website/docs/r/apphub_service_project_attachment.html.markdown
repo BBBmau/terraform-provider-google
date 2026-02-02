@@ -81,9 +81,6 @@ The following arguments are supported:
   Required. The service project attachment identifier must contain the project_id of the service project specified in the service_project_attachment.service_project field. Hint: "projects/{project_id}"
 
 
-- - -
-
-
 * `service_project` -
   (Optional)
   "Immutable. Service project name in the format: \"projects/abc\"
@@ -92,6 +89,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -130,6 +128,17 @@ ServiceProjectAttachment can be imported using any of these accepted formats:
 * `{{project}}/{{service_project_attachment_id}}`
 * `{{service_project_attachment_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServiceProjectAttachment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    serviceProjectAttachmentId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_apphub_service_project_attachment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServiceProjectAttachment using one of the formats above. For example:
 

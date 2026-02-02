@@ -107,9 +107,6 @@ The following arguments are supported:
   The name of the Nat service in which this address will be configured.
 
 
-- - -
-
-
 * `drain_nat_ips` -
   (Optional)
   A list of URLs of the IP resources to be drained. These IPs must be
@@ -121,6 +118,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -149,6 +147,19 @@ RouterNatAddress can be imported using any of these accepted formats:
 * `{{region}}/{{router}}/{{router_nat}}`
 * `{{router}}/{{router_nat}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RouterNatAddress using identity values. For example:
+
+```tf
+import {
+  identity = {
+    router = "<-required value->"
+    routerNat = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_router_nat_address.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RouterNatAddress using one of the formats above. For example:
 

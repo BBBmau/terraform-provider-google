@@ -87,21 +87,6 @@ The following arguments are supported:
   The Policy Binding ID.
 
 
-<a name="nested_target"></a>The `target` block supports:
-
-* `principal_set` -
-  (Optional)
-  Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings.
-  Examples for each one of the following supported principal set types:
-  * Project:
-    * `//cloudresourcemanager.googleapis.com/projects/PROJECT_NUMBER`
-    * `//cloudresourcemanager.googleapis.com/projects/PROJECT_ID`
-  * Workload Identity Pool: `//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID`
-  It must be parent by the policy binding's parent (the project).
-
-- - -
-
-
 * `display_name` -
   (Optional)
   Optional. The description of the policy binding. Must be less than or equal to 63 characters.
@@ -149,6 +134,19 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_target"></a>The `target` block supports:
+
+* `principal_set` -
+  (Optional)
+  Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings.
+  Examples for each one of the following supported principal set types:
+  * Project:
+    * `//cloudresourcemanager.googleapis.com/projects/PROJECT_NUMBER`
+    * `//cloudresourcemanager.googleapis.com/projects/PROJECT_ID`
+  * Workload Identity Pool: `//iam.googleapis.com/projects/PROJECT_NUMBER/locations/LOCATION/workloadIdentityPools/WORKLOAD_POOL_ID`
+  It must be parent by the policy binding's parent (the project).
 
 <a name="nested_condition"></a>The `condition` block supports:
 
@@ -214,6 +212,18 @@ ProjectsPolicyBinding can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{policy_binding_id}}`
 * `{{location}}/{{policy_binding_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ProjectsPolicyBinding using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    policyBindingId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_iam_projects_policy_binding.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ProjectsPolicyBinding using one of the formats above. For example:
 

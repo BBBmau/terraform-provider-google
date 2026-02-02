@@ -20,20 +20,70 @@
 package looker
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceLookerInstance() *schema.Resource {
@@ -56,6 +106,26 @@ func ResourceLookerInstance() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -114,6 +184,35 @@ existing list of allowed email domains.`,
 				Description: `Network name in the consumer project in the format of: projects/{project}/global/networks/{network}
 Note that the consumer network may be in a different GCP project than the consumer
 project that is hosting the Looker Instance.`,
+			},
+			"controlled_egress_config": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `Controlled egress configuration.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"egress_fqdns": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Description: `List of fully qualified domain names to be added to the allowlist for
+outbound traffic.`,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+						"marketplace_enabled": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Description: `Whether the Looker Marketplace is enabled.`,
+						},
+					},
+				},
+			},
+			"controlled_egress_enabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: `Whether controlled egress is enabled on the Looker instance.`,
 			},
 			"custom_domain": {
 				Type:        schema.TypeList,
@@ -275,6 +374,11 @@ a year.`,
 				Optional:    true,
 				Description: `FIPS 140-2 Encryption enablement for Looker (Google Cloud Core).`,
 			},
+			"gemini_enabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: `Gemini enablement for Looker (Google Cloud Core).`,
+			},
 			"maintenance_window": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -337,11 +441,68 @@ disrupt service.`,
 					},
 				},
 			},
+			"periodic_export_config": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `Configuration for periodic export.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"gcs_uri": {
+							Type:     schema.TypeString,
+							Required: true,
+							Description: `Cloud Storage bucket URI for periodic export.
+Format: gs://{bucket_name}`,
+						},
+						"kms_key": {
+							Type:     schema.TypeString,
+							Required: true,
+							Description: `Name of the CMEK key in KMS.
+Format:
+projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}`,
+						},
+						"start_time": {
+							Type:        schema.TypeList,
+							Required:    true,
+							Description: `Time in UTC to start the periodic export job.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"hours": {
+										Type:         schema.TypeInt,
+										Optional:     true,
+										ValidateFunc: validation.IntBetween(0, 23),
+										Description:  `Hours of day in 24 hour format. Should be from 0 to 23.`,
+									},
+									"minutes": {
+										Type:         schema.TypeInt,
+										Optional:     true,
+										ValidateFunc: validation.IntBetween(0, 60),
+										Description:  `Minutes of hour of day. Must be from 0 to 59.`,
+									},
+									"nanos": {
+										Type:         schema.TypeInt,
+										Optional:     true,
+										ValidateFunc: validation.IntBetween(0, 999999999),
+										Description:  `Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.`,
+									},
+									"seconds": {
+										Type:         schema.TypeInt,
+										Optional:     true,
+										ValidateFunc: validation.IntBetween(0, 60),
+										Description:  `Seconds of minutes of the time. Must normally be from 0 to 59.`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			"platform_edition": {
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: verify.ValidateEnum([]string{"LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL", ""}),
+				ValidateFunc: verify.ValidateEnum([]string{"LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL", "LOOKER_CORE_TRIAL_STANDARD", "LOOKER_CORE_TRIAL_ENTERPRISE", "LOOKER_CORE_TRIAL_EMBED", ""}),
 				Description: `Platform editions for a Looker instance. Each edition maps to a set of instance features, like its size. Must be one of these values:
 - LOOKER_CORE_TRIAL: trial instance (Currently Unavailable)
 - LOOKER_CORE_STANDARD: pay as you go standard instance (Currently Unavailable)
@@ -350,7 +511,10 @@ disrupt service.`,
 - LOOKER_CORE_EMBED_ANNUAL: subscription embed instance
 - LOOKER_CORE_NONPROD_STANDARD_ANNUAL: nonprod subscription standard instance
 - LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL: nonprod subscription enterprise instance
-- LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL"]`,
+- LOOKER_CORE_NONPROD_EMBED_ANNUAL: nonprod subscription embed instance
+- LOOKER_CORE_TRIAL_STANDARD: A standard trial edition of Looker (Google Cloud core) product.
+- LOOKER_CORE_TRIAL_ENTERPRISE: An enterprise trial edition of Looker (Google Cloud core) product.
+- LOOKER_CORE_TRIAL_EMBED: An embed trial edition of Looker (Google Cloud core) product. Default value: "LOOKER_CORE_TRIAL" Possible values: ["LOOKER_CORE_TRIAL", "LOOKER_CORE_STANDARD", "LOOKER_CORE_STANDARD_ANNUAL", "LOOKER_CORE_ENTERPRISE_ANNUAL", "LOOKER_CORE_EMBED_ANNUAL", "LOOKER_CORE_NONPROD_STANDARD_ANNUAL", "LOOKER_CORE_NONPROD_ENTERPRISE_ANNUAL", "LOOKER_CORE_NONPROD_EMBED_ANNUAL", "LOOKER_CORE_TRIAL_STANDARD", "LOOKER_CORE_TRIAL_ENTERPRISE", "LOOKER_CORE_TRIAL_EMBED"]`,
 				Default: "LOOKER_CORE_TRIAL",
 			},
 			"private_ip_enabled": {
@@ -361,6 +525,7 @@ disrupt service.`,
 			},
 			"psc_config": {
 				Type:        schema.TypeList,
+				Computed:    true,
 				Optional:    true,
 				Description: `Information for Private Service Connect (PSC) setup for a Looker instance.`,
 				MaxItems:    1,
@@ -541,6 +706,18 @@ func resourceLookerInstanceCreate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("consumer_network"); !tpgresource.IsEmptyValue(reflect.ValueOf(consumerNetworkProp)) && (ok || !reflect.DeepEqual(v, consumerNetworkProp)) {
 		obj["consumerNetwork"] = consumerNetworkProp
 	}
+	controlledEgressConfigProp, err := expandLookerInstanceControlledEgressConfig(d.Get("controlled_egress_config"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("controlled_egress_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(controlledEgressConfigProp)) && (ok || !reflect.DeepEqual(v, controlledEgressConfigProp)) {
+		obj["controlledEgressConfig"] = controlledEgressConfigProp
+	}
+	controlledEgressEnabledProp, err := expandLookerInstanceControlledEgressEnabled(d.Get("controlled_egress_enabled"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("controlled_egress_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(controlledEgressEnabledProp)) && (ok || !reflect.DeepEqual(v, controlledEgressEnabledProp)) {
+		obj["controlledEgressEnabled"] = controlledEgressEnabledProp
+	}
 	denyMaintenancePeriodProp, err := expandLookerInstanceDenyMaintenancePeriod(d.Get("deny_maintenance_period"), d, config)
 	if err != nil {
 		return err
@@ -559,6 +736,12 @@ func resourceLookerInstanceCreate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("fips_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(fipsEnabledProp)) && (ok || !reflect.DeepEqual(v, fipsEnabledProp)) {
 		obj["fipsEnabled"] = fipsEnabledProp
 	}
+	geminiEnabledProp, err := expandLookerInstanceGeminiEnabled(d.Get("gemini_enabled"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("gemini_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(geminiEnabledProp)) && (ok || !reflect.DeepEqual(v, geminiEnabledProp)) {
+		obj["geminiEnabled"] = geminiEnabledProp
+	}
 	maintenanceWindowProp, err := expandLookerInstanceMaintenanceWindow(d.Get("maintenance_window"), d, config)
 	if err != nil {
 		return err
@@ -570,6 +753,12 @@ func resourceLookerInstanceCreate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	} else if v, ok := d.GetOkExists("oauth_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(oauthConfigProp)) && (ok || !reflect.DeepEqual(v, oauthConfigProp)) {
 		obj["oauthConfig"] = oauthConfigProp
+	}
+	periodicExportConfigProp, err := expandLookerInstancePeriodicExportConfig(d.Get("periodic_export_config"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("periodic_export_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(periodicExportConfigProp)) && (ok || !reflect.DeepEqual(v, periodicExportConfigProp)) {
+		obj["periodicExportConfig"] = periodicExportConfigProp
 	}
 	platformEditionProp, err := expandLookerInstancePlatformEdition(d.Get("platform_edition"), d, config)
 	if err != nil {
@@ -662,25 +851,36 @@ func resourceLookerInstanceCreate(d *schema.ResourceData, meta interface{}) erro
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = LookerOperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating Instance", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = LookerOperationWaitTime(
+		config, res, project, "Creating Instance", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create Instance: %s", err)
 	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{region}}/instances/{{name}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating Instance %q: %#v", d.Id(), res)
 
@@ -742,6 +942,12 @@ func resourceLookerInstanceRead(d *schema.ResourceData, meta interface{}) error 
 	if err := d.Set("consumer_network", flattenLookerInstanceConsumerNetwork(res["consumerNetwork"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
+	if err := d.Set("controlled_egress_config", flattenLookerInstanceControlledEgressConfig(res["controlledEgressConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
+	if err := d.Set("controlled_egress_enabled", flattenLookerInstanceControlledEgressEnabled(res["controlledEgressEnabled"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
 	if err := d.Set("create_time", flattenLookerInstanceCreateTime(res["createTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
@@ -757,6 +963,9 @@ func resourceLookerInstanceRead(d *schema.ResourceData, meta interface{}) error 
 	if err := d.Set("fips_enabled", flattenLookerInstanceFipsEnabled(res["fipsEnabled"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
+	if err := d.Set("gemini_enabled", flattenLookerInstanceGeminiEnabled(res["geminiEnabled"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
 	if err := d.Set("ingress_private_ip", flattenLookerInstanceIngressPrivateIp(res["ingressPrivateIp"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
@@ -770,6 +979,9 @@ func resourceLookerInstanceRead(d *schema.ResourceData, meta interface{}) error 
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
 	if err := d.Set("maintenance_window", flattenLookerInstanceMaintenanceWindow(res["maintenanceWindow"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Instance: %s", err)
+	}
+	if err := d.Set("periodic_export_config", flattenLookerInstancePeriodicExportConfig(res["periodicExportConfig"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
 	if err := d.Set("platform_edition", flattenLookerInstancePlatformEdition(res["platformEdition"], d, config)); err != nil {
@@ -800,6 +1012,30 @@ func resourceLookerInstanceRead(d *schema.ResourceData, meta interface{}) error 
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -808,6 +1044,26 @@ func resourceLookerInstanceUpdate(d *schema.ResourceData, meta interface{}) erro
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -831,6 +1087,18 @@ func resourceLookerInstanceUpdate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("consumer_network"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, consumerNetworkProp)) {
 		obj["consumerNetwork"] = consumerNetworkProp
 	}
+	controlledEgressConfigProp, err := expandLookerInstanceControlledEgressConfig(d.Get("controlled_egress_config"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("controlled_egress_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, controlledEgressConfigProp)) {
+		obj["controlledEgressConfig"] = controlledEgressConfigProp
+	}
+	controlledEgressEnabledProp, err := expandLookerInstanceControlledEgressEnabled(d.Get("controlled_egress_enabled"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("controlled_egress_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, controlledEgressEnabledProp)) {
+		obj["controlledEgressEnabled"] = controlledEgressEnabledProp
+	}
 	denyMaintenancePeriodProp, err := expandLookerInstanceDenyMaintenancePeriod(d.Get("deny_maintenance_period"), d, config)
 	if err != nil {
 		return err
@@ -849,6 +1117,12 @@ func resourceLookerInstanceUpdate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("fips_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, fipsEnabledProp)) {
 		obj["fipsEnabled"] = fipsEnabledProp
 	}
+	geminiEnabledProp, err := expandLookerInstanceGeminiEnabled(d.Get("gemini_enabled"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("gemini_enabled"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, geminiEnabledProp)) {
+		obj["geminiEnabled"] = geminiEnabledProp
+	}
 	maintenanceWindowProp, err := expandLookerInstanceMaintenanceWindow(d.Get("maintenance_window"), d, config)
 	if err != nil {
 		return err
@@ -860,6 +1134,12 @@ func resourceLookerInstanceUpdate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	} else if v, ok := d.GetOkExists("oauth_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, oauthConfigProp)) {
 		obj["oauthConfig"] = oauthConfigProp
+	}
+	periodicExportConfigProp, err := expandLookerInstancePeriodicExportConfig(d.Get("periodic_export_config"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("periodic_export_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, periodicExportConfigProp)) {
+		obj["periodicExportConfig"] = periodicExportConfigProp
 	}
 	privateIpEnabledProp, err := expandLookerInstancePrivateIpEnabled(d.Get("private_ip_enabled"), d, config)
 	if err != nil {
@@ -921,6 +1201,15 @@ func resourceLookerInstanceUpdate(d *schema.ResourceData, meta interface{}) erro
 		updateMask = append(updateMask, "consumerNetwork")
 	}
 
+	if d.HasChange("controlled_egress_config") {
+		updateMask = append(updateMask, "controlled_egress_config.marketplace_enabled",
+			"controlled_egress_config.egress_fqdns")
+	}
+
+	if d.HasChange("controlled_egress_enabled") {
+		updateMask = append(updateMask, "controlledEgressEnabled")
+	}
+
 	if d.HasChange("deny_maintenance_period") {
 		updateMask = append(updateMask, "denyMaintenancePeriod")
 	}
@@ -933,12 +1222,20 @@ func resourceLookerInstanceUpdate(d *schema.ResourceData, meta interface{}) erro
 		updateMask = append(updateMask, "fipsEnabled")
 	}
 
+	if d.HasChange("gemini_enabled") {
+		updateMask = append(updateMask, "geminiEnabled")
+	}
+
 	if d.HasChange("maintenance_window") {
 		updateMask = append(updateMask, "maintenanceWindow")
 	}
 
 	if d.HasChange("oauth_config") {
 		updateMask = append(updateMask, "oauthConfig")
+	}
+
+	if d.HasChange("periodic_export_config") {
+		updateMask = append(updateMask, "periodic_export_config")
 	}
 
 	if d.HasChange("private_ip_enabled") {
@@ -1118,6 +1415,33 @@ func flattenLookerInstanceAdminSettingsAllowedEmailDomains(v interface{}, d *sch
 }
 
 func flattenLookerInstanceConsumerNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenLookerInstanceControlledEgressConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["marketplace_enabled"] =
+		flattenLookerInstanceControlledEgressConfigMarketplaceEnabled(original["marketplaceEnabled"], d, config)
+	transformed["egress_fqdns"] =
+		flattenLookerInstanceControlledEgressConfigEgressFqdns(original["egressFqdns"], d, config)
+	return []interface{}{transformed}
+}
+func flattenLookerInstanceControlledEgressConfigMarketplaceEnabled(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenLookerInstanceControlledEgressConfigEgressFqdns(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenLookerInstanceControlledEgressEnabled(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1402,6 +1726,10 @@ func flattenLookerInstanceFipsEnabled(v interface{}, d *schema.ResourceData, con
 	return v
 }
 
+func flattenLookerInstanceGeminiEnabled(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenLookerInstanceIngressPrivateIp(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -1508,6 +1836,118 @@ func flattenLookerInstanceMaintenanceWindowStartTimeSeconds(v interface{}, d *sc
 }
 
 func flattenLookerInstanceMaintenanceWindowStartTimeNanos(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenLookerInstancePeriodicExportConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["kms_key"] =
+		flattenLookerInstancePeriodicExportConfigKmsKey(original["kmsKey"], d, config)
+	transformed["gcs_uri"] =
+		flattenLookerInstancePeriodicExportConfigGcsUri(original["gcsUri"], d, config)
+	transformed["start_time"] =
+		flattenLookerInstancePeriodicExportConfigStartTime(original["startTime"], d, config)
+	return []interface{}{transformed}
+}
+func flattenLookerInstancePeriodicExportConfigKmsKey(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenLookerInstancePeriodicExportConfigGcsUri(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenLookerInstancePeriodicExportConfigStartTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["hours"] =
+		flattenLookerInstancePeriodicExportConfigStartTimeHours(original["hours"], d, config)
+	transformed["minutes"] =
+		flattenLookerInstancePeriodicExportConfigStartTimeMinutes(original["minutes"], d, config)
+	transformed["seconds"] =
+		flattenLookerInstancePeriodicExportConfigStartTimeSeconds(original["seconds"], d, config)
+	transformed["nanos"] =
+		flattenLookerInstancePeriodicExportConfigStartTimeNanos(original["nanos"], d, config)
+	return []interface{}{transformed}
+}
+func flattenLookerInstancePeriodicExportConfigStartTimeHours(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenLookerInstancePeriodicExportConfigStartTimeMinutes(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenLookerInstancePeriodicExportConfigStartTimeSeconds(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenLookerInstancePeriodicExportConfigStartTimeNanos(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
 		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
@@ -1697,6 +2137,9 @@ func flattenLookerInstanceCustomDomainState(v interface{}, d *schema.ResourceDat
 }
 
 func expandLookerInstanceAdminSettings(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1723,7 +2166,51 @@ func expandLookerInstanceConsumerNetwork(v interface{}, d tpgresource.TerraformR
 	return v, nil
 }
 
+func expandLookerInstanceControlledEgressConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedMarketplaceEnabled, err := expandLookerInstanceControlledEgressConfigMarketplaceEnabled(original["marketplace_enabled"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMarketplaceEnabled); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["marketplaceEnabled"] = transformedMarketplaceEnabled
+	}
+
+	transformedEgressFqdns, err := expandLookerInstanceControlledEgressConfigEgressFqdns(original["egress_fqdns"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedEgressFqdns); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["egressFqdns"] = transformedEgressFqdns
+	}
+
+	return transformed, nil
+}
+
+func expandLookerInstanceControlledEgressConfigMarketplaceEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstanceControlledEgressConfigEgressFqdns(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstanceControlledEgressEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandLookerInstanceDenyMaintenancePeriod(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1757,6 +2244,9 @@ func expandLookerInstanceDenyMaintenancePeriod(v interface{}, d tpgresource.Terr
 }
 
 func expandLookerInstanceDenyMaintenancePeriodStartDate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1802,6 +2292,9 @@ func expandLookerInstanceDenyMaintenancePeriodStartDateDay(v interface{}, d tpgr
 }
 
 func expandLookerInstanceDenyMaintenancePeriodEndDate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1847,6 +2340,9 @@ func expandLookerInstanceDenyMaintenancePeriodEndDateDay(v interface{}, d tpgres
 }
 
 func expandLookerInstanceDenyMaintenancePeriodTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1903,6 +2399,9 @@ func expandLookerInstanceDenyMaintenancePeriodTimeNanos(v interface{}, d tpgreso
 }
 
 func expandLookerInstanceEncryptionConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1951,7 +2450,14 @@ func expandLookerInstanceFipsEnabled(v interface{}, d tpgresource.TerraformResou
 	return v, nil
 }
 
+func expandLookerInstanceGeminiEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandLookerInstanceMaintenanceWindow(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1982,6 +2488,9 @@ func expandLookerInstanceMaintenanceWindowDayOfWeek(v interface{}, d tpgresource
 }
 
 func expandLookerInstanceMaintenanceWindowStartTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2038,6 +2547,9 @@ func expandLookerInstanceMaintenanceWindowStartTimeNanos(v interface{}, d tpgres
 }
 
 func expandLookerInstanceOauthConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2071,6 +2583,109 @@ func expandLookerInstanceOauthConfigClientSecret(v interface{}, d tpgresource.Te
 	return v, nil
 }
 
+func expandLookerInstancePeriodicExportConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedKmsKey, err := expandLookerInstancePeriodicExportConfigKmsKey(original["kms_key"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedKmsKey); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["kmsKey"] = transformedKmsKey
+	}
+
+	transformedGcsUri, err := expandLookerInstancePeriodicExportConfigGcsUri(original["gcs_uri"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedGcsUri); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["gcsUri"] = transformedGcsUri
+	}
+
+	transformedStartTime, err := expandLookerInstancePeriodicExportConfigStartTime(original["start_time"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedStartTime); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["startTime"] = transformedStartTime
+	}
+
+	return transformed, nil
+}
+
+func expandLookerInstancePeriodicExportConfigKmsKey(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstancePeriodicExportConfigGcsUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstancePeriodicExportConfigStartTime(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedHours, err := expandLookerInstancePeriodicExportConfigStartTimeHours(original["hours"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedHours); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["hours"] = transformedHours
+	}
+
+	transformedMinutes, err := expandLookerInstancePeriodicExportConfigStartTimeMinutes(original["minutes"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMinutes); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["minutes"] = transformedMinutes
+	}
+
+	transformedSeconds, err := expandLookerInstancePeriodicExportConfigStartTimeSeconds(original["seconds"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSeconds); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["seconds"] = transformedSeconds
+	}
+
+	transformedNanos, err := expandLookerInstancePeriodicExportConfigStartTimeNanos(original["nanos"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedNanos); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["nanos"] = transformedNanos
+	}
+
+	return transformed, nil
+}
+
+func expandLookerInstancePeriodicExportConfigStartTimeHours(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstancePeriodicExportConfigStartTimeMinutes(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstancePeriodicExportConfigStartTimeSeconds(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandLookerInstancePeriodicExportConfigStartTimeNanos(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandLookerInstancePlatformEdition(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -2080,6 +2695,9 @@ func expandLookerInstancePrivateIpEnabled(v interface{}, d tpgresource.Terraform
 }
 
 func expandLookerInstancePscConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2121,6 +2739,9 @@ func expandLookerInstancePscConfigLookerServiceAttachmentUri(v interface{}, d tp
 }
 
 func expandLookerInstancePscConfigServiceAttachments(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2181,6 +2802,9 @@ func expandLookerInstanceReservedRange(v interface{}, d tpgresource.TerraformRes
 }
 
 func expandLookerInstanceUserMetadata(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2226,6 +2850,9 @@ func expandLookerInstanceUserMetadataAdditionalDeveloperUserCount(v interface{},
 }
 
 func expandLookerInstanceCustomDomain(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

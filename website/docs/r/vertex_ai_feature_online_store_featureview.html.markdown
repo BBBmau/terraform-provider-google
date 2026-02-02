@@ -245,7 +245,6 @@ resource "google_project_service" "vertexai" {
     create = "30m"
     update = "40m"
   }
-  disable_on_destroy = false
   # Needed for CI tests for permissions to propagate, should not be needed for actual usage
   depends_on = [time_sleep.wait_60_seconds]
 }
@@ -343,7 +342,7 @@ resource "google_vertex_ai_feature_online_store_featureview" "cross_project_feat
   region               = "us-central1"
   feature_online_store = google_vertex_ai_feature_online_store.featureonlinestore.name
   sync_config {
-    cron = "0 0 * * *"
+    continuous = true 
   }
   feature_registry_source {
     
@@ -373,13 +372,7 @@ resource "google_vertex_ai_feature_online_store" "featureonlinestore" {
     foo = "bar"
   }
   region = "us-central1"
-  bigtable {
-    auto_scaling {
-      min_node_count         = 1
-      max_node_count         = 2
-      cpu_utilization_target = 80
-    }
-  }
+  optimized {}
   embedding_management {
     enabled = true
   }
@@ -445,6 +438,7 @@ resource "google_bigquery_table" "tf-test-table" {
 ]
 EOF
 }
+
 resource "google_vertex_ai_feature_online_store_featureview" "featureview_vector_search" {
   provider             = google-beta
   name                 = "example_feature_view_vector_search"
@@ -489,9 +483,6 @@ The following arguments are supported:
   The region for the resource. It should be the same as the featureonlinestore region.
 
 
-- - -
-
-
 * `name` -
   (Optional)
   Name of the FeatureView. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number.
@@ -527,12 +518,17 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_sync_config"></a>The `sync_config` block supports:
 
 * `cron` -
   (Optional)
   Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
   To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or "TZ=${IANA_TIME_ZONE}".
+
+* `continuous` -
+  (Optional)
+  If true, syncs the FeatureView in a continuous manner to Online Store.
 
 <a name="nested_big_query_source"></a>The `big_query_source` block supports:
 
@@ -645,6 +641,19 @@ FeatureOnlineStoreFeatureview can be imported using any of these accepted format
 * `{{region}}/{{feature_online_store}}/{{name}}`
 * `{{feature_online_store}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FeatureOnlineStoreFeatureview using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    featureOnlineStore = "<-required value->"
+    region = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_feature_online_store_featureview.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FeatureOnlineStoreFeatureview using one of the formats above. For example:
 

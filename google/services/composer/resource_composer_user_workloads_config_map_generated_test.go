@@ -19,15 +19,35 @@ package composer_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccComposerUserWorkloadsConfigMap_composerUserWorkloadsConfigMapBasicExample(t *testing.T) {
@@ -51,12 +71,31 @@ func TestAccComposerUserWorkloadsConfigMap_composerUserWorkloadsConfigMapBasicEx
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"environment", "region"},
 			},
+			{
+				ResourceName:       "google_composer_user_workloads_config_map.config_map",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
 
 func testAccComposerUserWorkloadsConfigMap_composerUserWorkloadsConfigMapBasicExample(context map[string]interface{}) string {
 	return acctest.Nprintf(`
+data "google_project" "project" {}
+
+resource "google_service_account" "test" {
+  account_id   = "tf-test-test-sa%{random_suffix}"
+  display_name = "Test Service Account for Composer Environment"
+}
+
+resource "google_project_iam_member" "composer-worker" {
+  project = data.google_project.project.project_id
+  role   = "roles/composer.worker"
+  member = "serviceAccount:${google_service_account.test.email}"
+}
+
 resource "google_composer_environment" "environment" {
   name   = "tf-test-test-environment%{random_suffix}"
   region = "us-central1"
@@ -64,7 +103,11 @@ resource "google_composer_environment" "environment" {
     software_config {
       image_version = "composer-3-airflow-2"
     }
+    node_config {
+      service_account = google_service_account.test.name
+    }
   }
+  depends_on = [google_project_iam_member.composer-worker]
 }
 
 resource "google_composer_user_workloads_config_map" "config_map" {

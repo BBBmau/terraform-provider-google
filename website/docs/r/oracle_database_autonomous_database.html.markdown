@@ -112,6 +112,59 @@ data "google_compute_network" "default" {
   project = "my-project"
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=oracledatabase_autonomous_database_odbnetwork&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Oracledatabase Autonomous Database Odbnetwork
+
+
+```hcl
+resource "google_oracle_database_autonomous_database" "myADB"{
+  autonomous_database_id = "my-instance"
+  location = "europe-west2"
+  project = "my-project"
+  database = "mydatabase"
+  admin_password = "123Abpassword"
+  odb_network = "projects/my-project/locations/europe-west2/odbNetworks/my-odbnetwork"
+  odb_subnet = "projects/my-project/locations/europe-west2/odbNetworks/my-odbnetwork/odbSubnets/my-odbsubnet"
+  properties {
+    compute_count = "2"
+    data_storage_size_tb="1"
+    db_version = "19c"
+    db_workload = "OLTP"
+    license_type = "LICENSE_INCLUDED"
+    }
+  deletion_protection = "true"
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=oracledatabase_autonomous_database_publicip&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Oracledatabase Autonomous Database Publicip
+
+
+```hcl
+resource "google_oracle_database_autonomous_database" "myADB"{
+  autonomous_database_id = "my-instance"
+  location = "europe-west2"
+  project = "my-project"
+  database = "mydatabase"
+  admin_password = "123Abpassword"
+  properties {
+    compute_count = "2"
+    data_storage_size_tb="1"
+    db_version = "19c"
+    db_workload = "OLTP"
+    license_type = "LICENSE_INCLUDED"
+    mtls_connection_required = "true"
+    }
+  deletion_protection = "true"
+}
+```
 
 ## Argument Reference
 
@@ -129,15 +182,6 @@ The following arguments are supported:
   The properties of an Autonomous Database.
   Structure is [documented below](#nested_properties).
 
-* `network` -
-  (Required)
-  The name of the VPC network used by the Autonomous Database.
-  Format: projects/{project}/global/networks/{network}
-
-* `cidr` -
-  (Required)
-  The subnet CIDR range for the Autonmous Database.
-
 * `location` -
   (Required)
   Resource ID segment making up resource `name`. See documentation for resource type `oracledatabase.googleapis.com/AutonomousDatabaseBackup`.
@@ -150,6 +194,50 @@ The following arguments are supported:
   a letter or a number.
 
 
+* `display_name` -
+  (Optional)
+  The display name for the Autonomous Database. The name does not have to
+  be unique within your project.
+
+* `admin_password` -
+  (Optional)
+  The password for the default ADMIN user.
+
+* `labels` -
+  (Optional)
+  The labels or tags associated with the Autonomous Database. 
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `network` -
+  (Optional)
+  The name of the VPC network used by the Autonomous Database.
+  Format: projects/{project}/global/networks/{network}
+
+* `cidr` -
+  (Optional)
+  The subnet CIDR range for the Autonmous Database.
+
+* `odb_network` -
+  (Optional)
+  The name of the OdbNetwork associated with the Autonomous Database.
+  Format:
+  projects/{project}/locations/{location}/odbNetworks/{odb_network}
+  It is optional but if specified, this should match the parent ODBNetwork of
+  the odb_subnet and backup_odb_subnet.
+
+* `odb_subnet` -
+  (Optional)
+  The name of the OdbSubnet associated with the Autonomous Database for
+  IP allocation. Format:
+  projects/{project}/locations/{location}/odbNetworks/{odb_network}/odbSubnets/{odb_subnet}
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+* `deletion_protection` - (Optional) Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail.
+
+
 <a name="nested_properties"></a>The `properties` block supports:
 
 * `ocid` -
@@ -160,6 +248,10 @@ The following arguments are supported:
 * `compute_count` -
   (Optional)
   The number of compute servers for the Autonomous Database.
+
+* `cpu_core_count` -
+  (Optional)
+  The number of CPU cores to be made available to the database.
 
 * `data_storage_size_tb` -
   (Optional)
@@ -229,6 +321,14 @@ The following arguments are supported:
   (Optional)
   The list of customer contacts.
   Structure is [documented below](#nested_properties_customer_contacts).
+
+* `secret_id` -
+  (Optional)
+  The ID of the Oracle Cloud Infrastructure vault secret.
+
+* `vault_id` -
+  (Optional)
+  The ID of the Oracle Cloud Infrastructure vault.
 
 * `maintenance_schedule_type` -
   (Optional)
@@ -732,37 +832,17 @@ The following arguments are supported:
   Represents a time of day. The date and time zone are either not significant
   or are specified elsewhere. An API may choose to allow leap seconds. Related
   types are google.type.Date and `google.protobuf.Timestamp`.
-  Structure is [documented below](#nested_properties_scheduled_operation_details_scheduled_operation_details_start_time).
+  Structure is [documented below](#nested_properties_scheduled_operation_details_start_time).
 
 * `stop_time` -
   (Output)
   Represents a time of day. The date and time zone are either not significant
   or are specified elsewhere. An API may choose to allow leap seconds. Related
   types are google.type.Date and `google.protobuf.Timestamp`.
-  Structure is [documented below](#nested_properties_scheduled_operation_details_scheduled_operation_details_stop_time).
+  Structure is [documented below](#nested_properties_scheduled_operation_details_stop_time).
 
 
-<a name="nested_properties_scheduled_operation_details_scheduled_operation_details_start_time"></a>The `start_time` block contains:
-
-* `hours` -
-  (Output)
-  Hours of day in 24 hour format. Should be from 0 to 23. An API may choose
-  to allow the value "24:00:00" for scenarios like business closing time.
-
-* `minutes` -
-  (Output)
-  Minutes of hour of day. Must be from 0 to 59.
-
-* `seconds` -
-  (Output)
-  Seconds of minutes of the time. Must normally be from 0 to 59. An API may
-  allow the value 60 if it allows leap-seconds.
-
-* `nanos` -
-  (Output)
-  Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
-
-<a name="nested_properties_scheduled_operation_details_scheduled_operation_details_stop_time"></a>The `stop_time` block contains:
+<a name="nested_properties_scheduled_operation_details_start_time"></a>The `start_time` block contains:
 
 * `hours` -
   (Output)
@@ -782,28 +862,25 @@ The following arguments are supported:
   (Output)
   Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
-- - -
+<a name="nested_properties_scheduled_operation_details_stop_time"></a>The `stop_time` block contains:
 
+* `hours` -
+  (Output)
+  Hours of day in 24 hour format. Should be from 0 to 23. An API may choose
+  to allow the value "24:00:00" for scenarios like business closing time.
 
-* `display_name` -
-  (Optional)
-  The display name for the Autonomous Database. The name does not have to
-  be unique within your project.
+* `minutes` -
+  (Output)
+  Minutes of hour of day. Must be from 0 to 59.
 
-* `admin_password` -
-  (Optional)
-  The password for the default ADMIN user.
+* `seconds` -
+  (Output)
+  Seconds of minutes of the time. Must normally be from 0 to 59. An API may
+  allow the value 60 if it allows leap-seconds.
 
-* `labels` -
-  (Optional)
-  The labels or tags associated with the Autonomous Database. 
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-* `deletion_protection` - (Optional) Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail.
+* `nanos` -
+  (Output)
+  Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.
 
 ## Attributes Reference
 
@@ -848,6 +925,18 @@ AutonomousDatabase can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{autonomous_database_id}}`
 * `{{location}}/{{autonomous_database_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AutonomousDatabase using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    autonomousDatabaseId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_oracle_database_autonomous_database.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AutonomousDatabase using one of the formats above. For example:
 

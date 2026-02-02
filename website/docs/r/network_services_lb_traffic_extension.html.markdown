@@ -398,6 +398,13 @@ The following arguments are supported:
   Further information can be found at https://cloud.google.com/service-extensions/docs/reference/rest/v1/ExtensionChain
   Structure is [documented below](#nested_extension_chains).
 
+* `load_balancing_scheme` -
+  (Required)
+  All backend services and forwarding rules referenced by this extension must share the same load balancing scheme.
+  For more information, refer to [Choosing a load balancer](https://cloud.google.com/load-balancing/docs/backend-service) and
+  [Supported application load balancers](https://cloud.google.com/service-extensions/docs/callouts-overview#supported-lbs).
+  Possible values are: `INTERNAL_MANAGED`, `EXTERNAL_MANAGED`.
+
 * `location` -
   (Required)
   The location of the traffic extension
@@ -405,6 +412,21 @@ The following arguments are supported:
 * `name` -
   (Required)
   Name of the LbTrafficExtension resource in the following format: projects/{project}/locations/{location}/lbTrafficExtensions/{lbTrafficExtension}.
+
+
+* `description` -
+  (Optional)
+  A human-readable description of the resource.
+
+* `labels` -
+  (Optional)
+  Set of labels associated with the LbTrafficExtension resource.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_extension_chains"></a>The `extension_chains` block supports:
@@ -419,7 +441,7 @@ The following arguments are supported:
 * `match_condition` -
   (Required)
   Conditions under which this chain is invoked for a request.
-  Structure is [documented below](#nested_extension_chains_extension_chains_match_condition).
+  Structure is [documented below](#nested_extension_chains_match_condition).
 
 * `extensions` -
   (Required)
@@ -427,16 +449,16 @@ The following arguments are supported:
   At least one extension is required. Up to 3 extensions can be defined for each extension chain for
   LbTrafficExtension resource. LbRouteExtension chains are limited to 1 extension per extension chain.
   Further documentation to be found at https://cloud.google.com/service-extensions/docs/reference/rest/v1/ExtensionChain#Extension
-  Structure is [documented below](#nested_extension_chains_extension_chains_extensions).
+  Structure is [documented below](#nested_extension_chains_extensions).
 
 
-<a name="nested_extension_chains_extension_chains_match_condition"></a>The `match_condition` block supports:
+<a name="nested_extension_chains_match_condition"></a>The `match_condition` block supports:
 
 * `cel_expression` -
   (Required)
   A Common Expression Language (CEL) expression that is used to match requests for which the extension chain is executed.
 
-<a name="nested_extension_chains_extension_chains_extensions"></a>The `extensions` block supports:
+<a name="nested_extension_chains_extensions"></a>The `extensions` block supports:
 
 * `name` -
   (Required)
@@ -451,7 +473,9 @@ The following arguments are supported:
 
 * `service` -
   (Required)
-  The reference to the service that runs the extension. Must be a reference to a backend service
+  The reference to the service that runs the extension.
+  * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+  * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
 
 * `timeout` -
   (Optional)
@@ -485,30 +509,6 @@ The following arguments are supported:
   You can set up key value pairs for metadata as you like and need.
   f.e. {"key": "value", "key2": "value2"}.
 
-- - -
-
-
-* `description` -
-  (Optional)
-  A human-readable description of the resource.
-
-* `labels` -
-  (Optional)
-  Set of labels associated with the LbTrafficExtension resource.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `load_balancing_scheme` -
-  (Optional)
-  All backend services and forwarding rules referenced by this extension must share the same load balancing scheme.
-  For more information, refer to [Choosing a load balancer](https://cloud.google.com/load-balancing/docs/backend-service) and
-  [Supported application load balancers](https://cloud.google.com/service-extensions/docs/callouts-overview#supported-lbs).
-  Possible values are: `INTERNAL_MANAGED`, `EXTERNAL_MANAGED`.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -541,6 +541,18 @@ LbTrafficExtension can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import LbTrafficExtension using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_lb_traffic_extension.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import LbTrafficExtension using one of the formats above. For example:
 

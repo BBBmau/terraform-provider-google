@@ -128,9 +128,6 @@ The following arguments are supported:
   The name of the Featurestore to use, in the format projects/{project}/locations/{location}/featurestores/{featurestore}.
 
 
-- - -
-
-
 * `name` -
   (Optional)
   The name of the EntityType. This value may be up to 60 characters, and valid characters are [a-z0-9_]. The first character cannot be a number.
@@ -155,6 +152,7 @@ The following arguments are supported:
 * `offline_storage_ttl_days` -
   (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
   Config for data retention policy in offline storage. TTL in days for feature values that will be stored in offline storage. The Feature Store offline storage periodically removes obsolete feature values older than offlineStorageTtlDays since the feature generation time. If unset (or explicitly set to 0), default to 4000 days TTL.
+
 
 
 <a name="nested_monitoring_config"></a>The `monitoring_config` block supports:
@@ -269,6 +267,17 @@ FeaturestoreEntitytype can be imported using any of these accepted formats:
 
 * `{{featurestore}}/entityTypes/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FeaturestoreEntitytype using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    featurestore = "<-required value->"
+  }
+  to = google_vertex_ai_featurestore_entitytype.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FeaturestoreEntitytype using one of the formats above. For example:
 

@@ -25,10 +25,18 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccComputeInstanceIamBindingGenerated(t *testing.T) {
@@ -53,7 +61,7 @@ func TestAccComputeInstanceIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMBindingStateID("google_compute_instance_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -63,7 +71,7 @@ func TestAccComputeInstanceIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMBindingStateID("google_compute_instance_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -94,7 +102,7 @@ func TestAccComputeInstanceIamMemberGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMMemberStateID("google_compute_instance_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -125,7 +133,7 @@ func TestAccComputeInstanceIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMPolicyStateID("google_compute_instance_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -134,7 +142,7 @@ func TestAccComputeInstanceIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMPolicyStateID("google_compute_instance_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -164,7 +172,7 @@ func TestAccComputeInstanceIamBindingGenerated_withCondition(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin %s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateComputeInstanceIAMBindingStateID("google_compute_instance_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -196,19 +204,19 @@ func TestAccComputeInstanceIamBindingGenerated_withAndWithoutCondition(t *testin
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMBindingStateID("google_compute_instance_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_binding.foo2",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin %s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateComputeInstanceIAMBindingStateID("google_compute_instance_iam_binding.foo2"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_binding.foo3",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin %s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"]), context["condition_title_no_desc"]),
+				ImportStateIdFunc: generateComputeInstanceIAMBindingStateID("google_compute_instance_iam_binding.foo3"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -238,7 +246,7 @@ func TestAccComputeInstanceIamMemberGenerated_withCondition(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateComputeInstanceIAMMemberStateID("google_compute_instance_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -270,19 +278,19 @@ func TestAccComputeInstanceIamMemberGenerated_withAndWithoutCondition(t *testing
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMMemberStateID("google_compute_instance_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_member.foo2",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateComputeInstanceIAMMemberStateID("google_compute_instance_iam_member.foo2"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_member.foo3",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s roles/compute.osLogin user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"]), context["condition_title_no_desc"]),
+				ImportStateIdFunc: generateComputeInstanceIAMMemberStateID("google_compute_instance_iam_member.foo3"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -314,7 +322,7 @@ func TestAccComputeInstanceIamPolicyGenerated_withCondition(t *testing.T) {
 			{
 				Config: testAccComputeInstanceIamPolicy_withConditionGenerated(context),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// TODO(SarahFrench) - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
+					// TODO - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
 					// resource.TestCheckResourceAttr("data.google_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttr("google_compute_instance_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttrWith("data.google_iam_policy.foo", "policy_data", tpgresource.CheckGoogleIamPolicy),
@@ -322,7 +330,7 @@ func TestAccComputeInstanceIamPolicyGenerated_withCondition(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_compute_instance_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/zones/%s/instances/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestZoneFromEnv(), fmt.Sprintf("tf-test-my-instance%s", context["random_suffix"])),
+				ImportStateIdFunc: generateComputeInstanceIAMPolicyStateID("google_compute_instance_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -334,7 +342,7 @@ func testAccComputeInstanceIamMember_basicGenerated(context map[string]interface
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -362,7 +370,7 @@ func testAccComputeInstanceIamPolicy_basicGenerated(context map[string]interface
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -405,7 +413,7 @@ func testAccComputeInstanceIamPolicy_emptyBinding(context map[string]interface{}
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -435,7 +443,7 @@ func testAccComputeInstanceIamBinding_basicGenerated(context map[string]interfac
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -463,7 +471,7 @@ func testAccComputeInstanceIamBinding_updateGenerated(context map[string]interfa
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -491,7 +499,7 @@ func testAccComputeInstanceIamBinding_withConditionGenerated(context map[string]
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -524,7 +532,7 @@ func testAccComputeInstanceIamBinding_withAndWithoutConditionGenerated(context m
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -579,7 +587,7 @@ func testAccComputeInstanceIamMember_withConditionGenerated(context map[string]i
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -612,7 +620,7 @@ func testAccComputeInstanceIamMember_withAndWithoutConditionGenerated(context ma
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -667,7 +675,7 @@ func testAccComputeInstanceIamPolicy_withConditionGenerated(context map[string]i
 	return acctest.Nprintf(`
 resource "google_compute_instance" "default" {
   name         = "tf-test-my-instance%{random_suffix}"
-  zone         = ""
+  zone         = "us-central1-a"
   machine_type = "e2-medium"
 
   boot_disk {
@@ -710,4 +718,57 @@ resource "google_compute_instance_iam_policy" "foo" {
   policy_data = data.google_iam_policy.foo.policy_data
 }
 `, context)
+}
+func generateComputeInstanceIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		zone := tpgresource.GetResourceNameFromSelfLink(rawState["zone"])
+		instance_name := tpgresource.GetResourceNameFromSelfLink(rawState["instance_name"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance_name), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateComputeInstanceIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		zone := tpgresource.GetResourceNameFromSelfLink(rawState["zone"])
+		instance_name := tpgresource.GetResourceNameFromSelfLink(rawState["instance_name"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance_name), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateComputeInstanceIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		zone := tpgresource.GetResourceNameFromSelfLink(rawState["zone"])
+		instance_name := tpgresource.GetResourceNameFromSelfLink(rawState["instance_name"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/zones/%s/instances/%s", project, zone, instance_name), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

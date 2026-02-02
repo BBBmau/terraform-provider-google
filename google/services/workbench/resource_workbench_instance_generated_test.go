@@ -19,8 +19,11 @@ package workbench_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccWorkbenchInstance_workbenchInstanceBasicExample(t *testing.T) {
@@ -50,7 +69,13 @@ func TestAccWorkbenchInstance_workbenchInstanceBasicExample(t *testing.T) {
 				ResourceName:            "google_workbench_instance.instance",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -84,7 +109,13 @@ func TestAccWorkbenchInstance_workbenchInstanceBasicContainerExample(t *testing.
 				ResourceName:            "google_workbench_instance.instance",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -125,7 +156,13 @@ func TestAccWorkbenchInstance_workbenchInstanceBasicGpuExample(t *testing.T) {
 				ResourceName:            "google_workbench_instance.instance",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"gce_setup.0.vm_image", "instance_id", "instance_owners", "labels", "location", "name", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"gce_setup.0.vm_image", "instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -133,6 +170,26 @@ func TestAccWorkbenchInstance_workbenchInstanceBasicGpuExample(t *testing.T) {
 
 func testAccWorkbenchInstance_workbenchInstanceBasicGpuExample(context map[string]interface{}) string {
 	return acctest.Nprintf(`
+resource "google_compute_reservation" "gpu_reservation" {
+  name     = "tf-test-wbi-reservation%{random_suffix}"
+  zone     = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    
+    instance_properties {
+      machine_type = "n1-standard-1"
+      
+      guest_accelerators {
+        accelerator_type  = "nvidia-tesla-t4"
+        accelerator_count = 1
+      }
+    }
+  }
+
+  specific_reservation_required = false
+}
+
 resource "google_workbench_instance" "instance" {
   name = "tf-test-workbench-instance%{random_suffix}"
   location = "us-central1-a"
@@ -146,7 +203,15 @@ resource "google_workbench_instance" "instance" {
       project      = "cloud-notebooks-managed"
       family       = "workbench-instances"
     }
+    reservation_affinity {
+      consume_reservation_type = "RESERVATION_ANY"
+    }
   }
+
+  depends_on = [
+    google_compute_reservation.gpu_reservation
+  ]
+
 }
 `, context)
 }
@@ -171,7 +236,13 @@ func TestAccWorkbenchInstance_workbenchInstanceLabelsStoppedExample(t *testing.T
 				ResourceName:            "google_workbench_instance.instance",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"desired_state", "instance_id", "instance_owners", "labels", "location", "name", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"desired_state", "instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -234,7 +305,13 @@ func TestAccWorkbenchInstance_workbenchInstanceFullExample(t *testing.T) {
 				ResourceName:            "google_workbench_instance.instance",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"gce_setup.0.boot_disk.0.disk_type", "gce_setup.0.data_disks.0.disk_type", "gce_setup.0.vm_image", "instance_id", "instance_owners", "labels", "location", "name", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"gce_setup.0.boot_disk.0.disk_type", "gce_setup.0.data_disks.0.disk_type", "gce_setup.0.vm_image", "instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -264,6 +341,26 @@ resource "google_service_account_iam_binding" "act_as_permission" {
   members = [
     "user:example@example.com",
   ]
+}
+
+resource "google_compute_reservation" "gpu_reservation" {
+  name     = "tf-test-wbi-reservation%{random_suffix}"
+  zone     = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    
+    instance_properties {
+      machine_type = "n1-standard-4"
+      
+      guest_accelerators {
+        accelerator_type  = "nvidia-tesla-t4"
+        accelerator_count = 1
+      }
+    }
+  }
+
+  specific_reservation_required = true
 }
 
 resource "google_workbench_instance" "instance" {
@@ -313,7 +410,15 @@ resource "google_workbench_instance" "instance" {
     }
 
     metadata = {
-      terraform = "true"
+      terraform = "true",
+      serial-port-logging-enable = "false"
+      "enable-jupyterlab4" = "false"
+    }
+
+    reservation_affinity {
+      consume_reservation_type = "RESERVATION_SPECIFIC"
+      key = "compute.googleapis.com/reservation-name"
+      values = [google_compute_reservation.gpu_reservation.name]
     }
 
     enable_ip_forwarding = true
@@ -339,6 +444,7 @@ resource "google_workbench_instance" "instance" {
     google_compute_subnetwork.my_subnetwork,
     google_compute_address.static,
     google_service_account_iam_binding.act_as_permission,
+    google_compute_reservation.gpu_reservation
   ]
 }
 `, context)
@@ -363,7 +469,13 @@ func TestAccWorkbenchInstance_workbenchInstanceConfidentialComputeExample(t *tes
 				ResourceName:            "google_workbench_instance.instance",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels"},
+				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -397,6 +509,72 @@ resource "google_workbench_instance" "instance" {
 `, context)
 }
 
+func TestAccWorkbenchInstance_workbenchInstanceEucExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"project_id":     envvar.GetTestProjectFromEnv(),
+		"project_number": envvar.GetTestProjectNumberFromEnv(),
+		"random_suffix":  acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckWorkbenchInstanceDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccWorkbenchInstance_workbenchInstanceEucExample(context),
+			},
+			{
+				ResourceName:            "google_workbench_instance.instance",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"instance_id", "instance_owners", "labels", "location", "name", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_workbench_instance.instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccWorkbenchInstance_workbenchInstanceEucExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_service_account_iam_binding" "act_as_permission" {
+  service_account_id = "projects/%{project_id}/serviceAccounts/%{project_number}-compute@developer.gserviceaccount.com"
+  role               = "roles/iam.serviceAccountUser"
+  members = [
+    "user:example@example.com",
+  ]
+}
+
+resource "google_workbench_instance" "instance" {
+  name = "tf-test-workbench-instance%{random_suffix}"
+  location = "us-central1-a"
+
+  gce_setup {
+    machine_type = "e2-standard-4"
+    
+    metadata = {
+      terraform = "true"
+    }
+  }
+
+  instance_owners  = ["example@example.com"]
+
+  enable_managed_euc = "true"
+
+  depends_on = [
+       google_service_account_iam_binding.act_as_permission,
+  ]
+}
+`, context)
+}
+
 func testAccCheckWorkbenchInstanceDestroyProducer(t *testing.T) func(s *terraform.State) error {
 	return func(s *terraform.State) error {
 		for name, rs := range s.RootModule().Resources {
@@ -421,11 +599,12 @@ func testAccCheckWorkbenchInstanceDestroyProducer(t *testing.T) func(s *terrafor
 			}
 
 			_, err = transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-				Config:    config,
-				Method:    "GET",
-				Project:   billingProject,
-				RawURL:    url,
-				UserAgent: config.UserAgent,
+				Config:               config,
+				Method:               "GET",
+				Project:              billingProject,
+				RawURL:               url,
+				UserAgent:            config.UserAgent,
+				ErrorRetryPredicates: []transport_tpg.RetryErrorPredicateFunc{transport_tpg.IsWorkbenchQueueError},
 			})
 			if err == nil {
 				return fmt.Errorf("WorkbenchInstance still exists at %s", url)

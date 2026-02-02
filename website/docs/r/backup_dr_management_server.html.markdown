@@ -74,9 +74,6 @@ The following arguments are supported:
   The name of management server (management console)
 
 
-- - -
-
-
 * `type` -
   (Optional)
   The type of management server (management console).
@@ -90,6 +87,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_networks"></a>The `networks` block supports:
@@ -145,6 +143,18 @@ ManagementServer can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ManagementServer using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_backup_dr_management_server.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ManagementServer using one of the formats above. For example:
 

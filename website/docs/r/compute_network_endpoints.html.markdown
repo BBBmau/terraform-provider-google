@@ -130,9 +130,6 @@ The following arguments are supported:
   The network endpoint group these endpoints are part of.
 
 
-- - -
-
-
 * `network_endpoints` -
   (Optional)
   The network endpoints to be added to the enclosing network endpoint group
@@ -146,6 +143,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_network_endpoints"></a>The `network_endpoints` block supports:
@@ -194,6 +192,18 @@ NetworkEndpoints can be imported using any of these accepted formats:
 * `{{zone}}/{{network_endpoint_group}}`
 * `{{network_endpoint_group}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import NetworkEndpoints using identity values. For example:
+
+```tf
+import {
+  identity = {
+    zone = "<-optional value->"
+    networkEndpointGroup = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_network_endpoints.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import NetworkEndpoints using one of the formats above. For example:
 

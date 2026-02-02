@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Service Directory Service
+
 Three different resources help you manage your IAM policy for Service Directory Service. Each of these resources serves a different use case:
 
 * `google_service_directory_service_iam_policy`: Authoritative. Sets the IAM policy for the service and replaces any existing policy already attached.
@@ -35,14 +36,11 @@ A data source can be used to retrieve policy data in advent you do not need crea
 ~> **Note:** `google_service_directory_service_iam_binding` resources **can be** used in conjunction with `google_service_directory_service_iam_member` resources **only if** they do not grant privilege to the same role.
 
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 ## google_service_directory_service_iam_policy
 
 ```hcl
 data "google_iam_policy" "admin" {
-  provider = google-beta
   binding {
     role = "roles/viewer"
     members = [
@@ -52,7 +50,6 @@ data "google_iam_policy" "admin" {
 }
 
 resource "google_service_directory_service_iam_policy" "policy" {
-  provider = google-beta
   name = google_service_directory_service.example.name
   policy_data = data.google_iam_policy.admin.policy_data
 }
@@ -62,7 +59,6 @@ resource "google_service_directory_service_iam_policy" "policy" {
 
 ```hcl
 resource "google_service_directory_service_iam_binding" "binding" {
-  provider = google-beta
   name = google_service_directory_service.example.name
   role = "roles/viewer"
   members = [
@@ -75,7 +71,6 @@ resource "google_service_directory_service_iam_binding" "binding" {
 
 ```hcl
 resource "google_service_directory_service_iam_member" "member" {
-  provider = google-beta
   name = google_service_directory_service.example.name
   role = "roles/viewer"
   member = "user:jane@example.com"
@@ -100,6 +95,7 @@ The following arguments are supported:
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_service_directory_service_iam_binding` can be used per role. Note that custom roles must be of the format

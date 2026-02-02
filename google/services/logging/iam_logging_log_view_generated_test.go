@@ -20,14 +20,23 @@
 package logging_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccLoggingLogViewIamBindingGenerated(t *testing.T) {
@@ -251,7 +260,7 @@ func TestAccLoggingLogViewIamPolicyGenerated_withCondition(t *testing.T) {
 			{
 				Config: testAccLoggingLogViewIamPolicy_withConditionGenerated(context),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// TODO(SarahFrench) - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
+					// TODO - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
 					// resource.TestCheckResourceAttr("data.google_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttr("google_logging_log_view_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttrWith("data.google_iam_policy.foo", "policy_data", tpgresource.CheckGoogleIamPolicy),
@@ -636,4 +645,60 @@ resource "google_logging_log_view_iam_policy" "foo" {
   policy_data = data.google_iam_policy.foo.policy_data
 }
 `, context)
+}
+func generateLoggingLogViewIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		parent := rawState["parent"]
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		bucket := tpgresource.GetResourceNameFromSelfLink(rawState["bucket"])
+		name := tpgresource.GetResourceNameFromSelfLink(rawState["name"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("%s/locations/%s/buckets/%s/views/%s", parent, location, bucket, name), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateLoggingLogViewIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		parent := rawState["parent"]
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		bucket := tpgresource.GetResourceNameFromSelfLink(rawState["bucket"])
+		name := tpgresource.GetResourceNameFromSelfLink(rawState["name"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("%s/locations/%s/buckets/%s/views/%s", parent, location, bucket, name), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateLoggingLogViewIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		parent := rawState["parent"]
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		bucket := tpgresource.GetResourceNameFromSelfLink(rawState["bucket"])
+		name := tpgresource.GetResourceNameFromSelfLink(rawState["name"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("%s/locations/%s/buckets/%s/views/%s", parent, location, bucket, name), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

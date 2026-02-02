@@ -51,12 +51,7 @@ To get more information about StoragePool, see:
     * [Quickstart documentation](https://cloud.google.com/netapp/volumes/docs/get-started/quickstarts/create-storage-pool)
     * [Regional Flex zone switch](https://cloud.google.com/netapp/volumes/docs/configure-and-use/storage-pools/edit-or-delete-storage-pool#switch_active_and_replica_zones)
 
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=Storage_pool_create&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
-## Example Usage - Storage Pool Create
+## Example Usage - Storage Pool Create Doc
 
 
 ```hcl
@@ -132,9 +127,6 @@ The following arguments are supported:
   The resource name of the storage pool. Needs to be unique per location/region.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource.
@@ -177,8 +169,44 @@ The following arguments are supported:
   Optional. True if the storage pool supports Auto Tiering enabled volumes. Default is false.
   Auto-tiering can be enabled after storage pool creation but it can't be disabled once enabled.
 
+* `custom_performance_enabled` -
+  (Optional)
+  Optional. True if using Independent Scaling of capacity and performance (Hyperdisk). Default is false.
+
+* `total_throughput_mibps` -
+  (Optional)
+  Optional. Custom Performance Total Throughput of the pool (in MiB/s).
+
+* `total_iops` -
+  (Optional)
+  Optional. Custom Performance Total IOPS of the pool If not provided, it will be calculated based on the totalThroughputMibps
+
+* `hot_tier_size_gib` -
+  (Optional)
+  Total hot tier capacity for the Storage Pool. It is applicable only to Flex service level.
+  It should be less than the minimum storage pool size and cannot be more than the current storage pool size. It cannot be decreased once set.
+
+* `enable_hot_tier_auto_resize` -
+  (Optional)
+  Flag indicating that the hot-tier threshold will be auto-increased by 10% of the hot-tier when it hits 100%. Default is true.
+  The increment will kick in only if the new size after increment is still less than or equal to storage pool size.
+
+* `qos_type` -
+  (Optional)
+  QoS (Quality of Service) type of the storage pool.
+  Possible values are: AUTO, MANUAL.
+  Possible values are: `QOS_TYPE_UNSPECIFIED`, `AUTO`, `MANUAL`.
+
+* `type` -
+  (Optional)
+  Type of the storage pool.
+  This field is used to control whether the pool supports FILE based volumes only or UNIFIED (both FILE and BLOCK) volumes.
+  If not specified during creation, it defaults to FILE.
+  Possible values are: `STORAGE_POOL_TYPE_UNSPECIFIED`, `FILE`, `UNIFIED`.
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -196,6 +224,15 @@ In addition to the arguments listed above, the following computed attributes are
 * `encryption_type` -
   Reports if volumes in the pool are encrypted using a Google-managed encryption key or CMEK.
 
+* `available_throughput_mibps` -
+  Available throughput of the storage pool (in MiB/s).
+
+* `cold_tier_size_used_gib` -
+  Total cold tier data rounded down to the nearest GiB used by the storage pool.
+
+* `hot_tier_size_used_gib` -
+  Total hot tier data rounded down to the nearest GiB used by the storage pool.
+
 * `terraform_labels` -
   The combination of labels configured directly on the resource
    and default labels configured on the provider.
@@ -210,8 +247,8 @@ This resource provides the following
 [Timeouts](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/retries-and-customizable-timeouts) configuration options:
 
 - `create` - Default is 45 minutes.
-- `update` - Default is 20 minutes.
-- `delete` - Default is 20 minutes.
+- `update` - Default is 60 minutes.
+- `delete` - Default is 45 minutes.
 
 ## Import
 
@@ -222,6 +259,18 @@ StoragePool can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import StoragePool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_netapp_storage_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import StoragePool using one of the formats above. For example:
 

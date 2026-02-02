@@ -20,19 +20,70 @@
 package gkehub2
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceGKEHub2Feature() *schema.Resource {
@@ -56,6 +107,26 @@ func ResourceGKEHub2Feature() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"location": {
@@ -251,6 +322,7 @@ func ResourceGKEHub2Feature() *schema.Resource {
 												},
 												"audit_interval_seconds": {
 													Type:        schema.TypeInt,
+													Computed:    true,
 													Optional:    true,
 													Description: `Interval for Policy Controller Audit scans (in seconds). When set to 0, this disables audit functionality altogether.`,
 												},
@@ -640,6 +712,24 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 								},
 							},
 						},
+						"rbacrolebindingactuation": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `RBACRolebinding Actuation feature spec.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"allowed_custom_roles": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										Description: `The list of allowed custom roles (ClusterRoles). If a custom role is not part of this list, it cannot be used in a fleet scope RBACRoleBinding. If a custom role in this list is in use, it cannot be removed from the list until the scope RBACRolebindings using it are deleted.`,
+										Elem: &schema.Schema{
+											Type: schema.TypeString,
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -754,11 +844,11 @@ func resourceGKEHub2FeatureCreate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("fleet_default_member_config"); ok || !reflect.DeepEqual(v, fleetDefaultMemberConfigProp) {
 		obj["fleetDefaultMemberConfig"] = fleetDefaultMemberConfigProp
 	}
-	labelsProp, err := expandGKEHub2FeatureEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandGKEHub2FeatureEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVarsForId(d, config, "{{GKEHub2BasePath}}projects/{{project}}/locations/{{location}}/features?featureId={{name}}")
@@ -781,6 +871,31 @@ func resourceGKEHub2FeatureCreate(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	headers := make(http.Header)
+	// Check if the fleet feature already exists. Do an update if so.
+
+	getUrl, err := tpgresource.ReplaceVars(d, config, "{{GKEHub2BasePath}}projects/{{project}}/locations/{{location}}/features/{{name}}")
+	if err != nil {
+		return err
+	}
+	_, err = transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "GET",
+		Project:   billingProject,
+		RawURL:    getUrl,
+		UserAgent: userAgent,
+		Headers:   headers,
+	})
+
+	if err == nil {
+		// Fleet feature already exists
+		log.Printf("[DEBUG] Fleet feature already exists %s", d.Get("name"))
+		id, err := tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/features/{{name}}")
+		if err != nil {
+			return fmt.Errorf("Error constructing id: %s", err)
+		}
+		d.SetId(id)
+		return resourceGKEHub2FeatureUpdate(d, meta)
+	}
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
 		Config:    config,
 		Method:    "POST",
@@ -802,25 +917,36 @@ func resourceGKEHub2FeatureCreate(d *schema.ResourceData, meta interface{}) erro
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = GKEHub2OperationWaitTimeWithResponse(
-		config, res, &opRes, tpgresource.GetResourceNameFromSelfLink(project), "Creating Feature", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = GKEHub2OperationWaitTime(
+		config, res, tpgresource.GetResourceNameFromSelfLink(project), "Creating Feature", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create Feature: %s", err)
 	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVarsForId(d, config, "projects/{{project}}/locations/{{location}}/features/{{name}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating Feature %q: %#v", d.Id(), res)
 
@@ -900,6 +1026,30 @@ func resourceGKEHub2FeatureRead(d *schema.ResourceData, meta interface{}) error 
 		return fmt.Errorf("Error reading Feature: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -908,6 +1058,26 @@ func resourceGKEHub2FeatureUpdate(d *schema.ResourceData, meta interface{}) erro
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -931,11 +1101,11 @@ func resourceGKEHub2FeatureUpdate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("fleet_default_member_config"); ok || !reflect.DeepEqual(v, fleetDefaultMemberConfigProp) {
 		obj["fleetDefaultMemberConfig"] = fleetDefaultMemberConfigProp
 	}
-	labelsProp, err := expandGKEHub2FeatureEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandGKEHub2FeatureEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVarsForId(d, config, "{{GKEHub2BasePath}}projects/{{project}}/locations/{{location}}/features/{{name}}")
@@ -1029,6 +1199,61 @@ func resourceGKEHub2FeatureDelete(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	headers := make(http.Header)
+	// Special handling for the mandatory 'rbacrolebindingactuation' feature.
+	// Instead of deleting it, we reset it to a default state by sending a PATCH request.
+	if d.Get("name").(string) == "rbacrolebindingactuation" {
+		log.Printf("[DEBUG] Mandatory feature 'rbacrolebindingactuation' detected. Resetting instead of deleting.")
+
+		patchUrl, err := tpgresource.ReplaceVarsForId(d, config, "{{GKEHub2BasePath}}projects/{{project}}/locations/{{location}}/features/{{name}}")
+		if err != nil {
+			return err
+		}
+
+		// Construct the request body to clear the desired field.
+		obj := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"rbacrolebindingactuation": map[string]interface{}{
+					"allowedCustomRoles": []string{},
+				},
+			},
+		}
+
+		// A specific updateMask is required for a PATCH request.
+		updateMask := "spec.rbacrolebindingactuation.allowedCustomRoles"
+		url, err := transport_tpg.AddQueryParams(patchUrl, map[string]string{"updateMask": updateMask})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("[DEBUG] Sending PATCH to reset Feature %q: %#v", d.Id(), obj)
+
+		// Send the raw PATCH request.
+		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+			Config:    config,
+			Method:    "PATCH",
+			Project:   billingProject,
+			RawURL:    url,
+			UserAgent: userAgent,
+			Body:      obj,
+			Timeout:   d.Timeout(schema.TimeoutDelete), // Use the delete timeout for this reset operation.
+			Headers:   headers,
+		})
+		if err != nil {
+			return fmt.Errorf("error resetting Feature %q: %s", d.Id(), err)
+		}
+
+		// Wait for the long-running operation to complete.
+		err = GKEHub2OperationWaitTime(
+			config, res, tpgresource.GetResourceNameFromSelfLink(project), "Resetting Feature", userAgent,
+			d.Timeout(schema.TimeoutDelete))
+
+		if err != nil {
+			return fmt.Errorf("error waiting to reset Feature %q: %s", d.Id(), err)
+		}
+
+		log.Printf("[DEBUG] Finished resetting Feature %q", d.Id())
+		return nil
+	}
 
 	log.Printf("[DEBUG] Deleting Feature %q", d.Id())
 	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
@@ -1130,6 +1355,8 @@ func flattenGKEHub2FeatureSpec(v interface{}, d *schema.ResourceData, config *tr
 		flattenGKEHub2FeatureSpecFleetobservability(original["fleetobservability"], d, config)
 	transformed["clusterupgrade"] =
 		flattenGKEHub2FeatureSpecClusterupgrade(original["clusterupgrade"], d, config)
+	transformed["rbacrolebindingactuation"] =
+		flattenGKEHub2FeatureSpecRbacrolebindingactuation(original["rbacrolebindingactuation"], d, config)
 	return []interface{}{transformed}
 }
 func flattenGKEHub2FeatureSpecMulticlusteringress(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1305,6 +1532,23 @@ func flattenGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions(v 
 	return []interface{}{transformed}
 }
 func flattenGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverridesPostConditionsSoaking(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenGKEHub2FeatureSpecRbacrolebindingactuation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["allowed_custom_roles"] =
+		flattenGKEHub2FeatureSpecRbacrolebindingactuationAllowedCustomRoles(original["allowedCustomRoles"], d, config)
+	return []interface{}{transformed}
+}
+func flattenGKEHub2FeatureSpecRbacrolebindingactuationAllowedCustomRoles(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1895,6 +2139,9 @@ func flattenGKEHub2FeatureEffectiveLabels(v interface{}, d *schema.ResourceData,
 }
 
 func expandGKEHub2FeatureSpec(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1924,10 +2171,20 @@ func expandGKEHub2FeatureSpec(v interface{}, d tpgresource.TerraformResourceData
 		transformed["clusterupgrade"] = transformedClusterupgrade
 	}
 
+	transformedRbacrolebindingactuation, err := expandGKEHub2FeatureSpecRbacrolebindingactuation(original["rbacrolebindingactuation"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedRbacrolebindingactuation); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["rbacrolebindingactuation"] = transformedRbacrolebindingactuation
+	}
+
 	return transformed, nil
 }
 
 func expandGKEHub2FeatureSpecMulticlusteringress(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1951,6 +2208,9 @@ func expandGKEHub2FeatureSpecMulticlusteringressConfigMembership(v interface{}, 
 }
 
 func expandGKEHub2FeatureSpecFleetobservability(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1970,6 +2230,9 @@ func expandGKEHub2FeatureSpecFleetobservability(v interface{}, d tpgresource.Ter
 }
 
 func expandGKEHub2FeatureSpecFleetobservabilityLoggingConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1996,6 +2259,9 @@ func expandGKEHub2FeatureSpecFleetobservabilityLoggingConfig(v interface{}, d tp
 }
 
 func expandGKEHub2FeatureSpecFleetobservabilityLoggingConfigDefaultConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2019,6 +2285,9 @@ func expandGKEHub2FeatureSpecFleetobservabilityLoggingConfigDefaultConfigMode(v 
 }
 
 func expandGKEHub2FeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2042,6 +2311,9 @@ func expandGKEHub2FeatureSpecFleetobservabilityLoggingConfigFleetScopeLogsConfig
 }
 
 func expandGKEHub2FeatureSpecClusterupgrade(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2079,6 +2351,9 @@ func expandGKEHub2FeatureSpecClusterupgradeUpstreamFleets(v interface{}, d tpgre
 }
 
 func expandGKEHub2FeatureSpecClusterupgradePostConditions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2102,6 +2377,9 @@ func expandGKEHub2FeatureSpecClusterupgradePostConditionsSoaking(v interface{}, 
 }
 
 func expandGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverrides(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2131,6 +2409,9 @@ func expandGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverrides(v interface{}, d 
 }
 
 func expandGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverridesUpgrade(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2165,6 +2446,9 @@ func expandGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverridesUpgradeVersion(v i
 }
 
 func expandGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverridesPostConditions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2187,7 +2471,36 @@ func expandGKEHub2FeatureSpecClusterupgradeGkeUpgradeOverridesPostConditionsSoak
 	return v, nil
 }
 
+func expandGKEHub2FeatureSpecRbacrolebindingactuation(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedAllowedCustomRoles, err := expandGKEHub2FeatureSpecRbacrolebindingactuationAllowedCustomRoles(original["allowed_custom_roles"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAllowedCustomRoles); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["allowedCustomRoles"] = transformedAllowedCustomRoles
+	}
+
+	return transformed, nil
+}
+
+func expandGKEHub2FeatureSpecRbacrolebindingactuationAllowedCustomRoles(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandGKEHub2FeatureFleetDefaultMemberConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2221,6 +2534,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfig(v interface{}, d tpgresource.T
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigMesh(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2244,6 +2560,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigMeshManagement(v interface{}, d
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagement(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2285,6 +2604,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementManagement(v in
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementConfigSync(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2355,6 +2677,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementConfigSyncMetri
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGit(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2455,6 +2780,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementConfigSyncGitSy
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOci(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2533,6 +2861,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigConfigmanagementConfigSyncOciVe
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontroller(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2563,6 +2894,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerVersion(v inter
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2669,6 +3003,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigMonitoring(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2746,6 +3083,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResources(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2772,6 +3112,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesLimits(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2806,6 +3149,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsContainerResourcesRequests(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2844,6 +3190,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigDeploymentConfigsPodToleration(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2903,6 +3252,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContent(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2929,6 +3281,9 @@ func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControlle
 }
 
 func expandGKEHub2FeatureFleetDefaultMemberConfigPolicycontrollerPolicyControllerHubConfigPolicyContentTemplateLibrary(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

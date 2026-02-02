@@ -107,9 +107,6 @@ The following arguments are supported:
   The parent of the resource, an organization. Format should be `organizations/{organization_id}`.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   A human-friendly name for the constraint.
@@ -117,6 +114,7 @@ The following arguments are supported:
 * `description` -
   (Optional)
   A human-friendly description of the constraint to display as an error message when the policy is violated.
+
 
 
 ## Attributes Reference
@@ -145,6 +143,17 @@ CustomConstraint can be imported using any of these accepted formats:
 
 * `{{parent}}/customConstraints/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CustomConstraint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    parent = "<-required value->"
+  }
+  to = google_org_policy_custom_constraint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CustomConstraint using one of the formats above. For example:
 

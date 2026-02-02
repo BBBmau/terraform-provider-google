@@ -93,18 +93,6 @@ The following arguments are supported:
   The Policy Binding ID.
 
 
-<a name="nested_target"></a>The `target` block supports:
-
-* `principal_set` -
-  (Optional)
-  Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings.
-  Examples for each one of the following supported principal set types:
-  * Folder: `//cloudresourcemanager.googleapis.com/folders/FOLDER_ID`
-  It must be parent by the policy binding's parent (the folder).
-
-- - -
-
-
 * `display_name` -
   (Optional)
   Optional. The description of the policy binding. Must be less than or equal to 63 characters.
@@ -149,6 +137,16 @@ The following arguments are supported:
   additional information.
   Structure is [documented below](#nested_condition).
 
+
+
+<a name="nested_target"></a>The `target` block supports:
+
+* `principal_set` -
+  (Optional)
+  Required. Immutable. Full Resource Name of the principal set used for principal access boundary policy bindings.
+  Examples for each one of the following supported principal set types:
+  * Folder: `//cloudresourcemanager.googleapis.com/folders/FOLDER_ID`
+  It must be parent by the policy binding's parent (the folder).
 
 <a name="nested_condition"></a>The `condition` block supports:
 
@@ -213,6 +211,18 @@ FoldersPolicyBinding can be imported using any of these accepted formats:
 * `folders/{{folder}}/locations/{{location}}/policyBindings/{{policy_binding_id}}`
 * `{{folder}}/{{location}}/{{policy_binding_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FoldersPolicyBinding using identity values. For example:
+
+```tf
+import {
+  identity = {
+    folder = "<-required value->"
+    location = "<-required value->"
+    policyBindingId = "<-required value->"
+  }
+  to = google_iam_folders_policy_binding.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FoldersPolicyBinding using one of the formats above. For example:
 

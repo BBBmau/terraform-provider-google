@@ -45,6 +45,7 @@ resource "google_backup_dr_backup_plan" "my-backup-plan-1" {
   backup_plan_id = "backup-plan-simple-test"
   resource_type  = "compute.googleapis.com/Instance"
   backup_vault   = google_backup_dr_backup_vault.my_backup_vault.id
+  max_custom_on_demand_retention_days = 30
 
   backup_rules {
     rule_id                = "rule-1"
@@ -63,6 +64,76 @@ resource "google_backup_dr_backup_plan" "my-backup-plan-1" {
   }
 }
 ```
+## Example Usage - Backup Dr Backup Plan For Disk Resource
+
+
+```hcl
+resource "google_backup_dr_backup_vault" "my_backup_vault" {
+  provider = google-beta
+  location                                      = "us-central1"
+  backup_vault_id                               = "backup-vault-disk-test"
+  backup_minimum_enforced_retention_duration    = "100000s"
+}
+
+resource "google_backup_dr_backup_plan" "my-disk-backup-plan-1" {
+  provider       = google-beta
+  location       = "us-central1"
+  backup_plan_id = "backup-plan-disk-test"
+  resource_type  = "compute.googleapis.com/Disk"
+  backup_vault   = google_backup_dr_backup_vault.my_backup_vault.id
+  max_custom_on_demand_retention_days = 30
+
+  backup_rules {
+    rule_id                = "rule-1"
+    backup_retention_days  = 5
+
+    standard_schedule {
+      recurrence_type     = "HOURLY"
+      hourly_frequency    = 1
+      time_zone           = "UTC"
+
+      backup_window {
+        start_hour_of_day = 0
+        end_hour_of_day   = 6
+      }
+    }
+  }
+}
+```
+## Example Usage - Backup Dr Backup Plan For Csql Resource
+
+
+```hcl
+resource "google_backup_dr_backup_vault" "my_backup_vault" {
+  location                                      = "us-central1"
+  backup_vault_id                               = "backup-vault-csql-test"
+  backup_minimum_enforced_retention_duration    = "100000s"
+}
+
+resource "google_backup_dr_backup_plan" "my-csql-backup-plan-1" {
+  location       = "us-central1"
+  backup_plan_id = "backup-plan-csql-test"
+  resource_type  = "sqladmin.googleapis.com/Instance"
+  backup_vault   = google_backup_dr_backup_vault.my_backup_vault.id
+
+  backup_rules {
+    rule_id                = "rule-1"
+    backup_retention_days  = 5
+
+    standard_schedule {
+      recurrence_type     = "HOURLY"
+      hourly_frequency    = 6
+      time_zone           = "UTC"
+
+      backup_window {
+        start_hour_of_day = 0
+        end_hour_of_day   = 6
+      }
+    }
+  }
+  log_retention_days = 4
+}
+```
 
 ## Argument Reference
 
@@ -75,7 +146,8 @@ The following arguments are supported:
 
 * `resource_type` -
   (Required)
-  The resource type to which the `BackupPlan` will be applied. Examples include, "compute.googleapis.com/Instance" and "storage.googleapis.com/Bucket".
+  The resource type to which the `BackupPlan` will be applied.
+  Examples include, "compute.googleapis.com/Instance", "compute.googleapis.com/Disk", "sqladmin.googleapis.com/Instance" and "storage.googleapis.com/Bucket".
 
 * `backup_rules` -
   (Required)
@@ -91,6 +163,23 @@ The following arguments are supported:
   The ID of the backup plan
 
 
+* `description` -
+  (Optional)
+  The description allows for additional details about `BackupPlan` and its use cases to be provided.
+
+* `max_custom_on_demand_retention_days` -
+  (Optional)
+  The maximum number of days for which an on-demand backup taken with custom retention can be retained.
+
+* `log_retention_days` -
+  (Optional)
+  This is only applicable for CloudSql resource. Days for which logs will be stored. This value should be greater than or equal to minimum enforced log retention duration of the backup vault.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_backup_rules"></a>The `backup_rules` block supports:
 
 * `rule_id` -
@@ -104,10 +193,10 @@ The following arguments are supported:
 * `standard_schedule` -
   (Required)
   StandardSchedule defines a schedule that runs within the confines of a defined window of days.
-  Structure is [documented below](#nested_backup_rules_backup_rules_standard_schedule).
+  Structure is [documented below](#nested_backup_rules_standard_schedule).
 
 
-<a name="nested_backup_rules_backup_rules_standard_schedule"></a>The `standard_schedule` block supports:
+<a name="nested_backup_rules_standard_schedule"></a>The `standard_schedule` block supports:
 
 * `recurrence_type` -
   (Required)
@@ -131,7 +220,7 @@ The following arguments are supported:
 * `week_day_of_month` -
   (Optional)
   Specifies a week day of the month like FIRST SUNDAY or LAST MONDAY, on which jobs will run.
-  Structure is [documented below](#nested_backup_rules_backup_rules_standard_schedule_week_day_of_month).
+  Structure is [documented below](#nested_backup_rules_standard_schedule_week_day_of_month).
 
 * `months` -
   (Optional)
@@ -146,10 +235,10 @@ The following arguments are supported:
   (Optional)
   A BackupWindow defines the window of the day during which backup jobs will run. Jobs are queued at the beginning of the window and will be marked as
   `NOT_RUN` if they do not start by the end of the window.
-  Structure is [documented below](#nested_backup_rules_backup_rules_standard_schedule_backup_window).
+  Structure is [documented below](#nested_backup_rules_standard_schedule_backup_window).
 
 
-<a name="nested_backup_rules_backup_rules_standard_schedule_week_day_of_month"></a>The `week_day_of_month` block supports:
+<a name="nested_backup_rules_standard_schedule_week_day_of_month"></a>The `week_day_of_month` block supports:
 
 * `week_of_month` -
   (Required)
@@ -161,7 +250,7 @@ The following arguments are supported:
   Specifies the day of the week.
   Possible values are: `DAY_OF_WEEK_UNSPECIFIED`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, `SATURDAY`, `SUNDAY`.
 
-<a name="nested_backup_rules_backup_rules_standard_schedule_backup_window"></a>The `backup_window` block supports:
+<a name="nested_backup_rules_standard_schedule_backup_window"></a>The `backup_window` block supports:
 
 * `start_hour_of_day` -
   (Required)
@@ -171,17 +260,6 @@ The following arguments are supported:
   (Optional)
   The hour of the day (1-24) when the window ends, for example, if the value of end hour of the day is 10, that means the backup window end time is 10:00.
   The end hour of the day should be greater than the start
-
-- - -
-
-
-* `description` -
-  (Optional)
-  The description allows for additional details about `BackupPlan` and its use cases to be provided.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -194,6 +272,9 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `backup_vault_service_account` -
   The Google Cloud Platform Service Account to be used by the BackupVault for taking backups.
+
+* `supported_resource_types` -
+  The list of all resource types to which the `BackupPlan` can be applied.
 
 * `create_time` -
   When the `BackupPlan` was created.
@@ -208,6 +289,7 @@ This resource provides the following
 [Timeouts](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/retries-and-customizable-timeouts) configuration options:
 
 - `create` - Default is 60 minutes.
+- `update` - Default is 60 minutes.
 - `delete` - Default is 60 minutes.
 
 ## Import
@@ -219,6 +301,18 @@ BackupPlan can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{backup_plan_id}}`
 * `{{location}}/{{backup_plan_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupPlan using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    backup_plan_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_backup_dr_backup_plan.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupPlan using one of the formats above. For example:
 

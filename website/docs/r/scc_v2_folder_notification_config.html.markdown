@@ -80,6 +80,16 @@ The following arguments are supported:
   This must be unique within the organization.
 
 
+* `description` -
+  (Optional)
+  The description of the notification config (max of 1024 characters).
+
+* `location` -
+  (Optional)
+  Location ID of the parent organization. If not provided, 'global' will be used as the default location.
+
+
+
 <a name="nested_streaming_config"></a>The `streaming_config` block supports:
 
 * `filter` -
@@ -103,18 +113,6 @@ The following arguments are supported:
   See
   [Filtering notifications](https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications)
   for information on how to write a filter.
-
-- - -
-
-
-* `description` -
-  (Optional)
-  The description of the notification config (max of 1024 characters).
-
-* `location` -
-  (Optional)
-  Location ID of the parent organization. If not provided, 'global' will be used as the default location.
-
 
 ## Attributes Reference
 
@@ -148,6 +146,18 @@ FolderNotificationConfig can be imported using any of these accepted formats:
 * `folders/{{folder}}/locations/{{location}}/notificationConfigs/{{config_id}}`
 * `{{folder}}/{{location}}/{{config_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FolderNotificationConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    folder = "<-required value->"
+    location = "<-optional value->"
+    configId = "<-required value->"
+  }
+  to = google_scc_v2_folder_notification_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FolderNotificationConfig using one of the formats above. For example:
 

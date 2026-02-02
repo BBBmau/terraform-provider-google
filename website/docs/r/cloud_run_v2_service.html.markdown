@@ -44,6 +44,10 @@ resource "google_cloud_run_v2_service" "default" {
   location = "us-central1"
   deletion_protection = false
   ingress = "INGRESS_TRAFFIC_ALL"
+
+  scaling {
+    max_instance_count = 100
+  }
   
   template {
     containers {
@@ -68,6 +72,7 @@ resource "google_cloud_run_v2_service" "default" {
   ingress = "INGRESS_TRAFFIC_ALL"
 
   template {
+    health_check_disabled = true
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
       resources {
@@ -95,11 +100,11 @@ resource "google_cloud_run_v2_service" "default" {
   deletion_protection = false
   ingress = "INGRESS_TRAFFIC_ALL"
   
-  template {
-    scaling {
-      max_instance_count = 2
-    }
-  
+  scaling {
+    max_instance_count = 2
+  }
+
+  template { 
     volumes {
       name = "cloudsql"
       cloud_sql_instance {
@@ -259,6 +264,10 @@ resource "google_cloud_run_v2_service" "default" {
   deletion_protection = false
   ingress = "INGRESS_TRAFFIC_ALL"
 
+  scaling {
+    max_instance_count = 1
+  }
+
   template {
     containers {
       image = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -275,9 +284,6 @@ resource "google_cloud_run_v2_service" "default" {
       accelerator = "nvidia-l4"
     }
     gpu_zonal_redundancy_disabled = true
-    scaling {
-      max_instance_count = 1
-    }
   }
 }
 ```
@@ -592,77 +598,6 @@ resource "google_cloud_run_v2_service" "default" {
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=cloudrunv2_service_function&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
-## Example Usage - Cloudrunv2 Service Function
-
-
-```hcl
-resource "google_cloud_run_v2_service" "default" {
-  name     = "cloudrun-service"
-  location = "us-central1"
-  deletion_protection = false
-  ingress = "INGRESS_TRAFFIC_ALL"
-
-  template {
-    containers {
-      image = "us-docker.pkg.dev/cloudrun/container/hello"
-      base_image_uri = "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs22"
-    }
-  }
-  build_config {
-    source_location = "gs://${google_storage_bucket.bucket.name}/${google_storage_bucket_object.object.name}"
-    function_target = "helloHttp"
-    image_uri = "us-docker.pkg.dev/cloudrun/container/hello"
-    base_image = "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs22"
-    enable_automatic_updates = true
-    worker_pool = "worker-pool"
-    environment_variables = {
-      FOO_KEY = "FOO_VALUE"
-      BAR_KEY = "BAR_VALUE"
-    }
-    service_account = google_service_account.cloudbuild_service_account.id
-  }
-  depends_on = [
-    google_project_iam_member.act_as,
-    google_project_iam_member.logs_writer
-  ]
-}
-
-data "google_project" "project" {
-}
-
-resource "google_storage_bucket" "bucket" {
-  name     = "${data.google_project.project.project_id}-gcf-source"  # Every bucket name must be globally unique
-  location = "US"
-  uniform_bucket_level_access = true
-}
-
-resource "google_storage_bucket_object" "object" {
-  name   = "function-source.zip"
-  bucket = google_storage_bucket.bucket.name
-  source = "function_source.zip"  # Add path to the zipped function source code
-}
-
-resource "google_service_account" "cloudbuild_service_account" {
-  account_id = "build-sa"
-}
-
-resource "google_project_iam_member" "act_as" {
-  project = data.google_project.project.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:${google_service_account.cloudbuild_service_account.email}"
-}
-
-resource "google_project_iam_member" "logs_writer" {
-  project = data.google_project.project.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.cloudbuild_service_account.email}"
-}
-```
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=cloudrunv2_service_iap&open_in_editor=main.tf" target="_blank">
     <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
   </a>
@@ -687,6 +622,56 @@ resource "google_cloud_run_v2_service" "default" {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=cloudrunv2_service_zip_deploy&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Cloudrunv2 Service Zip Deploy
+
+
+```hcl
+resource "google_storage_bucket" "sourcebucket" {
+  provider = google-beta
+  name     = "${data.google_project.project.project_id}-tf-test-gcf-source%{random_suffix}"  # Every bucket name must be globally unique
+  location = "US"
+  uniform_bucket_level_access = true
+}
+
+resource "google_storage_bucket_object" "source_tar" {
+  provider = google-beta
+  name   = "function-source.zip"
+  bucket = google_storage_bucket.sourcebucket.name
+  source = "./test-fixtures/cr-zip-nodejs-hello.tar.gz"
+}
+
+resource "google_cloud_run_v2_service" "default" {
+  provider = google-beta
+  name     = "cloudrun-zip-service"
+  location = "us-central1"
+  deletion_protection = false
+
+  template {
+    containers {
+      image = "scratch"
+      base_image_uri = "us-central1-docker.pkg.dev/serverless-runtimes/google-24-full/runtimes/nodejs24"
+      command = ["node"]
+      args = ["index.js"]
+      source_code {
+        cloud_storage_source {
+          bucket = google_storage_bucket.sourcebucket.name
+          object = google_storage_bucket_object.source_tar.name
+          generation = google_storage_bucket_object.source_tar.generation
+        }
+      }
+    }
+  }
+}
+
+data "google_project" "project" {
+  provider = google-beta
+}
+```
 
 ## Argument Reference
 
@@ -705,6 +690,102 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location of the cloud run service
+
+
+* `description` -
+  (Optional)
+  User-provided description of the Service. This field currently has a 512-character limit.
+
+* `labels` -
+  (Optional)
+  Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component,
+  environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels.
+  Cloud Run API v2 does not support labels with  `run.googleapis.com`, `cloud.googleapis.com`, `serving.knative.dev`, or `autoscaling.knative.dev` namespaces, and they will be rejected.
+  All system labels in v1 now have a corresponding field in v2 Service.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `annotations` -
+  (Optional)
+  Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects.
+  Cloud Run API v2 does not support annotations with `run.googleapis.com`, `cloud.googleapis.com`, `serving.knative.dev`, or `autoscaling.knative.dev` namespaces, and they will be rejected in new resources.
+  All system annotations in v1 now have a corresponding field in v2 Service.
+  This field follows Kubernetes annotations' namespacing, limits, and rules.
+  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
+  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+
+* `client` -
+  (Optional)
+  Arbitrary identifier for the API client.
+
+* `client_version` -
+  (Optional)
+  Arbitrary version identifier for the API client.
+
+* `ingress` -
+  (Optional)
+  Provides the ingress settings for this Service. On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active.
+  Possible values are: `INGRESS_TRAFFIC_ALL`, `INGRESS_TRAFFIC_INTERNAL_ONLY`, `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`.
+
+* `launch_stage` -
+  (Optional)
+  The launch stage as defined by [Google Cloud Platform Launch Stages](https://cloud.google.com/products#product-launch-stages). Cloud Run supports ALPHA, BETA, and GA.
+  If no value is specified, GA is assumed. Set the launch stage to a preview stage on input to allow use of preview features in that stage. On read (or output), describes whether the resource uses preview features.
+  For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output.
+  Possible values are: `UNIMPLEMENTED`, `PRELAUNCH`, `EARLY_ACCESS`, `ALPHA`, `BETA`, `GA`, `DEPRECATED`.
+
+* `binary_authorization` -
+  (Optional)
+  Settings for the Binary Authorization feature.
+  Structure is [documented below](#nested_binary_authorization).
+
+* `custom_audiences` -
+  (Optional)
+  One or more custom audiences that you want this service to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
+  For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
+
+* `scaling` -
+  (Optional)
+  Scaling settings that apply to the whole service
+  Structure is [documented below](#nested_scaling).
+
+* `default_uri_disabled` -
+  (Optional)
+  Disables public resolution of the default URI of this service.
+
+* `traffic` -
+  (Optional)
+  Specifies how to distribute traffic over a collection of Revisions belonging to the Service. If traffic is empty or not provided, defaults to 100% traffic to the latest Ready Revision.
+  Structure is [documented below](#nested_traffic).
+
+* `invoker_iam_disabled` -
+  (Optional)
+  Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check.
+
+* `build_config` -
+  (Optional)
+  Configuration for building a Cloud Run function.
+  Structure is [documented below](#nested_build_config).
+
+* `multi_region_settings` -
+  (Optional)
+  Settings for creating a Multi-Region Service. Make sure to use region = 'global' when using them. For more information, visit https://cloud.google.com/run/docs/multiple-regions#deploy
+  Structure is [documented below](#nested_multi_region_settings).
+
+* `iap_enabled` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Used to enable/disable IAP for the service.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+* `deletion_protection` - (Optional) Whether Terraform will be prevented from destroying the service. Defaults to true.
+When a`terraform destroy` or `terraform apply` would delete the service,
+the command will fail if this field is not set to false in Terraform state.
+When the field is set to true or unset in Terraform state, a `terraform apply`
+or `terraform destroy` that would delete the service will fail.
+When the field is set to false, deleting the service is allowed.
+
 
 
 <a name="nested_template"></a>The `template` block supports:
@@ -788,6 +869,10 @@ The following arguments are supported:
   (Optional)
   True if GPU zonal redundancy is disabled on this revision.
 
+* `health_check_disabled` -
+  (Optional)
+  Disables health checking containers during deployment.
+
 
 <a name="nested_template_scaling"></a>The `scaling` block supports:
 
@@ -856,23 +941,23 @@ The following arguments are supported:
 * `env` -
   (Optional)
   List of environment variables to set in the container.
-  Structure is [documented below](#nested_template_containers_containers_env).
+  Structure is [documented below](#nested_template_containers_env).
 
 * `resources` -
   (Optional)
   Compute Resource requirements by this container. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
-  Structure is [documented below](#nested_template_containers_containers_resources).
+  Structure is [documented below](#nested_template_containers_resources).
 
 * `ports` -
   (Optional)
   List of ports to expose from the container. Only a single port can be specified. The specified ports must be listening on all interfaces (0.0.0.0) within the container to be accessible.
   If omitted, a port number will be chosen and passed to the container through the PORT environment variable for the container to listen on
-  Structure is [documented below](#nested_template_containers_containers_ports).
+  Structure is [documented below](#nested_template_containers_ports).
 
 * `volume_mounts` -
   (Optional)
   Volume to mount into the container's filesystem.
-  Structure is [documented below](#nested_template_containers_containers_volume_mounts).
+  Structure is [documented below](#nested_template_containers_volume_mounts).
 
 * `working_dir` -
   (Optional)
@@ -881,12 +966,12 @@ The following arguments are supported:
 * `liveness_probe` -
   (Optional)
   Periodic probe of container liveness. Container will be restarted if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  Structure is [documented below](#nested_template_containers_containers_liveness_probe).
+  Structure is [documented below](#nested_template_containers_liveness_probe).
 
 * `startup_probe` -
   (Optional)
   Startup probe of application within the container. All other probes are disabled if a startup probe is provided, until it succeeds. Container will not be added to service endpoints if the probe fails. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
-  Structure is [documented below](#nested_template_containers_containers_startup_probe).
+  Structure is [documented below](#nested_template_containers_startup_probe).
 
 * `depends_on` -
   (Optional)
@@ -899,10 +984,15 @@ The following arguments are supported:
 * `build_info` -
   (Output)
   The build info of the container image.
-  Structure is [documented below](#nested_template_containers_containers_build_info).
+  Structure is [documented below](#nested_template_containers_build_info).
+
+* `source_code` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Location of the source.
+  Structure is [documented below](#nested_template_containers_source_code).
 
 
-<a name="nested_template_containers_containers_env"></a>The `env` block supports:
+<a name="nested_template_containers_env"></a>The `env` block supports:
 
 * `name` -
   (Required)
@@ -915,18 +1005,18 @@ The following arguments are supported:
 * `value_source` -
   (Optional)
   Source for the environment variable's value.
-  Structure is [documented below](#nested_template_containers_containers_env_env_value_source).
+  Structure is [documented below](#nested_template_containers_env_value_source).
 
 
-<a name="nested_template_containers_containers_env_env_value_source"></a>The `value_source` block supports:
+<a name="nested_template_containers_env_value_source"></a>The `value_source` block supports:
 
 * `secret_key_ref` -
   (Optional)
   Selects a secret and a specific version from Cloud Secret Manager.
-  Structure is [documented below](#nested_template_containers_containers_env_env_value_source_secret_key_ref).
+  Structure is [documented below](#nested_template_containers_env_value_source_secret_key_ref).
 
 
-<a name="nested_template_containers_containers_env_env_value_source_secret_key_ref"></a>The `secret_key_ref` block supports:
+<a name="nested_template_containers_env_value_source_secret_key_ref"></a>The `secret_key_ref` block supports:
 
 * `secret` -
   (Required)
@@ -936,11 +1026,11 @@ The following arguments are supported:
   (Optional)
   The Cloud Secret Manager secret version. Can be 'latest' for the latest value or an integer for a specific version.
 
-<a name="nested_template_containers_containers_resources"></a>The `resources` block supports:
+<a name="nested_template_containers_resources"></a>The `resources` block supports:
 
 * `limits` -
   (Optional)
-  Only memory, CPU, and nvidia.com/gpu are supported. Use key `cpu` for CPU limit, `memory` for memory limit, `nvidia.com/gpu` for gpu limit. Note: The only supported values for CPU are '1', '2', '4', and '8'. Setting 4 CPU requires at least 2Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go
+  Only memory, CPU, and nvidia.com/gpu are supported. Use key `cpu` for CPU limit, `memory` for memory limit, `nvidia.com/gpu` for gpu limit. Note: The only supported values for CPU are '1', '2', '4', '6' and '8'. Setting 4 CPU requires at least 2Gi of memory, setting 6 or more CPU requires at least 4Gi of memory. The values of the map is string form of the 'quantity' k8s type: https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/api/resource/quantity.go
 
 * `cpu_idle` -
   (Optional)
@@ -951,7 +1041,7 @@ The following arguments are supported:
   (Optional)
   Determines whether CPU should be boosted on startup of a new container instance above the requested CPU threshold, this can help reduce cold-start latency.
 
-<a name="nested_template_containers_containers_ports"></a>The `ports` block supports:
+<a name="nested_template_containers_ports"></a>The `ports` block supports:
 
 * `name` -
   (Optional)
@@ -961,7 +1051,7 @@ The following arguments are supported:
   (Optional)
   Port number the container listens on. This must be a valid TCP port number, 0 < containerPort < 65536.
 
-<a name="nested_template_containers_containers_volume_mounts"></a>The `volume_mounts` block supports:
+<a name="nested_template_containers_volume_mounts"></a>The `volume_mounts` block supports:
 
 * `name` -
   (Required)
@@ -971,7 +1061,11 @@ The following arguments are supported:
   (Required)
   Path within the container at which the volume should be mounted. Must not contain ':'. For Cloud SQL volumes, it can be left empty, or must otherwise be /cloudsql. All instances defined in the Volume will be available as /cloudsql/[instance]. For more information on Cloud SQL volumes, visit https://cloud.google.com/sql/docs/mysql/connect-run
 
-<a name="nested_template_containers_containers_liveness_probe"></a>The `liveness_probe` block supports:
+* `sub_path` -
+  (Optional)
+  Path within the volume from which the container's volume should be mounted.
+
+<a name="nested_template_containers_liveness_probe"></a>The `liveness_probe` block supports:
 
 * `initial_delay_seconds` -
   (Optional)
@@ -992,20 +1086,20 @@ The following arguments are supported:
 * `http_get` -
   (Optional)
   HTTPGet specifies the http request to perform.
-  Structure is [documented below](#nested_template_containers_containers_liveness_probe_http_get).
+  Structure is [documented below](#nested_template_containers_liveness_probe_http_get).
 
 * `grpc` -
   (Optional)
   GRPC specifies an action involving a GRPC port.
-  Structure is [documented below](#nested_template_containers_containers_liveness_probe_grpc).
+  Structure is [documented below](#nested_template_containers_liveness_probe_grpc).
 
 * `tcp_socket` -
   (Optional)
   TCPSocketAction describes an action based on opening a socket
-  Structure is [documented below](#nested_template_containers_containers_liveness_probe_tcp_socket).
+  Structure is [documented below](#nested_template_containers_liveness_probe_tcp_socket).
 
 
-<a name="nested_template_containers_containers_liveness_probe_http_get"></a>The `http_get` block supports:
+<a name="nested_template_containers_liveness_probe_http_get"></a>The `http_get` block supports:
 
 * `path` -
   (Optional)
@@ -1019,10 +1113,10 @@ The following arguments are supported:
 * `http_headers` -
   (Optional)
   Custom headers to set in the request. HTTP allows repeated headers.
-  Structure is [documented below](#nested_template_containers_containers_liveness_probe_http_get_http_headers).
+  Structure is [documented below](#nested_template_containers_liveness_probe_http_get_http_headers).
 
 
-<a name="nested_template_containers_containers_liveness_probe_http_get_http_headers"></a>The `http_headers` block supports:
+<a name="nested_template_containers_liveness_probe_http_get_http_headers"></a>The `http_headers` block supports:
 
 * `name` -
   (Required)
@@ -1032,7 +1126,7 @@ The following arguments are supported:
   (Optional)
   The header field value
 
-<a name="nested_template_containers_containers_liveness_probe_grpc"></a>The `grpc` block supports:
+<a name="nested_template_containers_liveness_probe_grpc"></a>The `grpc` block supports:
 
 * `port` -
   (Optional)
@@ -1045,7 +1139,7 @@ The following arguments are supported:
   (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
   If this is not specified, the default behavior is defined by gRPC.
 
-<a name="nested_template_containers_containers_liveness_probe_tcp_socket"></a>The `tcp_socket` block supports:
+<a name="nested_template_containers_liveness_probe_tcp_socket"></a>The `tcp_socket` block supports:
 
 * `port` -
   (Required)
@@ -1053,7 +1147,7 @@ The following arguments are supported:
   If not specified, defaults to the exposed port of the container, which
   is the value of container.ports[0].containerPort.
 
-<a name="nested_template_containers_containers_startup_probe"></a>The `startup_probe` block supports:
+<a name="nested_template_containers_startup_probe"></a>The `startup_probe` block supports:
 
 * `initial_delay_seconds` -
   (Optional)
@@ -1074,20 +1168,20 @@ The following arguments are supported:
 * `http_get` -
   (Optional)
   HTTPGet specifies the http request to perform. Exactly one of HTTPGet or TCPSocket must be specified.
-  Structure is [documented below](#nested_template_containers_containers_startup_probe_http_get).
+  Structure is [documented below](#nested_template_containers_startup_probe_http_get).
 
 * `tcp_socket` -
   (Optional)
   TCPSocket specifies an action involving a TCP port. Exactly one of HTTPGet or TCPSocket must be specified.
-  Structure is [documented below](#nested_template_containers_containers_startup_probe_tcp_socket).
+  Structure is [documented below](#nested_template_containers_startup_probe_tcp_socket).
 
 * `grpc` -
   (Optional)
   GRPC specifies an action involving a GRPC port.
-  Structure is [documented below](#nested_template_containers_containers_startup_probe_grpc).
+  Structure is [documented below](#nested_template_containers_startup_probe_grpc).
 
 
-<a name="nested_template_containers_containers_startup_probe_http_get"></a>The `http_get` block supports:
+<a name="nested_template_containers_startup_probe_http_get"></a>The `http_get` block supports:
 
 * `path` -
   (Optional)
@@ -1101,10 +1195,10 @@ The following arguments are supported:
 * `http_headers` -
   (Optional)
   Custom headers to set in the request. HTTP allows repeated headers.
-  Structure is [documented below](#nested_template_containers_containers_startup_probe_http_get_http_headers).
+  Structure is [documented below](#nested_template_containers_startup_probe_http_get_http_headers).
 
 
-<a name="nested_template_containers_containers_startup_probe_http_get_http_headers"></a>The `http_headers` block supports:
+<a name="nested_template_containers_startup_probe_http_get_http_headers"></a>The `http_headers` block supports:
 
 * `name` -
   (Required)
@@ -1114,14 +1208,14 @@ The following arguments are supported:
   (Optional)
   The header field value
 
-<a name="nested_template_containers_containers_startup_probe_tcp_socket"></a>The `tcp_socket` block supports:
+<a name="nested_template_containers_startup_probe_tcp_socket"></a>The `tcp_socket` block supports:
 
 * `port` -
   (Optional)
   Port number to access on the container. Must be in the range 1 to 65535.
   If not specified, defaults to the same value as container.ports[0].containerPort.
 
-<a name="nested_template_containers_containers_startup_probe_grpc"></a>The `grpc` block supports:
+<a name="nested_template_containers_startup_probe_grpc"></a>The `grpc` block supports:
 
 * `port` -
   (Optional)
@@ -1134,7 +1228,7 @@ The following arguments are supported:
   (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
   If this is not specified, the default behavior is defined by gRPC.
 
-<a name="nested_template_containers_containers_build_info"></a>The `build_info` block contains:
+<a name="nested_template_containers_build_info"></a>The `build_info` block contains:
 
 * `function_target` -
   (Output)
@@ -1143,6 +1237,28 @@ The following arguments are supported:
 * `source_location` -
   (Output)
   Source code location of the image.
+
+<a name="nested_template_containers_source_code"></a>The `source_code` block supports:
+
+* `cloud_storage_source` -
+  (Optional)
+  Cloud Storage source.
+  Structure is [documented below](#nested_template_containers_source_code_cloud_storage_source).
+
+
+<a name="nested_template_containers_source_code_cloud_storage_source"></a>The `cloud_storage_source` block supports:
+
+* `bucket` -
+  (Required)
+  The Cloud Storage bucket name.
+
+* `object` -
+  (Required)
+  The Cloud Storage object name.
+
+* `generation` -
+  (Optional)
+  The Cloud Storage object generation. The is an int64 value. As with most Google APIs, its JSON representation will be a string instead of an integer.
 
 <a name="nested_template_volumes"></a>The `volumes` block supports:
 
@@ -1153,30 +1269,30 @@ The following arguments are supported:
 * `secret` -
   (Optional)
   Secret represents a secret that should populate this volume. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
-  Structure is [documented below](#nested_template_volumes_volumes_secret).
+  Structure is [documented below](#nested_template_volumes_secret).
 
 * `cloud_sql_instance` -
   (Optional)
   For Cloud SQL volumes, contains the specific instances that should be mounted. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run.
-  Structure is [documented below](#nested_template_volumes_volumes_cloud_sql_instance).
+  Structure is [documented below](#nested_template_volumes_cloud_sql_instance).
 
 * `empty_dir` -
   (Optional)
   Ephemeral storage used as a shared volume.
-  Structure is [documented below](#nested_template_volumes_volumes_empty_dir).
+  Structure is [documented below](#nested_template_volumes_empty_dir).
 
 * `gcs` -
   (Optional)
   Cloud Storage bucket mounted as a volume using GCSFuse. This feature is only supported in the gen2 execution environment.
-  Structure is [documented below](#nested_template_volumes_volumes_gcs).
+  Structure is [documented below](#nested_template_volumes_gcs).
 
 * `nfs` -
   (Optional)
   Represents an NFS mount.
-  Structure is [documented below](#nested_template_volumes_volumes_nfs).
+  Structure is [documented below](#nested_template_volumes_nfs).
 
 
-<a name="nested_template_volumes_volumes_secret"></a>The `secret` block supports:
+<a name="nested_template_volumes_secret"></a>The `secret` block supports:
 
 * `secret` -
   (Required)
@@ -1189,10 +1305,10 @@ The following arguments are supported:
 * `items` -
   (Optional)
   If unspecified, the volume will expose a file whose name is the secret, relative to VolumeMount.mount_path. If specified, the key will be used as the version to fetch from Cloud Secret Manager and the path will be the name of the file exposed in the volume. When items are defined, they must specify a path and a version.
-  Structure is [documented below](#nested_template_volumes_volumes_secret_items).
+  Structure is [documented below](#nested_template_volumes_secret_items).
 
 
-<a name="nested_template_volumes_volumes_secret_items"></a>The `items` block supports:
+<a name="nested_template_volumes_secret_items"></a>The `items` block supports:
 
 * `path` -
   (Required)
@@ -1206,13 +1322,13 @@ The following arguments are supported:
   (Optional)
   Integer octal mode bits to use on this file, must be a value between 01 and 0777 (octal). If 0 or not set, the Volume's default mode will be used.
 
-<a name="nested_template_volumes_volumes_cloud_sql_instance"></a>The `cloud_sql_instance` block supports:
+<a name="nested_template_volumes_cloud_sql_instance"></a>The `cloud_sql_instance` block supports:
 
 * `instances` -
   (Optional)
   The Cloud SQL instance connection names, as can be found in https://console.cloud.google.com/sql/instances. Visit https://cloud.google.com/sql/docs/mysql/connect-run for more information on how to connect Cloud SQL and Cloud Run. Format: {project}:{location}:{instance}
 
-<a name="nested_template_volumes_volumes_empty_dir"></a>The `empty_dir` block supports:
+<a name="nested_template_volumes_empty_dir"></a>The `empty_dir` block supports:
 
 * `medium` -
   (Optional)
@@ -1224,7 +1340,7 @@ The following arguments are supported:
   (Optional)
   Limit on the storage usable by this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. This field's values are of the 'Quantity' k8s type: https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir.
 
-<a name="nested_template_volumes_volumes_gcs"></a>The `gcs` block supports:
+<a name="nested_template_volumes_gcs"></a>The `gcs` block supports:
 
 * `bucket` -
   (Required)
@@ -1235,11 +1351,11 @@ The following arguments are supported:
   If true, mount the GCS bucket as read-only
 
 * `mount_options` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   A list of flags to pass to the gcsfuse command for configuring this volume.
   Flags should be passed without leading dashes.
 
-<a name="nested_template_volumes_volumes_nfs"></a>The `nfs` block supports:
+<a name="nested_template_volumes_nfs"></a>The `nfs` block supports:
 
 * `server` -
   (Required)
@@ -1265,99 +1381,6 @@ The following arguments are supported:
   (Required)
   The GPU to attach to an instance. See https://cloud.google.com/run/docs/configuring/services/gpu for configuring GPU.
 
-- - -
-
-
-* `description` -
-  (Optional)
-  User-provided description of the Service. This field currently has a 512-character limit.
-
-* `labels` -
-  (Optional)
-  Unstructured key value map that can be used to organize and categorize objects. User-provided labels are shared with Google's billing system, so they can be used to filter, or break down billing charges by team, component,
-  environment, state, etc. For more information, visit https://cloud.google.com/resource-manager/docs/creating-managing-labels or https://cloud.google.com/run/docs/configuring/labels.
-  Cloud Run API v2 does not support labels with  `run.googleapis.com`, `cloud.googleapis.com`, `serving.knative.dev`, or `autoscaling.knative.dev` namespaces, and they will be rejected.
-  All system labels in v1 now have a corresponding field in v2 Service.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `annotations` -
-  (Optional)
-  Unstructured key value map that may be set by external tools to store and arbitrary metadata. They are not queryable and should be preserved when modifying objects.
-  Cloud Run API v2 does not support annotations with `run.googleapis.com`, `cloud.googleapis.com`, `serving.knative.dev`, or `autoscaling.knative.dev` namespaces, and they will be rejected in new resources.
-  All system annotations in v1 now have a corresponding field in v2 Service.
-  This field follows Kubernetes annotations' namespacing, limits, and rules.
-  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
-  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
-
-* `client` -
-  (Optional)
-  Arbitrary identifier for the API client.
-
-* `client_version` -
-  (Optional)
-  Arbitrary version identifier for the API client.
-
-* `ingress` -
-  (Optional)
-  Provides the ingress settings for this Service. On output, returns the currently observed ingress settings, or INGRESS_TRAFFIC_UNSPECIFIED if no revision is active.
-  Possible values are: `INGRESS_TRAFFIC_ALL`, `INGRESS_TRAFFIC_INTERNAL_ONLY`, `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`.
-
-* `launch_stage` -
-  (Optional)
-  The launch stage as defined by [Google Cloud Platform Launch Stages](https://cloud.google.com/products#product-launch-stages). Cloud Run supports ALPHA, BETA, and GA.
-  If no value is specified, GA is assumed. Set the launch stage to a preview stage on input to allow use of preview features in that stage. On read (or output), describes whether the resource uses preview features.
-  For example, if ALPHA is provided as input, but only BETA and GA-level features are used, this field will be BETA on output.
-  Possible values are: `UNIMPLEMENTED`, `PRELAUNCH`, `EARLY_ACCESS`, `ALPHA`, `BETA`, `GA`, `DEPRECATED`.
-
-* `binary_authorization` -
-  (Optional)
-  Settings for the Binary Authorization feature.
-  Structure is [documented below](#nested_binary_authorization).
-
-* `custom_audiences` -
-  (Optional)
-  One or more custom audiences that you want this service to support. Specify each custom audience as the full URL in a string. The custom audiences are encoded in the token and used to authenticate requests.
-  For more information, see https://cloud.google.com/run/docs/configuring/custom-audiences.
-
-* `scaling` -
-  (Optional)
-  Scaling settings that apply to the whole service
-  Structure is [documented below](#nested_scaling).
-
-* `default_uri_disabled` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
-  Disables public resolution of the default URI of this service.
-
-* `traffic` -
-  (Optional)
-  Specifies how to distribute traffic over a collection of Revisions belonging to the Service. If traffic is empty or not provided, defaults to 100% traffic to the latest Ready Revision.
-  Structure is [documented below](#nested_traffic).
-
-* `invoker_iam_disabled` -
-  (Optional)
-  Disables IAM permission check for run.routes.invoke for callers of this service. For more information, visit https://cloud.google.com/run/docs/securing/managing-access#invoker_check.
-
-* `build_config` -
-  (Optional)
-  Configuration for building a Cloud Run function.
-  Structure is [documented below](#nested_build_config).
-
-* `iap_enabled` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
-  Used to enable/disable IAP for the service.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-* `deletion_protection` - (Optional) Whether Terraform will be prevented from destroying the service. Defaults to true.
-When a`terraform destroy` or `terraform apply` would delete the service,
-the command will fail if this field is not set to false in Terraform state.
-When the field is set to true or unset in Terraform state, a `terraform apply`
-or `terraform destroy` that would delete the service will fail.
-When the field is set to false, deleting the service is allowed.
-
-
 <a name="nested_binary_authorization"></a>The `binary_authorization` block supports:
 
 * `breakglass_justification` -
@@ -1377,6 +1400,19 @@ When the field is set to false, deleting the service is allowed.
 * `min_instance_count` -
   (Optional)
   Minimum number of instances for the service, to be divided among all revisions receiving traffic.
+
+* `max_instance_count` -
+  (Optional)
+  Combined maximum number of instances for all revisions receiving traffic.
+
+* `scaling_mode` -
+  (Optional)
+  The [scaling mode](https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#scalingmode) for the service.
+  Possible values are: `AUTOMATIC`, `MANUAL`.
+
+* `manual_instance_count` -
+  (Optional)
+  Total instance count for the service in manual scaling mode. This number of instances is divided among all revisions with specified traffic based on the percent of traffic they are receiving.
 
 <a name="nested_traffic"></a>The `traffic` block supports:
 
@@ -1434,6 +1470,16 @@ When the field is set to false, deleting the service is allowed.
 * `service_account` -
   (Optional)
   Service account to be used for building the container. The format of this field is `projects/{projectId}/serviceAccounts/{serviceAccountEmail}`.
+
+<a name="nested_multi_region_settings"></a>The `multi_region_settings` block supports:
+
+* `regions` -
+  (Optional)
+  The list of regions to deploy the multi-region Service.
+
+* `multi_region_id` -
+  (Output)
+  System-generated unique id for the multi-region Service.
 
 ## Attributes Reference
 
@@ -1621,6 +1667,18 @@ Service can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Service using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloud_run_v2_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Service using one of the formats above. For example:
 

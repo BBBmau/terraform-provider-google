@@ -25,7 +25,7 @@ Container to store and organize immutable and indelible backups.
 
 
 
-## Example Usage - Backup Dr Backup Vault Full
+## Example Usage - Backup Dr Backup Vault Simple
 
 
 ```hcl
@@ -44,6 +44,39 @@ resource "google_backup_dr_backup_vault" "backup-vault-test" {
   }
   force_update = "true"
   access_restriction = "WITHIN_ORGANIZATION"
+  backup_retention_inheritance = "INHERIT_VAULT_RETENTION"
+  ignore_inactive_datasources = "true"
+  ignore_backup_plan_references = "true"
+  allow_missing = "true"
+}
+```
+## Example Usage - Backup Dr Backup Vault Cmek
+
+
+```hcl
+data "google_project" "test_project" {
+	project_id = "my-project-name"
+}
+
+resource "google_backup_dr_backup_vault" "backup-vault-cmek" {
+  location = "us-central1"
+  backup_vault_id    = "backup-vault-cmek"
+  description = "This is a second backup vault built by Terraform."
+  backup_minimum_enforced_retention_duration = "100000s"
+  annotations = {
+    annotations1 = "bar1"
+    annotations2 = "baz1"
+  }
+  labels = {
+    foo = "bar1"
+    bar = "baz1"
+  }
+  encryption_config {
+    kms_key_name = "bkpvault-key"
+  }
+  force_update = "true"
+  access_restriction = "WITHIN_ORGANIZATION"
+  backup_retention_inheritance = "INHERIT_VAULT_RETENTION"
   ignore_inactive_datasources = "true"
   ignore_backup_plan_references = "true"
   allow_missing = "true"
@@ -66,9 +99,6 @@ The following arguments are supported:
 * `backup_vault_id` -
   (Required)
   Required. ID of the requesting object.
-
-
-- - -
 
 
 * `description` -
@@ -97,6 +127,16 @@ The following arguments are supported:
   Access restriction for the backup vault. Default value is `WITHIN_ORGANIZATION` if not provided during creation.
   Default value is `WITHIN_ORGANIZATION`.
   Possible values are: `ACCESS_RESTRICTION_UNSPECIFIED`, `WITHIN_PROJECT`, `WITHIN_ORGANIZATION`, `UNRESTRICTED`, `WITHIN_ORG_BUT_UNRESTRICTED_FOR_BA`.
+
+* `backup_retention_inheritance` -
+  (Optional)
+  How a backup's enforced retention end time is inherited. Default value is `INHERIT_VAULT_RETENTION` if not provided during creation.
+  Possible values are: `BACKUP_RETENTION_INHERITANCE_UNSPECIFIED`, `INHERIT_VAULT_RETENTION`, `MATCH_BACKUP_EXPIRE_TIME`.
+
+* `encryption_config` -
+  (Optional)
+  Encryption configuration for the backup vault.
+  Structure is [documented below](#nested_encryption_config).
 
 * `force_update` -
   (Optional)
@@ -130,6 +170,13 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_encryption_config"></a>The `encryption_config` block supports:
+
+* `kms_key_name` -
+  (Optional)
+  The Resource name of the Cloud KMS key to be used to encrypt new backups. The key must be in the same location as the backup vault. The key must be a Cloud KMS CryptoKey.
 
 ## Attributes Reference
 
@@ -202,6 +249,18 @@ BackupVault can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{backup_vault_id}}`
 * `{{location}}/{{backup_vault_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupVault using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    backupVaultId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_backup_dr_backup_vault.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupVault using one of the formats above. For example:
 

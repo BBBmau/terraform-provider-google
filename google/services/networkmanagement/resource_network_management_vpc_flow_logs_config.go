@@ -20,18 +20,70 @@
 package networkmanagement
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceNetworkManagementVpcFlowLogsConfig() *schema.Resource {
@@ -56,6 +108,26 @@ func ResourceNetworkManagementVpcFlowLogsConfig() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"vpc_flow_logs_config_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:     schema.TypeString,
@@ -76,7 +148,7 @@ for resource type 'networkmanagement.googleapis.com/VpcFlowLogsConfig'.`,
 				Computed: true,
 				Optional: true,
 				Description: `Optional. The aggregation interval for the logs. Default value is
-INTERVAL_5_SEC.   Possible values:  AGGREGATION_INTERVAL_UNSPECIFIED INTERVAL_5_SEC INTERVAL_30_SEC INTERVAL_1_MIN INTERVAL_5_MIN INTERVAL_10_MIN INTERVAL_15_MIN"`,
+INTERVAL_5_SEC.   Possible values:  AGGREGATION_INTERVAL_UNSPECIFIED INTERVAL_5_SEC INTERVAL_30_SEC INTERVAL_1_MIN INTERVAL_5_MIN INTERVAL_10_MIN INTERVAL_15_MIN`,
 			},
 			"description": {
 				Type:     schema.TypeString,
@@ -130,12 +202,23 @@ logs. Can only be specified if \"metadata\" was set to CUSTOM_METADATA.`,
 					Type: schema.TypeString,
 				},
 			},
+			"network": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: `Traffic will be logged from VMs, VPN tunnels and Interconnect Attachments within the network. Format: projects/{project_id}/global/networks/{name}`,
+			},
 			"state": {
 				Type:     schema.TypeString,
 				Computed: true,
 				Optional: true,
 				Description: `Optional. The state of the VPC Flow Log configuration. Default value
-is ENABLED. When creating a new configuration, it must be enabled.   Possible`,
+is ENABLED. When creating a new configuration, it must be enabled.
+Possible values: STATE_UNSPECIFIED ENABLED DISABLED`,
+			},
+			"subnet": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: `Traffic will be logged from VMs within the subnetwork. Format: projects/{project_id}/regions/{region}/subnetworks/{name}`,
 			},
 			"vpn_tunnel": {
 				Type:        schema.TypeString,
@@ -157,6 +240,16 @@ is ENABLED. When creating a new configuration, it must be enabled.   Possible`,
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: `Identifier. Unique name of the configuration using the form:     'projects/{project_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config_id}'`,
+			},
+			"target_resource_state": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Description: `Describes the state of the configured target resource for diagnostic
+purposes.
+Possible values:
+TARGET_RESOURCE_STATE_UNSPECIFIED
+TARGET_RESOURCE_EXISTS
+TARGET_RESOURCE_DOES_NOT_EXIST`,
 			},
 			"terraform_labels": {
 				Type:     schema.TypeMap,
@@ -243,11 +336,23 @@ func resourceNetworkManagementVpcFlowLogsConfigCreate(d *schema.ResourceData, me
 	} else if v, ok := d.GetOkExists("vpn_tunnel"); !tpgresource.IsEmptyValue(reflect.ValueOf(vpnTunnelProp)) && (ok || !reflect.DeepEqual(v, vpnTunnelProp)) {
 		obj["vpnTunnel"] = vpnTunnelProp
 	}
-	labelsProp, err := expandNetworkManagementVpcFlowLogsConfigEffectiveLabels(d.Get("effective_labels"), d, config)
+	subnetProp, err := expandNetworkManagementVpcFlowLogsConfigSubnet(d.Get("subnet"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("subnet"); !tpgresource.IsEmptyValue(reflect.ValueOf(subnetProp)) && (ok || !reflect.DeepEqual(v, subnetProp)) {
+		obj["subnet"] = subnetProp
+	}
+	networkProp, err := expandNetworkManagementVpcFlowLogsConfigNetwork(d.Get("network"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("network"); !tpgresource.IsEmptyValue(reflect.ValueOf(networkProp)) && (ok || !reflect.DeepEqual(v, networkProp)) {
+		obj["network"] = networkProp
+	}
+	effectiveLabelsProp, err := expandNetworkManagementVpcFlowLogsConfigEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{NetworkManagementBasePath}}projects/{{project}}/locations/{{location}}/vpcFlowLogsConfigs?vpcFlowLogsConfigId={{vpc_flow_logs_config_id}}")
@@ -291,29 +396,36 @@ func resourceNetworkManagementVpcFlowLogsConfigCreate(d *schema.ResourceData, me
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = NetworkManagementOperationWaitTimeWithResponse(
-		config, res, &opRes, project, "Creating VpcFlowLogsConfig", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if vpcFlowLogsConfigIdValue, ok := d.GetOk("vpc_flow_logs_config_id"); ok && vpcFlowLogsConfigIdValue.(string) != "" {
+			if err = identity.Set("vpc_flow_logs_config_id", vpcFlowLogsConfigIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting vpc_flow_logs_config_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = NetworkManagementOperationWaitTime(
+		config, res, project, "Creating VpcFlowLogsConfig", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create VpcFlowLogsConfig: %s", err)
 	}
-
-	if err := d.Set("name", flattenNetworkManagementVpcFlowLogsConfigName(opRes["name"], d, config)); err != nil {
-		return err
-	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/vpcFlowLogsConfigs/{{vpc_flow_logs_config_id}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating VpcFlowLogsConfig %q: %#v", d.Id(), res)
 
@@ -392,6 +504,12 @@ func resourceNetworkManagementVpcFlowLogsConfigRead(d *schema.ResourceData, meta
 	if err := d.Set("vpn_tunnel", flattenNetworkManagementVpcFlowLogsConfigVpnTunnel(res["vpnTunnel"], d, config)); err != nil {
 		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
 	}
+	if err := d.Set("subnet", flattenNetworkManagementVpcFlowLogsConfigSubnet(res["subnet"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
+	}
+	if err := d.Set("network", flattenNetworkManagementVpcFlowLogsConfigNetwork(res["network"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
+	}
 	if err := d.Set("labels", flattenNetworkManagementVpcFlowLogsConfigLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
 	}
@@ -401,11 +519,38 @@ func resourceNetworkManagementVpcFlowLogsConfigRead(d *schema.ResourceData, meta
 	if err := d.Set("update_time", flattenNetworkManagementVpcFlowLogsConfigUpdateTime(res["updateTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
 	}
+	if err := d.Set("target_resource_state", flattenNetworkManagementVpcFlowLogsConfigTargetResourceState(res["targetResourceState"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
+	}
 	if err := d.Set("terraform_labels", flattenNetworkManagementVpcFlowLogsConfigTerraformLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
 	}
 	if err := d.Set("effective_labels", flattenNetworkManagementVpcFlowLogsConfigEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading VpcFlowLogsConfig: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("vpc_flow_logs_config_id"); !ok && v == "" {
+			err = identity.Set("vpc_flow_logs_config_id", d.Get("vpc_flow_logs_config_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting vpc_flow_logs_config_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -416,6 +561,26 @@ func resourceNetworkManagementVpcFlowLogsConfigUpdate(d *schema.ResourceData, me
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if vpcFlowLogsConfigIdValue, ok := d.GetOk("vpc_flow_logs_config_id"); ok && vpcFlowLogsConfigIdValue.(string) != "" {
+			if err = identity.Set("vpc_flow_logs_config_id", vpcFlowLogsConfigIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting vpc_flow_logs_config_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -481,11 +646,23 @@ func resourceNetworkManagementVpcFlowLogsConfigUpdate(d *schema.ResourceData, me
 	} else if v, ok := d.GetOkExists("vpn_tunnel"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, vpnTunnelProp)) {
 		obj["vpnTunnel"] = vpnTunnelProp
 	}
-	labelsProp, err := expandNetworkManagementVpcFlowLogsConfigEffectiveLabels(d.Get("effective_labels"), d, config)
+	subnetProp, err := expandNetworkManagementVpcFlowLogsConfigSubnet(d.Get("subnet"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("subnet"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, subnetProp)) {
+		obj["subnet"] = subnetProp
+	}
+	networkProp, err := expandNetworkManagementVpcFlowLogsConfigNetwork(d.Get("network"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("network"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, networkProp)) {
+		obj["network"] = networkProp
+	}
+	effectiveLabelsProp, err := expandNetworkManagementVpcFlowLogsConfigEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{NetworkManagementBasePath}}projects/{{project}}/locations/{{location}}/vpcFlowLogsConfigs/{{vpc_flow_logs_config_id}}")
@@ -531,6 +708,14 @@ func resourceNetworkManagementVpcFlowLogsConfigUpdate(d *schema.ResourceData, me
 
 	if d.HasChange("vpn_tunnel") {
 		updateMask = append(updateMask, "vpnTunnel")
+	}
+
+	if d.HasChange("subnet") {
+		updateMask = append(updateMask, "subnet")
+	}
+
+	if d.HasChange("network") {
+		updateMask = append(updateMask, "network")
 	}
 
 	if d.HasChange("effective_labels") {
@@ -695,6 +880,14 @@ func flattenNetworkManagementVpcFlowLogsConfigVpnTunnel(v interface{}, d *schema
 	return v
 }
 
+func flattenNetworkManagementVpcFlowLogsConfigSubnet(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetworkManagementVpcFlowLogsConfigNetwork(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenNetworkManagementVpcFlowLogsConfigLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -715,6 +908,10 @@ func flattenNetworkManagementVpcFlowLogsConfigCreateTime(v interface{}, d *schem
 }
 
 func flattenNetworkManagementVpcFlowLogsConfigUpdateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetworkManagementVpcFlowLogsConfigTargetResourceState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -770,6 +967,14 @@ func expandNetworkManagementVpcFlowLogsConfigInterconnectAttachment(v interface{
 }
 
 func expandNetworkManagementVpcFlowLogsConfigVpnTunnel(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetworkManagementVpcFlowLogsConfigSubnet(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNetworkManagementVpcFlowLogsConfigNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

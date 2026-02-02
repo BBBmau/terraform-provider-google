@@ -316,7 +316,6 @@ resource "google_compute_region_network_endpoint_group" "psc_neg_service_attachm
   psc_data {
     producer_port = "88"
   }
-  network               = google_compute_network.default.self_link
   subnetwork            = google_compute_subnetwork.default.self_link
 }
 ```
@@ -415,9 +414,6 @@ The following arguments are supported:
   A reference to the region where the regional NEGs reside.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource. Provide this property when
@@ -477,6 +473,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_psc_data"></a>The `psc_data` block supports:
@@ -605,6 +602,18 @@ RegionNetworkEndpointGroup can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionNetworkEndpointGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_network_endpoint_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionNetworkEndpointGroup using one of the formats above. For example:
 

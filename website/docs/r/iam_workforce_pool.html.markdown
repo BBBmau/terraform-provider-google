@@ -70,6 +70,10 @@ resource "google_iam_workforce_pool" "example" {
 The following arguments are supported:
 
 
+* `parent` -
+  (Required)
+  Immutable. The resource name of the parent. Format: `organizations/{org-id}`.
+
 * `location` -
   (Required)
   The location for the resource.
@@ -79,13 +83,6 @@ The following arguments are supported:
   The name of the pool. The ID must be a globally unique string of 6 to 63 lowercase letters,
   digits, or hyphens. It must start with a letter, and cannot have a trailing hyphen.
   The prefix `gcp-` is reserved for use by Google, and may not be specified.
-
-* `parent` -
-  (Required)
-  Immutable. The resource name of the parent. Format: `organizations/{org-id}`.
-
-
-- - -
 
 
 * `display_name` -
@@ -114,6 +111,7 @@ The following arguments are supported:
   Configure access restrictions on the workforce pool users. This is an optional field. If specified web
   sign-in can be restricted to given set of services or programmatic sign-in can be disabled for pool users.
   Structure is [documented below](#nested_access_restrictions).
+
 
 
 <a name="nested_access_restrictions"></a>The `access_restrictions` block supports:
@@ -177,6 +175,17 @@ WorkforcePool can be imported using any of these accepted formats:
 * `locations/{{location}}/workforcePools/{{workforce_pool_id}}`
 * `{{location}}/{{workforce_pool_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WorkforcePool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    workforcePoolId = "<-required value->"
+  }
+  to = google_iam_workforce_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WorkforcePool using one of the formats above. For example:
 

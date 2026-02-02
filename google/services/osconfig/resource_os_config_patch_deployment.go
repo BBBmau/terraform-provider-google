@@ -20,19 +20,70 @@
 package osconfig
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceOSConfigPatchDeployment() *schema.Resource {
@@ -54,6 +105,22 @@ func ResourceOSConfigPatchDeployment() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"instance_filter": {
 				Type:        schema.TypeList,
@@ -68,7 +135,7 @@ func ResourceOSConfigPatchDeployment() *schema.Resource {
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Target all VM instances in the project. If true, no other criteria is permitted.`,
-							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.zones", "instance_filter.0.instances", "instance_filter.0.instance_name_prefixes"},
+							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.instance_name_prefixes", "instance_filter.0.instances", "instance_filter.0.zones"},
 						},
 						"group_labels": {
 							Type:        schema.TypeList,
@@ -86,7 +153,7 @@ func ResourceOSConfigPatchDeployment() *schema.Resource {
 									},
 								},
 							},
-							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.zones", "instance_filter.0.instances", "instance_filter.0.instance_name_prefixes"},
+							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.instance_name_prefixes", "instance_filter.0.instances", "instance_filter.0.zones"},
 						},
 						"instance_name_prefixes": {
 							Type:     schema.TypeList,
@@ -97,7 +164,7 @@ VMs when targeting configs, for example prefix="prod-".`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.zones", "instance_filter.0.instances", "instance_filter.0.instance_name_prefixes"},
+							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.instance_name_prefixes", "instance_filter.0.instances", "instance_filter.0.zones"},
 						},
 						"instances": {
 							Type:     schema.TypeList,
@@ -109,7 +176,7 @@ VMs when targeting configs, for example prefix="prod-".`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.zones", "instance_filter.0.instances", "instance_filter.0.instance_name_prefixes"},
+							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.instance_name_prefixes", "instance_filter.0.instances", "instance_filter.0.zones"},
 						},
 						"zones": {
 							Type:        schema.TypeList,
@@ -119,7 +186,7 @@ VMs when targeting configs, for example prefix="prod-".`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.zones", "instance_filter.0.instances", "instance_filter.0.instance_name_prefixes"},
+							AtLeastOneOf: []string{"instance_filter.0.all", "instance_filter.0.group_labels", "instance_filter.0.instance_name_prefixes", "instance_filter.0.instances", "instance_filter.0.zones"},
 						},
 					},
 				},
@@ -192,7 +259,7 @@ accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.apt.0.type", "patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages", "patch_config.0.apt.0.type"},
 									},
 									"exclusive_packages": {
 										Type:     schema.TypeList,
@@ -204,7 +271,7 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.apt.0.type", "patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages", "patch_config.0.apt.0.type"},
 									},
 									"type": {
 										Type:         schema.TypeString,
@@ -212,11 +279,11 @@ any other patch configuration fields.`,
 										ForceNew:     true,
 										ValidateFunc: verify.ValidateEnum([]string{"DIST", "UPGRADE", ""}),
 										Description:  `By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"]`,
-										AtLeastOneOf: []string{"patch_config.0.apt.0.type", "patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages", "patch_config.0.apt.0.type"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"goo": {
 							Type:        schema.TypeList,
@@ -234,7 +301,7 @@ any other patch configuration fields.`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"mig_instances_allowed": {
 							Type:        schema.TypeBool,
@@ -295,7 +362,7 @@ any other patch configuration fields.`,
 															},
 														},
 													},
-													ExactlyOneOf: []string{"patch_config.0.post_step.0.linux_exec_step_config.0.local_path", "patch_config.0.post_step.0.linux_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.post_step.0.linux_exec_step_config.0.gcs_object", "patch_config.0.post_step.0.linux_exec_step_config.0.local_path"},
 												},
 												"interpreter": {
 													Type:         schema.TypeString,
@@ -310,7 +377,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Optional:     true,
 													ForceNew:     true,
 													Description:  `An absolute path to the executable on the VM.`,
-													ExactlyOneOf: []string{"patch_config.0.post_step.0.linux_exec_step_config.0.local_path", "patch_config.0.post_step.0.linux_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.post_step.0.linux_exec_step_config.0.gcs_object", "patch_config.0.post_step.0.linux_exec_step_config.0.local_path"},
 												},
 											},
 										},
@@ -361,7 +428,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 															},
 														},
 													},
-													ExactlyOneOf: []string{"patch_config.0.post_step.0.windows_exec_step_config.0.local_path", "patch_config.0.post_step.0.windows_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.post_step.0.windows_exec_step_config.0.gcs_object", "patch_config.0.post_step.0.windows_exec_step_config.0.local_path"},
 												},
 												"interpreter": {
 													Type:         schema.TypeString,
@@ -376,7 +443,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Optional:     true,
 													ForceNew:     true,
 													Description:  `An absolute path to the executable on the VM.`,
-													ExactlyOneOf: []string{"patch_config.0.post_step.0.windows_exec_step_config.0.local_path", "patch_config.0.post_step.0.windows_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.post_step.0.windows_exec_step_config.0.gcs_object", "patch_config.0.post_step.0.windows_exec_step_config.0.local_path"},
 												},
 											},
 										},
@@ -384,7 +451,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"pre_step": {
 							Type:        schema.TypeList,
@@ -439,7 +506,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 															},
 														},
 													},
-													ExactlyOneOf: []string{"patch_config.0.pre_step.0.linux_exec_step_config.0.local_path", "patch_config.0.pre_step.0.linux_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.pre_step.0.linux_exec_step_config.0.gcs_object", "patch_config.0.pre_step.0.linux_exec_step_config.0.local_path"},
 												},
 												"interpreter": {
 													Type:         schema.TypeString,
@@ -454,7 +521,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Optional:     true,
 													ForceNew:     true,
 													Description:  `An absolute path to the executable on the VM.`,
-													ExactlyOneOf: []string{"patch_config.0.pre_step.0.linux_exec_step_config.0.local_path", "patch_config.0.pre_step.0.linux_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.pre_step.0.linux_exec_step_config.0.gcs_object", "patch_config.0.pre_step.0.linux_exec_step_config.0.local_path"},
 												},
 											},
 										},
@@ -505,7 +572,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 															},
 														},
 													},
-													ExactlyOneOf: []string{"patch_config.0.pre_step.0.windows_exec_step_config.0.local_path", "patch_config.0.pre_step.0.windows_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.pre_step.0.windows_exec_step_config.0.gcs_object", "patch_config.0.pre_step.0.windows_exec_step_config.0.local_path"},
 												},
 												"interpreter": {
 													Type:         schema.TypeString,
@@ -520,7 +587,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Optional:     true,
 													ForceNew:     true,
 													Description:  `An absolute path to the executable on the VM.`,
-													ExactlyOneOf: []string{"patch_config.0.pre_step.0.windows_exec_step_config.0.local_path", "patch_config.0.pre_step.0.windows_exec_step_config.0.gcs_object"},
+													ExactlyOneOf: []string{"patch_config.0.pre_step.0.windows_exec_step_config.0.gcs_object", "patch_config.0.pre_step.0.windows_exec_step_config.0.local_path"},
 												},
 											},
 										},
@@ -528,7 +595,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"reboot_config": {
 							Type:         schema.TypeString,
@@ -536,7 +603,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 							ForceNew:     true,
 							ValidateFunc: verify.ValidateEnum([]string{"DEFAULT", "ALWAYS", "NEVER", ""}),
 							Description:  `Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"]`,
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"windows_update": {
 							Type:        schema.TypeList,
@@ -583,7 +650,7 @@ This field must not be used with other patch configurations.`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"yum": {
 							Type:        schema.TypeList,
@@ -601,7 +668,7 @@ This field must not be used with other patch configurations.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.security"},
 									},
 									"exclusive_packages": {
 										Type:     schema.TypeList,
@@ -613,25 +680,25 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.security"},
 									},
 									"minimal": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Will cause patch to run yum update-minimal instead.`,
-										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.security"},
 									},
 									"security": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Adds the --security flag to yum update. Not supported on all platforms.`,
-										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.security"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 						"zypper": {
 							Type:        schema.TypeList,
@@ -649,7 +716,7 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update"},
 									},
 									"excludes": {
 										Type:        schema.TypeList,
@@ -659,7 +726,7 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update"},
 									},
 									"exclusive_patches": {
 										Type:     schema.TypeList,
@@ -670,7 +737,7 @@ This field must not be used with any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update"},
 									},
 									"severities": {
 										Type:        schema.TypeList,
@@ -680,25 +747,25 @@ This field must not be used with any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update"},
 									},
 									"with_optional": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Adds the --with-optional flag to zypper patch.`,
-										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update"},
 									},
 									"with_update": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Adds the --with-update flag, to zypper patch.`,
-										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.apt", "patch_config.0.goo", "patch_config.0.post_step", "patch_config.0.pre_step", "patch_config.0.reboot_config", "patch_config.0.windows_update", "patch_config.0.yum", "patch_config.0.zypper"},
 						},
 					},
 				},
@@ -726,7 +793,7 @@ This field must not be used with any other patch configuration fields.`,
 										ValidateFunc: validation.IntBetween(0, 23),
 										Description: `Hours of day in 24 hour format. Should be from 0 to 23.
 An API may choose to allow the value "24:00:00" for scenarios like business closing time.`,
-										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.seconds", "recurring_schedule.0.time_of_day.0.nanos"},
+										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.nanos", "recurring_schedule.0.time_of_day.0.seconds"},
 									},
 									"minutes": {
 										Type:         schema.TypeInt,
@@ -734,7 +801,7 @@ An API may choose to allow the value "24:00:00" for scenarios like business clos
 										ForceNew:     true,
 										ValidateFunc: validation.IntBetween(0, 59),
 										Description:  `Minutes of hour of day. Must be from 0 to 59.`,
-										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.seconds", "recurring_schedule.0.time_of_day.0.nanos"},
+										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.nanos", "recurring_schedule.0.time_of_day.0.seconds"},
 									},
 									"nanos": {
 										Type:         schema.TypeInt,
@@ -742,7 +809,7 @@ An API may choose to allow the value "24:00:00" for scenarios like business clos
 										ForceNew:     true,
 										ValidateFunc: validation.IntBetween(0, 999999999),
 										Description:  `Fractions of seconds in nanoseconds. Must be from 0 to 999,999,999.`,
-										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.seconds", "recurring_schedule.0.time_of_day.0.nanos"},
+										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.nanos", "recurring_schedule.0.time_of_day.0.seconds"},
 									},
 									"seconds": {
 										Type:         schema.TypeInt,
@@ -750,7 +817,7 @@ An API may choose to allow the value "24:00:00" for scenarios like business clos
 										ForceNew:     true,
 										ValidateFunc: validation.IntBetween(0, 60),
 										Description:  `Seconds of minutes of the time. Must normally be from 0 to 59. An API may allow the value 60 if it allows leap-seconds.`,
-										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.seconds", "recurring_schedule.0.time_of_day.0.nanos"},
+										AtLeastOneOf: []string{"recurring_schedule.0.time_of_day.0.hours", "recurring_schedule.0.time_of_day.0.minutes", "recurring_schedule.0.time_of_day.0.nanos", "recurring_schedule.0.time_of_day.0.seconds"},
 									},
 								},
 							},
@@ -802,7 +869,7 @@ A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "201
 										Description: `One day of the month. 1-31 indicates the 1st to the 31st day. -1 indicates the last day of the month.
 Months without the target day will be skipped. For example, a schedule to run "every month on the 31st"
 will not run in February, April, June, etc.`,
-										ExactlyOneOf: []string{"recurring_schedule.0.monthly.0.week_day_of_month", "recurring_schedule.0.monthly.0.month_day"},
+										ExactlyOneOf: []string{"recurring_schedule.0.monthly.0.month_day", "recurring_schedule.0.monthly.0.week_day_of_month"},
 									},
 									"week_day_of_month": {
 										Type:        schema.TypeList,
@@ -835,7 +902,7 @@ will not run in February, April, June, etc.`,
 												},
 											},
 										},
-										ExactlyOneOf: []string{"recurring_schedule.0.monthly.0.week_day_of_month", "recurring_schedule.0.monthly.0.month_day"},
+										ExactlyOneOf: []string{"recurring_schedule.0.monthly.0.month_day", "recurring_schedule.0.monthly.0.week_day_of_month"},
 									},
 								},
 							},
@@ -1068,6 +1135,22 @@ func resourceOSConfigPatchDeploymentCreate(d *schema.ResourceData, meta interfac
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating PatchDeployment %q: %#v", d.Id(), res)
 
 	return resourceOSConfigPatchDeploymentRead(d, meta)
@@ -1159,6 +1242,24 @@ func resourceOSConfigPatchDeploymentRead(d *schema.ResourceData, meta interface{
 	}
 	if err := d.Set("rollout", flattenOSConfigPatchDeploymentRollout(res["rollout"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -2116,6 +2217,9 @@ func expandOSConfigPatchDeploymentDescription(v interface{}, d tpgresource.Terra
 }
 
 func expandOSConfigPatchDeploymentInstanceFilter(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2167,6 +2271,9 @@ func expandOSConfigPatchDeploymentInstanceFilterAll(v interface{}, d tpgresource
 }
 
 func expandOSConfigPatchDeploymentInstanceFilterGroupLabels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -2212,6 +2319,9 @@ func expandOSConfigPatchDeploymentInstanceFilterInstanceNamePrefixes(v interface
 }
 
 func expandOSConfigPatchDeploymentPatchConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2295,6 +2405,9 @@ func expandOSConfigPatchDeploymentPatchConfigRebootConfig(v interface{}, d tpgre
 }
 
 func expandOSConfigPatchDeploymentPatchConfigApt(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2340,6 +2453,9 @@ func expandOSConfigPatchDeploymentPatchConfigAptExclusivePackages(v interface{},
 }
 
 func expandOSConfigPatchDeploymentPatchConfigYum(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2358,7 +2474,7 @@ func expandOSConfigPatchDeploymentPatchConfigYum(v interface{}, d tpgresource.Te
 	transformedMinimal, err := expandOSConfigPatchDeploymentPatchConfigYumMinimal(original["minimal"], d, config)
 	if err != nil {
 		return nil, err
-	} else if val := reflect.ValueOf(transformedMinimal); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+	} else {
 		transformed["minimal"] = transformedMinimal
 	}
 
@@ -2396,6 +2512,9 @@ func expandOSConfigPatchDeploymentPatchConfigYumExclusivePackages(v interface{},
 }
 
 func expandOSConfigPatchDeploymentPatchConfigGoo(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2419,6 +2538,9 @@ func expandOSConfigPatchDeploymentPatchConfigGooEnabled(v interface{}, d tpgreso
 }
 
 func expandOSConfigPatchDeploymentPatchConfigZypper(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2497,6 +2619,9 @@ func expandOSConfigPatchDeploymentPatchConfigZypperExclusivePatches(v interface{
 }
 
 func expandOSConfigPatchDeploymentPatchConfigWindowsUpdate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2542,6 +2667,9 @@ func expandOSConfigPatchDeploymentPatchConfigWindowsUpdateExclusivePatches(v int
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPreStep(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2568,6 +2696,9 @@ func expandOSConfigPatchDeploymentPatchConfigPreStep(v interface{}, d tpgresourc
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2620,6 +2751,9 @@ func expandOSConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigLocalPath
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2665,6 +2799,9 @@ func expandOSConfigPatchDeploymentPatchConfigPreStepLinuxExecStepConfigGcsObject
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2717,6 +2854,9 @@ func expandOSConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigLocalPa
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2762,6 +2902,9 @@ func expandOSConfigPatchDeploymentPatchConfigPreStepWindowsExecStepConfigGcsObje
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPostStep(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2788,6 +2931,9 @@ func expandOSConfigPatchDeploymentPatchConfigPostStep(v interface{}, d tpgresour
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2840,6 +2986,9 @@ func expandOSConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigLocalPat
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2885,6 +3034,9 @@ func expandOSConfigPatchDeploymentPatchConfigPostStepLinuxExecStepConfigGcsObjec
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2937,6 +3089,9 @@ func expandOSConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigLocalP
 }
 
 func expandOSConfigPatchDeploymentPatchConfigPostStepWindowsExecStepConfigGcsObject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -2986,6 +3141,9 @@ func expandOSConfigPatchDeploymentDuration(v interface{}, d tpgresource.Terrafor
 }
 
 func expandOSConfigPatchDeploymentOneTimeSchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3009,6 +3167,9 @@ func expandOSConfigPatchDeploymentOneTimeScheduleExecuteTime(v interface{}, d tp
 }
 
 func expandOSConfigPatchDeploymentRecurringSchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3077,6 +3238,9 @@ func expandOSConfigPatchDeploymentRecurringSchedule(v interface{}, d tpgresource
 }
 
 func expandOSConfigPatchDeploymentRecurringScheduleTimeZone(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3119,6 +3283,9 @@ func expandOSConfigPatchDeploymentRecurringScheduleEndTime(v interface{}, d tpgr
 }
 
 func expandOSConfigPatchDeploymentRecurringScheduleTimeOfDay(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3183,6 +3350,9 @@ func expandOSConfigPatchDeploymentRecurringScheduleNextExecuteTime(v interface{}
 }
 
 func expandOSConfigPatchDeploymentRecurringScheduleWeekly(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3206,6 +3376,9 @@ func expandOSConfigPatchDeploymentRecurringScheduleWeeklyDayOfWeek(v interface{}
 }
 
 func expandOSConfigPatchDeploymentRecurringScheduleMonthly(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3232,6 +3405,9 @@ func expandOSConfigPatchDeploymentRecurringScheduleMonthly(v interface{}, d tpgr
 }
 
 func expandOSConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3281,6 +3457,9 @@ func expandOSConfigPatchDeploymentRecurringScheduleMonthlyMonthDay(v interface{}
 }
 
 func expandOSConfigPatchDeploymentRollout(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3311,6 +3490,9 @@ func expandOSConfigPatchDeploymentRolloutMode(v interface{}, d tpgresource.Terra
 }
 
 func expandOSConfigPatchDeploymentRolloutDisruptionBudget(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -3381,6 +3563,14 @@ func resourceOSConfigPatchDeploymentDecoder(d *schema.ResourceData, meta interfa
 		if patchConfig["goo"] != nil {
 			patchConfig["goo"].(map[string]interface{})["enabled"] = true
 			res["patchConfig"] = patchConfig
+		}
+
+		if patchConfig["yum"] != nil {
+			patchConfigYum := patchConfig["yum"].(map[string]interface{})
+			if _, ok := patchConfigYum["minimal"]; !ok {
+				patchConfigYum["minimal"] = false
+			}
+			patchConfig["yum"] = patchConfigYum
 		}
 	}
 

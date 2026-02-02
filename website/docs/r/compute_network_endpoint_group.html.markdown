@@ -123,9 +123,6 @@ The following arguments are supported:
   Uses "default" project network if unspecified.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource. Provide this property when
@@ -161,6 +158,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -169,6 +167,9 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `size` -
   Number of network endpoints in the network endpoint group.
+
+* `generated_id` -
+  The uniquely generated identifier for the resource. This identifier is defined by the server.
 * `self_link` - The URI of the created resource.
 
 
@@ -190,6 +191,18 @@ NetworkEndpointGroup can be imported using any of these accepted formats:
 * `{{zone}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import NetworkEndpointGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    zone = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_network_endpoint_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import NetworkEndpointGroup using one of the formats above. For example:
 

@@ -113,9 +113,6 @@ The following arguments are supported:
   projects/{project_id_or_number}/locations/{locationId}/catalogs/{catalogId}/databases/{databaseId}/tables/{tableId}
 
 
-- - -
-
-
 * `type` -
   (Optional)
   The database type.
@@ -129,6 +126,7 @@ The following arguments are supported:
 * `database` -
   (Optional)
   The id of the parent database.
+
 
 
 <a name="nested_hive_options"></a>The `hive_options` block supports:
@@ -216,6 +214,17 @@ Table can be imported using any of these accepted formats:
 
 * `{{database}}/tables/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Table using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    database = "<-optional value->"
+  }
+  to = google_biglake_table.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Table using one of the formats above. For example:
 

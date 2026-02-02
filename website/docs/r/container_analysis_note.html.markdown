@@ -107,31 +107,6 @@ The following arguments are supported:
   Structure is [documented below](#nested_attestation_authority).
 
 
-<a name="nested_attestation_authority"></a>The `attestation_authority` block supports:
-
-* `hint` -
-  (Required)
-  This submessage provides human-readable hints about the purpose of
-  the AttestationAuthority. Because the name of a Note acts as its
-  resource reference, it is important to disambiguate the canonical
-  name of the Note (which might be a UUID for security purposes)
-  from "readable" names more suitable for debug output. Note that
-  these hints should NOT be used to look up AttestationAuthorities
-  in security sensitive contexts, such as when looking up
-  Attestations to verify.
-  Structure is [documented below](#nested_attestation_authority_hint).
-
-
-<a name="nested_attestation_authority_hint"></a>The `hint` block supports:
-
-* `human_readable_name` -
-  (Required)
-  The human readable name of this Attestation Authority, for
-  example "qa".
-
-- - -
-
-
 * `short_description` -
   (Optional)
   A one sentence description of the note.
@@ -156,6 +131,29 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_attestation_authority"></a>The `attestation_authority` block supports:
+
+* `hint` -
+  (Required)
+  This submessage provides human-readable hints about the purpose of
+  the AttestationAuthority. Because the name of a Note acts as its
+  resource reference, it is important to disambiguate the canonical
+  name of the Note (which might be a UUID for security purposes)
+  from "readable" names more suitable for debug output. Note that
+  these hints should NOT be used to look up AttestationAuthorities
+  in security sensitive contexts, such as when looking up
+  Attestations to verify.
+  Structure is [documented below](#nested_attestation_authority_hint).
+
+
+<a name="nested_attestation_authority_hint"></a>The `hint` block supports:
+
+* `human_readable_name` -
+  (Required)
+  The human readable name of this Attestation Authority, for
+  example "qa".
 
 <a name="nested_related_url"></a>The `related_url` block supports:
 
@@ -201,6 +199,17 @@ Note can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Note using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_container_analysis_note.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Note using one of the formats above. For example:
 

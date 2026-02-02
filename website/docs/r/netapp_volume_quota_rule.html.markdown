@@ -93,9 +93,6 @@ The following arguments are supported:
   The resource name of the quotaRule.
 
 
-- - -
-
-
 * `target` -
   (Optional)
   The quota rule applies to the specified user or group.
@@ -123,6 +120,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -166,6 +164,19 @@ VolumeQuotaRule can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{volume_name}}/{{name}}`
 * `{{location}}/{{volume_name}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import VolumeQuotaRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    volume_name = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_netapp_volume_quota_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import VolumeQuotaRule using one of the formats above. For example:
 

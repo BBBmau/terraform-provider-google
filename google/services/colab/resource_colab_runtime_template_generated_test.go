@@ -19,15 +19,35 @@ package colab_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccColabRuntimeTemplate_colabRuntimeTemplateBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccColabRuntimeTemplate_colabRuntimeTemplateBasicExample(t *testing.T) 
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_colab_runtime_template.runtime-template",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -131,6 +157,12 @@ func TestAccColabRuntimeTemplate_colabRuntimeTemplateFullExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_colab_runtime_template.runtime-template",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -180,11 +212,11 @@ resource "google_colab_runtime_template" "runtime-template" {
   }
 
   euc_config {
-    euc_disabled = true
+    euc_disabled = false
   }
 
   shielded_vm_config {
-    enable_secure_boot = true
+    enable_secure_boot = false
   }
 
   network_tags = ["abc", "def"]
@@ -195,7 +227,7 @@ resource "google_colab_runtime_template" "runtime-template" {
 
   software_config {
     env {
-      name         = "TEST"
+      name    = "TEST"
       value   = 1
     }
 

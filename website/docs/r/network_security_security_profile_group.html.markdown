@@ -141,6 +141,38 @@ resource "google_network_security_security_profile_group" "default" {
   custom_intercept_profile = google_network_security_security_profile.default.id
 }
 ```
+## Example Usage - Network Security Security Profile Group Url Filtering
+
+
+```hcl
+resource "google_network_security_security_profile_group" "default" {
+  provider                  = google-beta
+  name                      = "sec-profile-group"
+  parent                    = "organizations/123456789"
+  description               = "my description"
+  url_filtering_profile     = google_network_security_security_profile.security_profile.id
+
+  labels = {
+    foo = "bar"
+  }
+}
+
+resource "google_network_security_security_profile" "security_profile" {
+  provider    = google-beta
+  name        = "sec-profile"
+  location    = "global"
+  type        = "URL_FILTERING"
+
+  url_filtering_profile {
+    url_filters {
+      priority = 1
+      filtering_action   = "ALLOW"
+      urls = ["*example.com", "*about.example.com", "*help.example.com"]
+    }
+  }
+  parent = "organizations/123456789"
+}
+```
 
 ## Argument Reference
 
@@ -150,9 +182,6 @@ The following arguments are supported:
 * `name` -
   (Required)
   The name of the security profile group resource.
-
-
-- - -
 
 
 * `description` -
@@ -169,6 +198,10 @@ The following arguments are supported:
 * `threat_prevention_profile` -
   (Optional)
   Reference to a SecurityProfile with the threat prevention configuration for the SecurityProfileGroup.
+
+* `url_filtering_profile` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Reference to a SecurityProfile with the URL filtering configuration for the SecurityProfileGroup.
 
 * `custom_mirroring_profile` -
   (Optional)
@@ -187,6 +220,7 @@ The following arguments are supported:
   (Optional)
   The name of the parent this security profile group belongs to.
   Format: organizations/{organization_id}.
+
 
 
 ## Attributes Reference
@@ -230,6 +264,18 @@ SecurityProfileGroup can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/securityProfileGroups/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecurityProfileGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    parent = "<-optional value->"
+  }
+  to = google_network_security_security_profile_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecurityProfileGroup using one of the formats above. For example:
 

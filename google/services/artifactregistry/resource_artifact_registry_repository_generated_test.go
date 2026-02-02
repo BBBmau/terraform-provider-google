@@ -19,15 +19,35 @@ package artifactregistry_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccArtifactRegistryRepository_artifactRegistryRepositoryBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryBasicExample(t 
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -87,6 +113,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryMultiRegionExam
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -122,6 +154,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryDockerExample(t
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -163,6 +201,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryCmekExample(t *
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -211,6 +255,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryVirtualExample(
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -276,6 +326,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteExample(t
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -319,6 +375,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteAptExampl
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -327,16 +389,16 @@ func testAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteAptExampl
 	return acctest.Nprintf(`
 resource "google_artifact_registry_repository" "my-repo" {
   location      = "us-central1"
-  repository_id = "tf-test-debian-buster%{random_suffix}"
+  repository_id = "tf-test-debian-stable%{random_suffix}"
   description   = "example remote apt repository%{random_suffix}"
   format        = "APT"
   mode          = "REMOTE_REPOSITORY"
   remote_repository_config {
-    description = "Debian buster remote repository"
+    description = "Debian stable remote repository"
     apt_repository {
       public_repository {
         repository_base = "DEBIAN"
-        repository_path = "debian/dists/buster"
+        repository_path = "debian/dists/stable"
       }
     }
   }
@@ -364,6 +426,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteYumExampl
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -410,6 +478,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryCleanupExample(
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -489,6 +563,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteDockerhub
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -558,6 +638,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteDockerCus
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -631,6 +717,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteMavenCust
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -702,6 +794,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteNpmCustom
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -775,6 +873,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemotePythonCus
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -847,6 +951,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteCommonRep
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -896,6 +1006,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteCommonRep
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -949,6 +1065,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryRemoteCommonRep
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "remote_repository_config.0.disable_upstream_validation", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -1019,6 +1141,12 @@ func TestAccArtifactRegistryRepository_artifactRegistryRepositoryVulnerabilitySc
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "repository_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_artifact_registry_repository.my-repo",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

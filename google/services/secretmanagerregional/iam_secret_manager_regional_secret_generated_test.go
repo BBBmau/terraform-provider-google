@@ -25,10 +25,18 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccSecretManagerRegionalRegionalSecretIamBindingGenerated(t *testing.T) {
@@ -53,7 +61,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamBindingGenerated(t *testing.T)
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMBindingStateID("google_secret_manager_regional_secret_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -63,7 +71,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamBindingGenerated(t *testing.T)
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMBindingStateID("google_secret_manager_regional_secret_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -94,7 +102,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamMemberGenerated(t *testing.T) 
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMMemberStateID("google_secret_manager_regional_secret_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -125,7 +133,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamPolicyGenerated(t *testing.T) 
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMPolicyStateID("google_secret_manager_regional_secret_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -134,7 +142,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamPolicyGenerated(t *testing.T) 
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMPolicyStateID("google_secret_manager_regional_secret_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -164,7 +172,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamBindingGenerated_withCondition
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor %s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMBindingStateID("google_secret_manager_regional_secret_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -196,19 +204,19 @@ func TestAccSecretManagerRegionalRegionalSecretIamBindingGenerated_withAndWithou
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMBindingStateID("google_secret_manager_regional_secret_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_binding.foo2",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor %s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMBindingStateID("google_secret_manager_regional_secret_iam_binding.foo2"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_binding.foo3",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor %s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"]), context["condition_title_no_desc"]),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMBindingStateID("google_secret_manager_regional_secret_iam_binding.foo3"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -238,7 +246,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamMemberGenerated_withCondition(
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMMemberStateID("google_secret_manager_regional_secret_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -270,19 +278,19 @@ func TestAccSecretManagerRegionalRegionalSecretIamMemberGenerated_withAndWithout
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMMemberStateID("google_secret_manager_regional_secret_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_member.foo2",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"]), context["condition_title"]),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMMemberStateID("google_secret_manager_regional_secret_iam_member.foo2"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_member.foo3",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s roles/secretmanager.secretAccessor user:admin@hashicorptest.com %s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"]), context["condition_title_no_desc"]),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMMemberStateID("google_secret_manager_regional_secret_iam_member.foo3"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -314,7 +322,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamPolicyGenerated_withCondition(
 			{
 				Config: testAccSecretManagerRegionalRegionalSecretIamPolicy_withConditionGenerated(context),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// TODO(SarahFrench) - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
+					// TODO - uncomment once https://github.com/GoogleCloudPlatform/magic-modules/pull/6466 merged
 					// resource.TestCheckResourceAttr("data.google_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttr("google_secret_manager_regional_secret_iam_policy.foo", "policy_data", expectedPolicyData),
 					resource.TestCheckResourceAttrWith("data.google_iam_policy.foo", "policy_data", tpgresource.CheckGoogleIamPolicy),
@@ -322,7 +330,7 @@ func TestAccSecretManagerRegionalRegionalSecretIamPolicyGenerated_withCondition(
 			},
 			{
 				ResourceName:      "google_secret_manager_regional_secret_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/secrets/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-tf-reg-secret%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecretManagerRegionalRegionalSecretIAMPolicyStateID("google_secret_manager_regional_secret_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -345,6 +353,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_member" "foo" {
@@ -372,6 +381,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 data "google_iam_policy" "foo" {
@@ -414,6 +424,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 data "google_iam_policy" "foo" {
@@ -443,6 +454,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_binding" "foo" {
@@ -470,6 +482,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_binding" "foo" {
@@ -497,6 +510,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_binding" "foo" {
@@ -529,6 +543,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_binding" "foo" {
@@ -583,6 +598,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_member" "foo" {
@@ -615,6 +631,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 resource "google_secret_manager_regional_secret_iam_member" "foo" {
@@ -669,6 +686,7 @@ resource "google_secret_manager_regional_secret" "regional-secret-basic" {
     key2 = "value2",
     key3 = "value3"
   }
+  deletion_protection = false
 }
 
 data "google_iam_policy" "foo" {
@@ -700,4 +718,57 @@ resource "google_secret_manager_regional_secret_iam_policy" "foo" {
   policy_data = data.google_iam_policy.foo.policy_data
 }
 `, context)
+}
+func generateSecretManagerRegionalRegionalSecretIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		secret_id := tpgresource.GetResourceNameFromSelfLink(rawState["secret_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/secrets/%s", project, location, secret_id), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateSecretManagerRegionalRegionalSecretIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		secret_id := tpgresource.GetResourceNameFromSelfLink(rawState["secret_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/secrets/%s", project, location, secret_id), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateSecretManagerRegionalRegionalSecretIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		secret_id := tpgresource.GetResourceNameFromSelfLink(rawState["secret_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/secrets/%s", project, location, secret_id), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

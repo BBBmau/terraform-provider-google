@@ -69,9 +69,6 @@ The following arguments are supported:
   The folder for which to retrieve settings.
 
 
-- - -
-
-
 * `kms_key_name` -
   (Optional)
   The resource name for the configured Cloud KMS key.
@@ -83,6 +80,7 @@ The following arguments are supported:
 * `disable_default_sink` -
   (Optional)
   If set to true, the _Default sink in newly created projects and folders will created in a disabled state. This can be used to automatically disable log storage if there is already an aggregated sink configured in the hierarchy. The _Default sink can be re-enabled manually if needed.
+
 
 
 ## Attributes Reference
@@ -118,6 +116,16 @@ FolderSettings can be imported using any of these accepted formats:
 * `folders/{{folder}}/settings`
 * `{{folder}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FolderSettings using identity values. For example:
+
+```tf
+import {
+  identity = {
+    folder = "<-required value->"
+  }
+  to = google_logging_folder_settings.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FolderSettings using one of the formats above. For example:
 

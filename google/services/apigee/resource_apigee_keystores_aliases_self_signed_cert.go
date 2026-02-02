@@ -20,16 +20,70 @@
 package apigee
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceApigeeKeystoresAliasesSelfSignedCert() *schema.Resource {
@@ -45,6 +99,30 @@ func ResourceApigeeKeystoresAliasesSelfSignedCert() *schema.Resource {
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(30 * time.Minute),
 			Delete: schema.DefaultTimeout(30 * time.Minute),
+		},
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"org_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"environment": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"keystore": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"alias": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -329,6 +407,32 @@ func resourceApigeeKeystoresAliasesSelfSignedCertCreate(d *schema.ResourceData, 
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if orgIdValue, ok := d.GetOk("org_id"); ok && orgIdValue.(string) != "" {
+			if err = identity.Set("org_id", orgIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting org_id: %s", err)
+			}
+		}
+		if environmentValue, ok := d.GetOk("environment"); ok && environmentValue.(string) != "" {
+			if err = identity.Set("environment", environmentValue.(string)); err != nil {
+				return fmt.Errorf("Error setting environment: %s", err)
+			}
+		}
+		if keystoreValue, ok := d.GetOk("keystore"); ok && keystoreValue.(string) != "" {
+			if err = identity.Set("keystore", keystoreValue.(string)); err != nil {
+				return fmt.Errorf("Error setting keystore: %s", err)
+			}
+		}
+		if aliasValue, ok := d.GetOk("alias"); ok && aliasValue.(string) != "" {
+			if err = identity.Set("alias", aliasValue.(string)); err != nil {
+				return fmt.Errorf("Error setting alias: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating KeystoresAliasesSelfSignedCert %q: %#v", d.Id(), res)
 
 	return resourceApigeeKeystoresAliasesSelfSignedCertRead(d, meta)
@@ -377,6 +481,36 @@ func resourceApigeeKeystoresAliasesSelfSignedCertRead(d *schema.ResourceData, me
 	}
 	if err := d.Set("subject_alternative_dns_names", flattenApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames(res["subjectAlternativeDnsNames"], d, config)); err != nil {
 		return fmt.Errorf("Error reading KeystoresAliasesSelfSignedCert: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("org_id"); !ok && v == "" {
+			err = identity.Set("org_id", d.Get("org_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting org_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("environment"); !ok && v == "" {
+			err = identity.Set("environment", d.Get("environment").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting environment: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("keystore"); !ok && v == "" {
+			err = identity.Set("keystore", d.Get("keystore").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting keystore: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("alias"); !ok && v == "" {
+			err = identity.Set("alias", d.Get("alias").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting alias: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -573,6 +707,9 @@ func expandApigeeKeystoresAliasesSelfSignedCertAlias(v interface{}, d tpgresourc
 }
 
 func expandApigeeKeystoresAliasesSelfSignedCertSubjectAlternativeDnsNames(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -604,6 +741,9 @@ func expandApigeeKeystoresAliasesSelfSignedCertSigAlg(v interface{}, d tpgresour
 }
 
 func expandApigeeKeystoresAliasesSelfSignedCertSubject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

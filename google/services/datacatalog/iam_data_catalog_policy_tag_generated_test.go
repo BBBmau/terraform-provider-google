@@ -20,11 +20,23 @@
 package datacatalog_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
+	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccDataCatalogPolicyTagIamBindingGenerated(t *testing.T) {
@@ -216,4 +228,52 @@ resource "google_data_catalog_policy_tag_iam_binding" "foo" {
   members = ["user:admin@hashicorptest.com", "user:gterraformtest1@gmail.com"]
 }
 `, context)
+}
+
+func generateDataCatalogPolicyTagIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		policy_tag := rawState["policy_tag"]
+		return acctest.BuildIAMImportId(fmt.Sprintf("%s", policy_tag), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateDataCatalogPolicyTagIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		policy_tag := rawState["policy_tag"]
+		return acctest.BuildIAMImportId(fmt.Sprintf("%s", policy_tag), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateDataCatalogPolicyTagIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		policy_tag := rawState["policy_tag"]
+		return acctest.BuildIAMImportId(fmt.Sprintf("%s", policy_tag), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

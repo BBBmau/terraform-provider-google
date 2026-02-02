@@ -77,15 +77,13 @@ The following arguments are supported:
   The unique id of the schema.
 
 
-- - -
-
-
 * `json_schema` -
   (Optional)
   The JSON representation of the schema.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -118,6 +116,19 @@ Schema can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{data_store_id}}/{{schema_id}}`
 * `{{location}}/{{data_store_id}}/{{schema_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Schema using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    dataStoreId = "<-required value->"
+    schemaId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_discovery_engine_schema.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Schema using one of the formats above. For example:
 

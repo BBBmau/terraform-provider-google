@@ -19,8 +19,11 @@ package dataplex_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccDataplexAspectType_dataplexAspectTypeBasicExample(t *testing.T) {
@@ -53,6 +72,12 @@ func TestAccDataplexAspectType_dataplexAspectTypeBasicExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"aspect_type_id", "labels", "location", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_dataplex_aspect_type.test_aspect_type_basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -64,6 +89,7 @@ resource "google_dataplex_aspect_type" "test_aspect_type_basic" {
   project = "%{project_name}"
   location = "us-central1"
 
+  data_classification = "DATA_CLASSIFICATION_UNSPECIFIED"
   metadata_template = <<EOF
 {
   "name": "tf-test-template",
@@ -116,6 +142,12 @@ func TestAccDataplexAspectType_dataplexAspectTypeFullExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"aspect_type_id", "labels", "location", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_dataplex_aspect_type.test_aspect_type_full",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -129,7 +161,8 @@ resource "google_dataplex_aspect_type" "test_aspect_type_full" {
 
   labels = { "tag": "test-tf" }
   display_name = "terraform aspect type"
-  description = "aspect type created by Terraform"
+  description = "data aspect type created by Terraform"
+  data_classification = "METADATA_AND_DATA"
   metadata_template = <<EOF
 {
   "type": "record",

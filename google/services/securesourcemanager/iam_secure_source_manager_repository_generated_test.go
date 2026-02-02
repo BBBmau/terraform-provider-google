@@ -21,12 +21,22 @@ package securesourcemanager_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
+	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccSecureSourceManagerRepositoryIamBindingGenerated(t *testing.T) {
@@ -35,7 +45,7 @@ func TestAccSecureSourceManagerRepositoryIamBindingGenerated(t *testing.T) {
 	context := map[string]interface{}{
 		"random_suffix":   acctest.RandString(t, 10),
 		"role":            "roles/securesourcemanager.repoAdmin",
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 	}
 
 	acctest.VcrTest(t, resource.TestCase{
@@ -47,7 +57,7 @@ func TestAccSecureSourceManagerRepositoryIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_secure_source_manager_repository_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/repositories/%s roles/securesourcemanager.repoAdmin", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-my-repository%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecureSourceManagerRepositoryIAMBindingStateID("google_secure_source_manager_repository_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -57,7 +67,7 @@ func TestAccSecureSourceManagerRepositoryIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_secure_source_manager_repository_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/repositories/%s roles/securesourcemanager.repoAdmin", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-my-repository%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecureSourceManagerRepositoryIAMBindingStateID("google_secure_source_manager_repository_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -71,7 +81,7 @@ func TestAccSecureSourceManagerRepositoryIamMemberGenerated(t *testing.T) {
 	context := map[string]interface{}{
 		"random_suffix":   acctest.RandString(t, 10),
 		"role":            "roles/securesourcemanager.repoAdmin",
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 	}
 
 	acctest.VcrTest(t, resource.TestCase{
@@ -84,7 +94,7 @@ func TestAccSecureSourceManagerRepositoryIamMemberGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_secure_source_manager_repository_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/repositories/%s roles/securesourcemanager.repoAdmin user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-my-repository%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecureSourceManagerRepositoryIAMMemberStateID("google_secure_source_manager_repository_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -98,7 +108,7 @@ func TestAccSecureSourceManagerRepositoryIamPolicyGenerated(t *testing.T) {
 	context := map[string]interface{}{
 		"random_suffix":   acctest.RandString(t, 10),
 		"role":            "roles/securesourcemanager.repoAdmin",
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 	}
 
 	acctest.VcrTest(t, resource.TestCase{
@@ -111,7 +121,7 @@ func TestAccSecureSourceManagerRepositoryIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_secure_source_manager_repository_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/repositories/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-my-repository%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecureSourceManagerRepositoryIAMPolicyStateID("google_secure_source_manager_repository_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -120,7 +130,7 @@ func TestAccSecureSourceManagerRepositoryIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_secure_source_manager_repository_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/repositories/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-my-repository%s", context["random_suffix"])),
+				ImportStateIdFunc: generateSecureSourceManagerRepositoryIAMPolicyStateID("google_secure_source_manager_repository_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -135,9 +145,7 @@ resource "google_secure_source_manager_instance" "instance" {
     instance_id = "tf-test-my-instance%{random_suffix}"
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "default" {
@@ -146,9 +154,7 @@ resource "google_secure_source_manager_repository" "default" {
     instance = google_secure_source_manager_instance.instance.name
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository_iam_member" "foo" {
@@ -168,9 +174,7 @@ resource "google_secure_source_manager_instance" "instance" {
     instance_id = "tf-test-my-instance%{random_suffix}"
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "default" {
@@ -179,9 +183,7 @@ resource "google_secure_source_manager_repository" "default" {
     instance = google_secure_source_manager_instance.instance.name
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 data "google_iam_policy" "foo" {
@@ -216,9 +218,7 @@ resource "google_secure_source_manager_instance" "instance" {
     instance_id = "tf-test-my-instance%{random_suffix}"
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "default" {
@@ -227,9 +227,7 @@ resource "google_secure_source_manager_repository" "default" {
     instance = google_secure_source_manager_instance.instance.name
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 data "google_iam_policy" "foo" {
@@ -251,9 +249,7 @@ resource "google_secure_source_manager_instance" "instance" {
     instance_id = "tf-test-my-instance%{random_suffix}"
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "default" {
@@ -262,9 +258,7 @@ resource "google_secure_source_manager_repository" "default" {
     instance = google_secure_source_manager_instance.instance.name
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository_iam_binding" "foo" {
@@ -284,9 +278,7 @@ resource "google_secure_source_manager_instance" "instance" {
     instance_id = "tf-test-my-instance%{random_suffix}"
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository" "default" {
@@ -295,9 +287,7 @@ resource "google_secure_source_manager_repository" "default" {
     instance = google_secure_source_manager_instance.instance.name
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 resource "google_secure_source_manager_repository_iam_binding" "foo" {
@@ -308,4 +298,58 @@ resource "google_secure_source_manager_repository_iam_binding" "foo" {
   members = ["user:admin@hashicorptest.com", "user:gterraformtest1@gmail.com"]
 }
 `, context)
+}
+
+func generateSecureSourceManagerRepositoryIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		repository_id := tpgresource.GetResourceNameFromSelfLink(rawState["repository_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/repositories/%s", project, location, repository_id), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateSecureSourceManagerRepositoryIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		repository_id := tpgresource.GetResourceNameFromSelfLink(rawState["repository_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/repositories/%s", project, location, repository_id), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateSecureSourceManagerRepositoryIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		repository_id := tpgresource.GetResourceNameFromSelfLink(rawState["repository_id"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/repositories/%s", project, location, repository_id), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

@@ -19,15 +19,35 @@ package compute_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccComputeRegionDisk_regionDiskBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccComputeRegionDisk_regionDiskBasicExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "region", "snapshot", "terraform_labels", "type"},
+			},
+			{
+				ResourceName:       "google_compute_region_disk.regiondisk",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -104,6 +130,12 @@ func TestAccComputeRegionDisk_regionDiskAsyncExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "region", "snapshot", "terraform_labels", "type"},
 			},
+			{
+				ResourceName:       "google_compute_region_disk.primary",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -155,6 +187,12 @@ func TestAccComputeRegionDisk_regionDiskFeaturesExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "region", "snapshot", "terraform_labels", "type"},
 			},
+			{
+				ResourceName:       "google_compute_region_disk.regiondisk",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -182,6 +220,49 @@ resource "google_compute_region_disk" "regiondisk" {
   licenses = ["https://www.googleapis.com/compute/v1/projects/windows-cloud/global/licenses/windows-server-core"]
 
   replica_zones = ["us-central1-a", "us-central1-f"]
+}
+`, context)
+}
+
+func TestAccComputeRegionDisk_regionDiskHyperdiskBalancedHaWriteManyExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckComputeRegionDiskDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccComputeRegionDisk_regionDiskHyperdiskBalancedHaWriteManyExample(context),
+			},
+			{
+				ResourceName:            "google_compute_region_disk.primary",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"labels", "region", "snapshot", "terraform_labels", "type"},
+			},
+			{
+				ResourceName:       "google_compute_region_disk.primary",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccComputeRegionDisk_regionDiskHyperdiskBalancedHaWriteManyExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_compute_region_disk" "primary" {
+  name                      = "tf-test-my-region-hyperdisk%{random_suffix}"
+  type                      = "hyperdisk-balanced-high-availability"
+  region                    = "us-central1"
+  replica_zones = ["us-central1-a", "us-central1-f"]
+  access_mode = "READ_WRITE_MANY"
 }
 `, context)
 }

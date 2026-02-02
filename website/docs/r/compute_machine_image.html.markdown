@@ -126,9 +126,6 @@ The following arguments are supported:
   The source instance used to create the machine image. You can provide this as a partial or full URL to the resource.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   A text description of the resource.
@@ -148,6 +145,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_machine_image_encryption_key"></a>The `machine_image_encryption_key` block supports:
@@ -199,6 +197,17 @@ MachineImage can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MachineImage using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_machine_image.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MachineImage using one of the formats above. For example:
 

@@ -503,7 +503,52 @@ The following arguments are supported:
   The ID of the job. The ID must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). The maximum length is 1,024 characters.
 
 
-<a name="nested_configuration_query"></a>The `query` block supports:
+* `job_timeout_ms` -
+  (Optional)
+  Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job.
+
+* `labels` -
+  (Optional)
+  The labels associated with this job. You can use these to organize and group your jobs.
+
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `query` -
+  (Optional)
+  Configures a query job.
+  Structure is [documented below](#nested_query).
+
+* `load` -
+  (Optional)
+  Configures a load job.
+  Structure is [documented below](#nested_load).
+
+* `copy` -
+  (Optional)
+  Copies a table.
+  Structure is [documented below](#nested_copy).
+
+* `extract` -
+  (Optional)
+  Configures an extract job.
+  Structure is [documented below](#nested_extract).
+
+* `reservation` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The reservation that job would use. User can specify a reservation to execute the job. If this field is not set, reservation is determined based on the rules defined by the reservation assignments.
+  The expected format is `projects/{project}/locations/{location}/reservations/{reservation}`.
+
+* `location` -
+  (Optional)
+  The geographic location of the job. The default value is US.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
+<a name="nested_query"></a>The `query` block supports:
 
 * `query` -
   (Required)
@@ -516,12 +561,12 @@ The following arguments are supported:
   Describes the table where the query results should be stored.
   This property must be set for large results that exceed the maximum response size.
   For queries that produce anonymous (cached) results, this field will be populated by BigQuery.
-  Structure is [documented below](#nested_configuration_query_destination_table).
+  Structure is [documented below](#nested_query_destination_table).
 
 * `user_defined_function_resources` -
   (Optional)
   Describes user-defined function resources used in the query.
-  Structure is [documented below](#nested_configuration_query_user_defined_function_resources).
+  Structure is [documented below](#nested_query_user_defined_function_resources).
 
 * `create_disposition` -
   (Optional)
@@ -546,7 +591,7 @@ The following arguments are supported:
 * `default_dataset` -
   (Optional)
   Specifies the default dataset to use for unqualified table names in the query. Note that this does not alter behavior of unqualified dataset names.
-  Structure is [documented below](#nested_configuration_query_default_dataset).
+  Structure is [documented below](#nested_query_default_dataset).
 
 * `priority` -
   (Optional)
@@ -603,19 +648,26 @@ The following arguments are supported:
 * `destination_encryption_configuration` -
   (Optional)
   Custom encryption configuration (e.g., Cloud KMS keys)
-  Structure is [documented below](#nested_configuration_query_destination_encryption_configuration).
+  Structure is [documented below](#nested_query_destination_encryption_configuration).
 
 * `script_options` -
   (Optional)
   Options controlling the execution of scripts.
-  Structure is [documented below](#nested_configuration_query_script_options).
+  Structure is [documented below](#nested_query_script_options).
 
 * `continuous` -
   (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
   Whether to run the query as continuous or a regular query.
 
+* `connection_properties` -
+  (Optional)
+  Connection properties to customize query behavior. Under JDBC, these correspond
+  directly to connection properties passed to the DriverManager. Under ODBC, these
+  correspond to properties in the connection string.
+  Structure is [documented below](#nested_query_connection_properties).
 
-<a name="nested_configuration_query_destination_table"></a>The `destination_table` block supports:
+
+<a name="nested_query_destination_table"></a>The `destination_table` block supports:
 
 * `project_id` -
   (Optional)
@@ -630,7 +682,7 @@ The following arguments are supported:
   The table. Can be specified `{{table_id}}` if `project_id` and `dataset_id` are also set,
   or of the form `projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}` if not.
 
-<a name="nested_configuration_query_user_defined_function_resources"></a>The `user_defined_function_resources` block supports:
+<a name="nested_query_user_defined_function_resources"></a>The `user_defined_function_resources` block supports:
 
 * `resource_uri` -
   (Optional)
@@ -641,7 +693,7 @@ The following arguments are supported:
   An inline resource that contains code for a user-defined function (UDF).
   Providing a inline code resource is equivalent to providing a URI for a file containing the same code.
 
-<a name="nested_configuration_query_default_dataset"></a>The `default_dataset` block supports:
+<a name="nested_query_default_dataset"></a>The `default_dataset` block supports:
 
 * `dataset_id` -
   (Required)
@@ -652,7 +704,7 @@ The following arguments are supported:
   (Optional)
   The ID of the project containing this table.
 
-<a name="nested_configuration_query_destination_encryption_configuration"></a>The `destination_encryption_configuration` block supports:
+<a name="nested_query_destination_encryption_configuration"></a>The `destination_encryption_configuration` block supports:
 
 * `kms_key_name` -
   (Required)
@@ -663,7 +715,7 @@ The following arguments are supported:
   (Output)
   Describes the Cloud KMS encryption key version used to protect destination BigQuery table.
 
-<a name="nested_configuration_query_script_options"></a>The `script_options` block supports:
+<a name="nested_query_script_options"></a>The `script_options` block supports:
 
 * `statement_timeout_ms` -
   (Optional)
@@ -679,7 +731,22 @@ The following arguments are supported:
   used to populate the schema and query results of the script job.
   Possible values are: `LAST`, `FIRST_SELECT`.
 
-<a name="nested_configuration_load"></a>The `load` block supports:
+<a name="nested_query_connection_properties"></a>The `connection_properties` block supports:
+
+* `key` -
+  (Required)
+  The key of the property to set. Currently supported connection properties:
+  * `dataset_project_id`: represents the default project for datasets that are used in the query
+  * `time_zone`: represents the default timezone used to run the query
+  * `session_id`: associates the query with a given session
+  * `query_label`: associates the query with a given job label
+  * `service_account`: indicates the service account to use to run a continuous query
+
+* `value` -
+  (Required)
+  The value of the property to set.
+
+<a name="nested_load"></a>The `load` block supports:
 
 * `source_uris` -
   (Required)
@@ -693,7 +760,7 @@ The following arguments are supported:
 * `destination_table` -
   (Required)
   The destination table to load the data into.
-  Structure is [documented below](#nested_configuration_load_destination_table).
+  Structure is [documented below](#nested_load_destination_table).
 
 * `create_disposition` -
   (Optional)
@@ -814,20 +881,20 @@ The following arguments are supported:
 * `time_partitioning` -
   (Optional)
   Time-based partitioning specification for the destination table.
-  Structure is [documented below](#nested_configuration_load_time_partitioning).
+  Structure is [documented below](#nested_load_time_partitioning).
 
 * `destination_encryption_configuration` -
   (Optional)
   Custom encryption configuration (e.g., Cloud KMS keys)
-  Structure is [documented below](#nested_configuration_load_destination_encryption_configuration).
+  Structure is [documented below](#nested_load_destination_encryption_configuration).
 
 * `parquet_options` -
   (Optional)
   Parquet Options for load and make external tables.
-  Structure is [documented below](#nested_configuration_load_parquet_options).
+  Structure is [documented below](#nested_load_parquet_options).
 
 
-<a name="nested_configuration_load_destination_table"></a>The `destination_table` block supports:
+<a name="nested_load_destination_table"></a>The `destination_table` block supports:
 
 * `project_id` -
   (Optional)
@@ -842,7 +909,7 @@ The following arguments are supported:
   The table. Can be specified `{{table_id}}` if `project_id` and `dataset_id` are also set,
   or of the form `projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}` if not.
 
-<a name="nested_configuration_load_time_partitioning"></a>The `time_partitioning` block supports:
+<a name="nested_load_time_partitioning"></a>The `time_partitioning` block supports:
 
 * `type` -
   (Required)
@@ -859,7 +926,7 @@ The following arguments are supported:
   The field must be a top-level TIMESTAMP or DATE field. Its mode must be NULLABLE or REQUIRED.
   A wrapper is used here because an empty string is an invalid value.
 
-<a name="nested_configuration_load_destination_encryption_configuration"></a>The `destination_encryption_configuration` block supports:
+<a name="nested_load_destination_encryption_configuration"></a>The `destination_encryption_configuration` block supports:
 
 * `kms_key_name` -
   (Required)
@@ -870,7 +937,7 @@ The following arguments are supported:
   (Output)
   Describes the Cloud KMS encryption key version used to protect destination BigQuery table.
 
-<a name="nested_configuration_load_parquet_options"></a>The `parquet_options` block supports:
+<a name="nested_load_parquet_options"></a>The `parquet_options` block supports:
 
 * `enum_as_string` -
   (Optional)
@@ -880,17 +947,17 @@ The following arguments are supported:
   (Optional)
   If sourceFormat is set to PARQUET, indicates whether to use schema inference specifically for Parquet LIST logical type.
 
-<a name="nested_configuration_copy"></a>The `copy` block supports:
+<a name="nested_copy"></a>The `copy` block supports:
 
 * `source_tables` -
   (Required)
   Source tables to copy.
-  Structure is [documented below](#nested_configuration_copy_source_tables).
+  Structure is [documented below](#nested_copy_source_tables).
 
 * `destination_table` -
   (Optional)
   The destination table.
-  Structure is [documented below](#nested_configuration_copy_destination_table).
+  Structure is [documented below](#nested_copy_destination_table).
 
 * `create_disposition` -
   (Optional)
@@ -915,25 +982,10 @@ The following arguments are supported:
 * `destination_encryption_configuration` -
   (Optional)
   Custom encryption configuration (e.g., Cloud KMS keys)
-  Structure is [documented below](#nested_configuration_copy_destination_encryption_configuration).
+  Structure is [documented below](#nested_copy_destination_encryption_configuration).
 
 
-<a name="nested_configuration_copy_source_tables"></a>The `source_tables` block supports:
-
-* `project_id` -
-  (Optional)
-  The ID of the project containing this table.
-
-* `dataset_id` -
-  (Optional)
-  The ID of the dataset containing this table.
-
-* `table_id` -
-  (Required)
-  The table. Can be specified `{{table_id}}` if `project_id` and `dataset_id` are also set,
-  or of the form `projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}` if not.
-
-<a name="nested_configuration_copy_destination_table"></a>The `destination_table` block supports:
+<a name="nested_copy_source_tables"></a>The `source_tables` block supports:
 
 * `project_id` -
   (Optional)
@@ -948,7 +1000,22 @@ The following arguments are supported:
   The table. Can be specified `{{table_id}}` if `project_id` and `dataset_id` are also set,
   or of the form `projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}` if not.
 
-<a name="nested_configuration_copy_destination_encryption_configuration"></a>The `destination_encryption_configuration` block supports:
+<a name="nested_copy_destination_table"></a>The `destination_table` block supports:
+
+* `project_id` -
+  (Optional)
+  The ID of the project containing this table.
+
+* `dataset_id` -
+  (Optional)
+  The ID of the dataset containing this table.
+
+* `table_id` -
+  (Required)
+  The table. Can be specified `{{table_id}}` if `project_id` and `dataset_id` are also set,
+  or of the form `projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}` if not.
+
+<a name="nested_copy_destination_encryption_configuration"></a>The `destination_encryption_configuration` block supports:
 
 * `kms_key_name` -
   (Required)
@@ -959,7 +1026,7 @@ The following arguments are supported:
   (Output)
   Describes the Cloud KMS encryption key version used to protect destination BigQuery table.
 
-<a name="nested_configuration_extract"></a>The `extract` block supports:
+<a name="nested_extract"></a>The `extract` block supports:
 
 * `destination_uris` -
   (Required)
@@ -992,15 +1059,15 @@ The following arguments are supported:
 * `source_table` -
   (Optional)
   A reference to the table being exported.
-  Structure is [documented below](#nested_configuration_extract_source_table).
+  Structure is [documented below](#nested_extract_source_table).
 
 * `source_model` -
   (Optional)
   A reference to the model being exported.
-  Structure is [documented below](#nested_configuration_extract_source_model).
+  Structure is [documented below](#nested_extract_source_model).
 
 
-<a name="nested_configuration_extract_source_table"></a>The `source_table` block supports:
+<a name="nested_extract_source_table"></a>The `source_table` block supports:
 
 * `project_id` -
   (Optional)
@@ -1015,7 +1082,7 @@ The following arguments are supported:
   The table. Can be specified `{{table_id}}` if `project_id` and `dataset_id` are also set,
   or of the form `projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}` if not.
 
-<a name="nested_configuration_extract_source_model"></a>The `source_model` block supports:
+<a name="nested_extract_source_model"></a>The `source_model` block supports:
 
 * `project_id` -
   (Required)
@@ -1028,48 +1095,6 @@ The following arguments are supported:
 * `model_id` -
   (Required)
   The ID of the model.
-
-- - -
-
-
-* `job_timeout_ms` -
-  (Optional)
-  Job timeout in milliseconds. If this time limit is exceeded, BigQuery may attempt to terminate the job.
-
-* `labels` -
-  (Optional)
-  The labels associated with this job. You can use these to organize and group your jobs.
-
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `query` -
-  (Optional)
-  Configures a query job.
-  Structure is [documented below](#nested_configuration_query).
-
-* `load` -
-  (Optional)
-  Configures a load job.
-  Structure is [documented below](#nested_configuration_load).
-
-* `copy` -
-  (Optional)
-  Copies a table.
-  Structure is [documented below](#nested_configuration_copy).
-
-* `extract` -
-  (Optional)
-  Configures an extract job.
-  Structure is [documented below](#nested_configuration_extract).
-
-* `location` -
-  (Optional)
-  The geographic location of the job. The default value is US.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -1166,6 +1191,16 @@ Job can be imported using any of these accepted formats:
 * `{{project}}/{{job_id}}`
 * `{{job_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Job using identity values. For example:
+
+```tf
+import {
+  identity = {
+    project = "<-optional value->"
+  }
+  to = google_bigquery_job.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Job using one of the formats above. For example:
 

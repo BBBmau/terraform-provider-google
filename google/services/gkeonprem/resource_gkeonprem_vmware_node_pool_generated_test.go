@@ -19,15 +19,35 @@ package gkeonprem_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccGkeonpremVmwareNodePool_gkeonpremVmwareNodePoolBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccGkeonpremVmwareNodePool_gkeonpremVmwareNodePoolBasicExample(t *testi
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "location", "name", "vmware_cluster"},
+			},
+			{
+				ResourceName:       "google_gkeonprem_vmware_node_pool.nodepool-basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -129,6 +155,12 @@ func TestAccGkeonpremVmwareNodePool_gkeonpremVmwareNodePoolFullExample(t *testin
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "location", "name", "vmware_cluster"},
 			},
+			{
+				ResourceName:       "google_gkeonprem_vmware_node_pool.nodepool-full",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -140,7 +172,7 @@ resource "google_gkeonprem_vmware_cluster" "default-full" {
   location = "us-west1"
   admin_cluster_membership = "projects/870316890899/locations/global/memberships/gkeonprem-terraform-test"
   description = "test cluster"
-  on_prem_version = "1.13.1-gke.35"
+  on_prem_version = "1.33.0-gke.35"
   network_config {
     service_address_cidr_blocks = ["10.96.0.0/12"]
     pod_address_cidr_blocks = ["192.168.0.0/16"]
@@ -177,6 +209,7 @@ resource "google_gkeonprem_vmware_node_pool" "nodepool-full" {
   name = "tf-test-my-nodepool%{random_suffix}"
   location = "us-west1"
   vmware_cluster = google_gkeonprem_vmware_cluster.default-full.name
+  on_prem_version = "1.33.0-gke.35"
   annotations = {}
   config {
     cpus = 4

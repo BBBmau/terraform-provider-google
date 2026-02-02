@@ -48,6 +48,7 @@ resource "google_bigquery_routine" "sproc" {
   routine_id     = "routine_id"
   routine_type = "PROCEDURE"
   language = "SQL"
+  security_mode = "INVOKER"
   definition_body = "CREATE FUNCTION Add(x FLOAT64, y FLOAT64) RETURNS FLOAT64 AS (x + y);"
 }
 ```
@@ -297,6 +298,50 @@ resource "google_bigquery_routine" "remote_function" {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=bigquery_routine_python_function&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Bigquery Routine Python Function
+
+
+```hcl
+resource "google_bigquery_dataset" "test" {
+  provider = google-beta
+  dataset_id = "dataset_id"
+}
+
+resource "google_bigquery_routine" "python_function" {
+  provider = google-beta
+  dataset_id = google_bigquery_dataset.test.dataset_id
+  routine_id = "routine_id"
+  routine_type = "SCALAR_FUNCTION"
+  language = "PYTHON"
+  arguments {
+    name = "x"
+    data_type = "{\"typeKind\" :  \"FLOAT64\"}"
+  }
+  arguments {
+    name = "y"
+    data_type = "{\"typeKind\" :  \"FLOAT64\"}"
+  }
+  definition_body = <<-EOS
+    def multiply(x, y):
+      return x * y
+  EOS
+  return_type = "{\"typeKind\" :  \"FLOAT64\"}"
+  python_options {
+    entry_point = "multiply"
+  }
+  external_runtime_options {
+    container_memory = "512Mi"
+    container_cpu = 0.5
+    runtime_version = "python-3.11"
+  }
+
+}
+```
 
 ## Argument Reference
 
@@ -320,9 +365,6 @@ The following arguments are supported:
   (Required)
   The body of the routine. For functions, this is the expression in the AS clause.
   If language=SQL, it is the substring inside (but excluding) the parentheses.
-
-
-- - -
 
 
 * `language` -
@@ -373,6 +415,11 @@ The following arguments are supported:
   If set to DATA_MASKING, the function is validated and made available as a masking function. For more information, see https://cloud.google.com/bigquery/docs/user-defined-functions#custom-mask
   Possible values are: `DATA_MASKING`.
 
+* `security_mode` -
+  (Optional)
+  Optional. The security mode of the routine, if defined. If not defined, the security mode is automatically determined from the routine's configuration.
+  Possible values are: `DEFINER`, `INVOKER`.
+
 * `spark_options` -
   (Optional)
   Optional. If language is one of "PYTHON", "JAVA", "SCALA", this field stores the options for spark stored procedure.
@@ -383,8 +430,20 @@ The following arguments are supported:
   Remote function specific options.
   Structure is [documented below](#nested_remote_function_options).
 
+* `python_options` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Options for a user-defined Python function.
+  Structure is [documented below](#nested_python_options).
+
+* `external_runtime_options` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Options for the runtime of the external system.
+  This field is only applicable for Python UDFs.
+  Structure is [documented below](#nested_external_runtime_options).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_arguments"></a>The `arguments` block supports:
@@ -488,6 +547,51 @@ The following arguments are supported:
   Max number of rows in each batch sent to the remote service. If absent or if 0,
   BigQuery dynamically decides the number of rows in a batch.
 
+<a name="nested_python_options"></a>The `python_options` block supports:
+
+* `entry_point` -
+  (Required)
+  The name of the function defined in Python code as the entry point when the
+  Python UDF is invoked.
+
+* `packages` -
+  (Optional)
+  A list of Python package names along with versions to be installed.
+  Example: ["pandas>=2.1", "google-cloud-translate==3.11"]. For more
+  information, see [Use third-party
+  packages](https://cloud.google.com/bigquery/docs/user-defined-functions-python#third-party-packages).
+
+<a name="nested_external_runtime_options"></a>The `external_runtime_options` block supports:
+
+* `container_memory` -
+  (Optional)
+  Amount of memory provisioned for a Python UDF container instance. Format:
+  {number}{unit} where unit is one of "M", "G", "Mi" and "Gi" (e.g. 1G,
+  512Mi). If not specified, the default value is 512Mi. For more information,
+  see [Configure container limits for Python
+  UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+
+* `container_cpu` -
+  (Optional)
+  Amount of CPU provisioned for a Python UDF container instance. For more
+  information, see [Configure container limits for Python
+  UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+
+* `runtime_connection` -
+  (Optional)
+  Fully qualified name of the connection whose service account will be used
+  to execute the code in the container. Format:
+  `"projects/{project_id}/locations/{location_id}/connections/{connection_id}"`
+
+* `max_batching_rows` -
+  (Optional)
+  Maximum number of rows in each batch sent to the external runtime. If
+  absent or if 0, BigQuery dynamically decides the number of rows in a batch.
+
+* `runtime_version` -
+  (Optional)
+  Language runtime version. Example: `python-3.11`.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -521,6 +625,16 @@ Routine can be imported using any of these accepted formats:
 * `{{project}}/{{dataset_id}}/{{routine_id}}`
 * `{{dataset_id}}/{{routine_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Routine using identity values. For example:
+
+```tf
+import {
+  identity = {
+    project = "<-optional value->"
+  }
+  to = google_bigquery_routine.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Routine using one of the formats above. For example:
 

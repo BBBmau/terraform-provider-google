@@ -189,9 +189,6 @@ The following arguments are supported:
   **Note**: This property is sensitive and will not be displayed in the plan.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource.
@@ -223,6 +220,7 @@ The following arguments are supported:
  `name_prefix` + YYYYmmddHHSSssss + 8 digit incremental counter
  Resulting name for a `name_prefix` 38 - 54 characters:
  `name_prefix` + YYmmdd + 3 digit incremental counter
+
 
 ## Attributes Reference
 
@@ -259,6 +257,18 @@ RegionSslCertificate can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionSslCertificate using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_ssl_certificate.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionSslCertificate using one of the formats above. For example:
 

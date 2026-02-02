@@ -55,9 +55,6 @@ The following arguments are supported:
   Identifier of the GCP project. For GCP project, this field can be project name or project number.
 
 
-- - -
-
-
 * `edition_config` -
   (Optional)
   Edition configuration of the Storage Intelligence resource. Valid values are INHERIT, TRIAL, DISABLED and STANDARD.
@@ -66,6 +63,7 @@ The following arguments are supported:
   (Optional)
   Filter over location and bucket using include or exclude semantics. Resources that match the include or exclude filter are exclusively included or excluded from the Storage Intelligence plan.
   Structure is [documented below](#nested_filter).
+
 
 
 <a name="nested_filter"></a>The `filter` block supports:
@@ -166,6 +164,16 @@ ProjectIntelligenceConfig can be imported using any of these accepted formats:
 * `projects/{{name}}/locations/global/intelligenceConfig`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ProjectIntelligenceConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+  }
+  to = google_storage_control_project_intelligence_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ProjectIntelligenceConfig using one of the formats above. For example:
 

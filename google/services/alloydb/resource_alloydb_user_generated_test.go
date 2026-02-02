@@ -19,22 +19,42 @@ package alloydb_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccAlloydbUser_alloydbUserBuiltinTestExample(t *testing.T) {
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"network_name":  acctest.BootstrapSharedServiceNetworkingConnection(t, "alloydbinstance-network-config-1"),
+		"network_name":  acctest.BootstrapSharedServiceNetworkingConnection(t, "alloydb-1"),
 		"random_suffix": acctest.RandString(t, 10),
 	}
 
@@ -50,7 +70,7 @@ func TestAccAlloydbUser_alloydbUserBuiltinTestExample(t *testing.T) {
 				ResourceName:            "google_alloydb_user.user1",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"cluster", "password", "password", "user_id"},
+				ImportStateVerifyIgnore: []string{"cluster", "password", "password", "password_wo", "password_wo_version", "user_id"},
 			},
 		},
 	})
@@ -73,6 +93,8 @@ resource "google_alloydb_cluster" "default" {
   initial_user {
     password = "tf_test_cluster_secret%{random_suffix}"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -98,7 +120,7 @@ func TestAccAlloydbUser_alloydbUserIamTestExample(t *testing.T) {
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"network_name":  acctest.BootstrapSharedServiceNetworkingConnection(t, "alloydbinstance-network-config-1"),
+		"network_name":  acctest.BootstrapSharedServiceNetworkingConnection(t, "alloydb-1"),
 		"random_suffix": acctest.RandString(t, 10),
 	}
 
@@ -114,7 +136,7 @@ func TestAccAlloydbUser_alloydbUserIamTestExample(t *testing.T) {
 				ResourceName:            "google_alloydb_user.user2",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"cluster", "password", "user_id"},
+				ImportStateVerifyIgnore: []string{"cluster", "password", "password_wo", "password_wo_version", "user_id"},
 			},
 		},
 	})
@@ -137,6 +159,8 @@ resource "google_alloydb_cluster" "default" {
   initial_user {
     password = "tf_test_cluster_secret%{random_suffix}"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}

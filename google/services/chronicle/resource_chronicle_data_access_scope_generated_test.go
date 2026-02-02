@@ -19,8 +19,11 @@ package chronicle_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccChronicleDataAccessScope_chronicleDataaccessscopeWithLogtypeExample(t *testing.T) {
@@ -52,6 +71,12 @@ func TestAccChronicleDataAccessScope_chronicleDataaccessscopeWithLogtypeExample(
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_access_scope_id", "instance", "location"},
+			},
+			{
+				ResourceName:       "google_chronicle_data_access_scope.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -95,6 +120,12 @@ func TestAccChronicleDataAccessScope_chronicleDataaccessscopeWithDataaccesslabel
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_access_scope_id", "instance", "location"},
+			},
+			{
+				ResourceName:       "google_chronicle_data_access_scope.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -143,6 +174,12 @@ func TestAccChronicleDataAccessScope_chronicleDataaccessscopeWithAssetNamespaceE
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_access_scope_id", "instance", "location"},
 			},
+			{
+				ResourceName:       "google_chronicle_data_access_scope.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -182,6 +219,12 @@ func TestAccChronicleDataAccessScope_chronicleDataaccessscopeWithIngestionLabelE
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_access_scope_id", "instance", "location"},
+			},
+			{
+				ResourceName:       "google_chronicle_data_access_scope.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -225,6 +268,12 @@ func TestAccChronicleDataAccessScope_chronicleDataaccessscopeWithDeniedLabelsExa
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_access_scope_id", "instance", "location"},
+			},
+			{
+				ResourceName:       "google_chronicle_data_access_scope.example",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

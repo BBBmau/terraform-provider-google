@@ -188,16 +188,16 @@ resource "google_artifact_registry_repository" "my-repo" {
 ```hcl
 resource "google_artifact_registry_repository" "my-repo" {
   location      = "us-central1"
-  repository_id = "debian-buster"
+  repository_id = "debian-stable"
   description   = "example remote apt repository"
   format        = "APT"
   mode          = "REMOTE_REPOSITORY"
   remote_repository_config {
-    description = "Debian buster remote repository"
+    description = "Debian stable remote repository"
     apt_repository {
       public_repository {
         repository_base = "DEBIAN"
-        repository_path = "debian/dists/buster"
+        repository_path = "debian/dists/stable"
       }
     }
   }
@@ -696,9 +696,6 @@ The following arguments are supported:
   "repo1"
 
 
-- - -
-
-
 * `description` -
   (Optional)
   The user-provided description of the repository.
@@ -780,6 +777,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_docker_config"></a>The `docker_config` block supports:
 
 * `immutable_tags` -
@@ -835,16 +833,16 @@ The following arguments are supported:
 * `condition` -
   (Optional)
   Policy condition for matching versions.
-  Structure is [documented below](#nested_cleanup_policies_cleanup_policies_condition).
+  Structure is [documented below](#nested_cleanup_policies_condition).
 
 * `most_recent_versions` -
   (Optional)
   Policy condition for retaining a minimum number of versions. May only be
   specified with a Keep action.
-  Structure is [documented below](#nested_cleanup_policies_cleanup_policies_most_recent_versions).
+  Structure is [documented below](#nested_cleanup_policies_most_recent_versions).
 
 
-<a name="nested_cleanup_policies_cleanup_policies_condition"></a>The `condition` block supports:
+<a name="nested_cleanup_policies_condition"></a>The `condition` block supports:
 
 * `tag_state` -
   (Optional)
@@ -872,7 +870,7 @@ The following arguments are supported:
   (Optional)
   Match versions newer than a duration.
 
-<a name="nested_cleanup_policies_cleanup_policies_most_recent_versions"></a>The `most_recent_versions` block supports:
+<a name="nested_cleanup_policies_most_recent_versions"></a>The `most_recent_versions` block supports:
 
 * `package_name_prefixes` -
   (Optional)
@@ -946,7 +944,7 @@ The following arguments are supported:
 
 * `repository_base` -
   (Required)
-  A common public repository base for Apt, e.g. `"debian/dists/buster"`
+  A common public repository base for Apt, e.g. `"debian/dists/stable"`
   Possible values are: `DEBIAN`, `UBUNTU`, `DEBIAN_SNAPSHOT`.
 
 * `repository_path` -
@@ -958,7 +956,6 @@ The following arguments are supported:
 * `public_repository` -
   (Optional)
   Address of the remote repository.
-  Default value is `DOCKER_HUB`.
   Possible values are: `DOCKER_HUB`.
 
 * `custom_repository` -
@@ -978,7 +975,6 @@ The following arguments are supported:
 * `public_repository` -
   (Optional)
   Address of the remote repository.
-  Default value is `MAVEN_CENTRAL`.
   Possible values are: `MAVEN_CENTRAL`.
 
 * `custom_repository` -
@@ -998,7 +994,6 @@ The following arguments are supported:
 * `public_repository` -
   (Optional)
   Address of the remote repository.
-  Default value is `NPMJS`.
   Possible values are: `NPMJS`.
 
 * `custom_repository` -
@@ -1018,7 +1013,6 @@ The following arguments are supported:
 * `public_repository` -
   (Optional)
   Address of the remote repository.
-  Default value is `PYPI`.
   Possible values are: `PYPI`.
 
 * `custom_repository` -
@@ -1106,6 +1100,9 @@ In addition to the arguments listed above, the following computed attributes are
   The name of the repository, for example:
   "repo1"
 
+* `registry_uri` -
+  The repository endpoint, for example: us-docker.pkg.dev/my-proj/my-repo.
+
 * `create_time` -
   The time when the repository was created.
 
@@ -1138,6 +1135,18 @@ Repository can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{repository_id}}`
 * `{{location}}/{{repository_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Repository using identity values. For example:
+
+```tf
+import {
+  identity = {
+    repository_id = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_artifact_registry_repository.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Repository using one of the formats above. For example:
 

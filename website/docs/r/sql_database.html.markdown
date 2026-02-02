@@ -97,9 +97,6 @@ The following arguments are supported:
   ID.
 
 
-- - -
-
-
 * `charset` -
   (Optional)
   The charset value. See MySQL's
@@ -123,6 +120,7 @@ The following arguments are supported:
 to be abandoned rather than deleted. This is useful for Postgres, where databases cannot be
 deleted from the API if there are users other than cloudsqlsuperuser with access. Possible
 values are: "ABANDON", "DELETE". Defaults to "DELETE".
+
 
 
 ## Attributes Reference
@@ -151,8 +149,19 @@ Database can be imported using any of these accepted formats:
 * `instances/{{instance}}/databases/{{name}}`
 * `{{project}}/{{instance}}/{{name}}`
 * `{{instance}}/{{name}}`
-* `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Database using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    instance = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_sql_database.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Database using one of the formats above. For example:
 
@@ -170,7 +179,6 @@ $ terraform import google_sql_database.default projects/{{project}}/instances/{{
 $ terraform import google_sql_database.default instances/{{instance}}/databases/{{name}}
 $ terraform import google_sql_database.default {{project}}/{{instance}}/{{name}}
 $ terraform import google_sql_database.default {{instance}}/{{name}}
-$ terraform import google_sql_database.default {{name}}
 ```
 
 ## User Project Overrides

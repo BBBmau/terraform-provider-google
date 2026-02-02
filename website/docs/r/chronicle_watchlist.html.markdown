@@ -97,15 +97,6 @@ The following arguments are supported:
   The unique identifier for the Chronicle instance, which is the same as the customer ID.
 
 
-<a name="nested_entity_population_mechanism"></a>The `entity_population_mechanism` block supports:
-
-* `manual` -
-  (Optional)
-  Entities are added manually.
-
-- - -
-
-
 * `multiplying_factor` -
   (Optional)
   Optional. Weight applied to the risk score for entities
@@ -131,6 +122,13 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_entity_population_mechanism"></a>The `entity_population_mechanism` block supports:
+
+* `manual` -
+  (Optional)
+  Entities are added manually.
 
 <a name="nested_watchlist_user_preferences"></a>The `watchlist_user_preferences` block supports:
 
@@ -188,6 +186,19 @@ Watchlist can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance}}/{{watchlist_id}}`
 * `{{location}}/{{instance}}/{{watchlist_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Watchlist using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instance = "<-required value->"
+    watchlistId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_chronicle_watchlist.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Watchlist using one of the formats above. For example:
 

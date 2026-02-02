@@ -48,7 +48,37 @@ resource "google_gke_hub_scope_rbac_role_binding" "scope_rbac_role_binding" {
   labels = {
       key = "value" 
   }
-  depends_on = [google_gke_hub_scope.scope]
+}
+```
+## Example Usage - Gkehub Scope Rbac Custom Role Binding Basic
+
+
+```hcl
+resource "google_gke_hub_scope" "scope" {
+  scope_id = "tf-test-scope%{random_suffix}"
+}
+
+resource "google_gke_hub_feature" "rbacrolebindingactuation" {
+  name = "rbacrolebindingactuation"
+  location = "global"
+  spec {
+    rbacrolebindingactuation {
+      allowed_custom_roles = ["my-custom-role"]
+    }
+  }
+}
+
+resource "google_gke_hub_scope_rbac_role_binding" "scope_rbac_role_binding" {
+  scope_rbac_role_binding_id = "tf-test-scope-rbac-role-binding%{random_suffix}"
+  scope_id = google_gke_hub_scope.scope.scope_id
+  user = "test-email@gmail.com"
+  role {
+    custom_role = "my-custom-role"
+  }
+  labels = {
+      key = "value" 
+  }
+  depends_on = [google_gke_hub_feature.rbacrolebindingactuation]
 }
 ```
 
@@ -69,16 +99,6 @@ The following arguments are supported:
 * `scope_id` -
   (Required)
   Id of the scope
-
-
-<a name="nested_role"></a>The `role` block supports:
-
-* `predefined_role` -
-  (Optional)
-  PredefinedRole is an ENUM representation of the default Kubernetes Roles
-  Possible values are: `UNKNOWN`, `ADMIN`, `EDIT`, `VIEW`.
-
-- - -
 
 
 * `user` -
@@ -104,6 +124,18 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_role"></a>The `role` block supports:
+
+* `predefined_role` -
+  (Optional)
+  PredefinedRole is an ENUM representation of the default Kubernetes Roles
+  Possible values are: `UNKNOWN`, `ADMIN`, `EDIT`, `VIEW`.
+
+* `custom_role` -
+  (Optional)
+  CustomRole is the custom Kubernetes ClusterRole to be used. The custom role format must be allowlisted in the rbacrolebindingactuation feature and RFC 1123 compliant.
 
 ## Attributes Reference
 
@@ -162,6 +194,18 @@ ScopeRBACRoleBinding can be imported using any of these accepted formats:
 * `{{project}}/{{scope_id}}/{{scope_rbac_role_binding_id}}`
 * `{{scope_id}}/{{scope_rbac_role_binding_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ScopeRBACRoleBinding using identity values. For example:
+
+```tf
+import {
+  identity = {
+    scopeRbacRoleBindingId = "<-required value->"
+    scope_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gke_hub_scope_rbac_role_binding.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ScopeRBACRoleBinding using one of the formats above. For example:
 

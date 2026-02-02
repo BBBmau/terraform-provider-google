@@ -76,15 +76,13 @@ The following arguments are supported:
   The location for the resource
 
 
-- - -
-
-
 * `crypto_key_name` -
   (Optional)
   Optional. Resource name of a KMS crypto key (managed by the user) used to encrypt/decrypt their event data. It must match the pattern `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -115,6 +113,17 @@ GoogleChannelConfig can be imported using any of these accepted formats:
 * `{{project}}/{{location}}`
 * `{{location}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GoogleChannelConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_eventarc_google_channel_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GoogleChannelConfig using one of the formats above. For example:
 

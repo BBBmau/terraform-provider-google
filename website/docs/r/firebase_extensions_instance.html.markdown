@@ -30,7 +30,7 @@ To get more information about Instance, see:
 * How-to Guides
     * [Official Documentation](https://firebase.google.com/products/extensions)
 
-## Example Usage - Firebase Extentions Instance Resize Image
+## Example Usage - Firebase Extensions Instance Resize Image
 
 
 ```hcl
@@ -51,7 +51,7 @@ resource "google_firebase_extensions_instance" "resize_image" {
   instance_id = "storage-resize-images"
   config {
     extension_ref = "firebase/storage-resize-images"
-    extension_version = "0.2.2"
+    extension_version = "0.2.10"
 
     # The following params apply to the firebase/storage-resize-images extension. 
     # Different extensions may have different params
@@ -64,10 +64,13 @@ resource "google_firebase_extensions_instance" "resize_image" {
       DO_BACKFILL          = false
       IMG_SIZES            = "200x200"
       IMG_BUCKET           = google_storage_bucket.images.name
+      BACKFILL_BATCH_SIZE  = 3
+      CONTENT_FILTER_LEVEL = "OFF"
+      REGENERATE_TOKEN     = "true"
     }
 
     system_params = {
-      "firebaseextensions.v1beta.function/location"                   = ""
+      "firebaseextensions.v1beta.function/location"                   = "us-central1"
       "firebaseextensions.v1beta.function/maxInstances"               = 3000
       "firebaseextensions.v1beta.function/minInstances"               = 0
       "firebaseextensions.v1beta.function/vpcConnectorEgressSettings" = "VPC_CONNECTOR_EGRESS_SETTINGS_UNSPECIFIED"
@@ -77,7 +80,7 @@ resource "google_firebase_extensions_instance" "resize_image" {
       "firebase.extensions.storage-resize-images.v1.onCompletion"
     ]
 
-    eventarc_channel = "projects/my-project-name/locations//channels/firebase"
+    eventarc_channel = "projects/my-project-name/locations/us-central1/channels/firebase"
   }
 }
 ```
@@ -96,6 +99,11 @@ The following arguments are supported:
   (Required)
   The ID to use for the Extension Instance, which will become the final
   component of the instance's name.
+
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_config"></a>The `config` block supports:
@@ -143,13 +151,6 @@ The following arguments are supported:
   with actual values. These strings include: ${param:FOO},
   ${function:myFunc.url},
   ${function:myFunc.name}, and ${function:myFunc.location}
-
-- - -
-
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -279,6 +280,17 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{instance_id}}`
 * `{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    instance_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_extensions_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

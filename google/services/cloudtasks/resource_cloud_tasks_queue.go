@@ -20,19 +20,38 @@
 package cloudtasks
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 func suppressOmittedMaxDuration(k, old, new string, d *schema.ResourceData) bool {
@@ -42,6 +61,38 @@ func suppressOmittedMaxDuration(k, old, new string, d *schema.ResourceData) bool
 	}
 	return tpgresource.DurationDiffSuppress(k, old, new, d)
 }
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
 
 func ResourceCloudTasksQueue() *schema.Resource {
 	return &schema.Resource{
@@ -64,12 +115,38 @@ func ResourceCloudTasksQueue() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: `The location of the queue`,
+			},
+			"name": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: `The queue name.`,
 			},
 			"app_engine_routing_override": {
 				Type:     schema.TypeList,
@@ -309,12 +386,6 @@ When specified, determines the Target UriOverride mode. If not specified, it def
 					},
 				},
 			},
-			"name": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
-				Description: `The queue name.`,
-			},
 			"rate_limits": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -445,6 +516,21 @@ default and means that no operations are logged.`,
 					},
 				},
 			},
+			"state": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `The current state of the queue.`,
+			},
+			"desired_state": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: verify.ValidateEnum([]string{"RUNNING", "PAUSED", ""}),
+				Description: `The desired state of the queue. Use this to pause and resume the queue.
+
+* RUNNING: The queue is running. Tasks can be dispatched.
+* PAUSED: The queue is paused. Tasks are not dispatched but can be added to the queue. Default value: "RUNNING" Possible values: ["RUNNING", "PAUSED"]`,
+				Default: "RUNNING",
+			},
 			"project": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -542,6 +628,44 @@ func resourceCloudTasksQueueCreate(d *schema.ResourceData, meta interface{}) err
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	// Handle desired state after queue creation
+	if v, ok := d.GetOk("desired_state"); ok && v.(string) == "PAUSED" {
+		pauseUrl := fmt.Sprintf("%s%s:pause", config.CloudTasksBasePath, id)
+
+		_, err = transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+			Config:    config,
+			Method:    "POST",
+			Project:   billingProject,
+			RawURL:    pauseUrl,
+			UserAgent: userAgent,
+		})
+
+		if err != nil {
+			return fmt.Errorf("Error pausing queue %q: %s", d.Id(), err)
+		}
+	}
+
 	log.Printf("[DEBUG] Finished creating Queue %q: %#v", d.Id(), res)
 
 	return resourceCloudTasksQueueRead(d, meta)
@@ -585,6 +709,12 @@ func resourceCloudTasksQueueRead(d *schema.ResourceData, meta interface{}) error
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("CloudTasksQueue %q", d.Id()))
 	}
 
+	// Explicitly set virtual fields to default values if unset
+	if _, ok := d.GetOkExists("desired_state"); !ok {
+		if err := d.Set("desired_state", "RUNNING"); err != nil {
+			return fmt.Errorf("Error setting desired_state: %s", err)
+		}
+	}
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Queue: %s", err)
 	}
@@ -604,8 +734,35 @@ func resourceCloudTasksQueueRead(d *schema.ResourceData, meta interface{}) error
 	if err := d.Set("stackdriver_logging_config", flattenCloudTasksQueueStackdriverLoggingConfig(res["stackdriverLoggingConfig"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Queue: %s", err)
 	}
+	if err := d.Set("state", flattenCloudTasksQueueState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Queue: %s", err)
+	}
 	if err := d.Set("http_target", flattenCloudTasksQueueHttpTarget(res["httpTarget"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Queue: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -616,6 +773,26 @@ func resourceCloudTasksQueueUpdate(d *schema.ResourceData, meta interface{}) err
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -719,6 +896,41 @@ func resourceCloudTasksQueueUpdate(d *schema.ResourceData, meta interface{}) err
 
 	}
 
+	// Handle desired state changes
+	if d.HasChange("desired_state") {
+		old, new := d.GetChange("desired_state")
+
+		if old.(string) != new.(string) {
+			var action string
+
+			actionUrl, err := tpgresource.ReplaceVars(d, config, "{{CloudTasksBasePath}}projects/{{project}}/locations/{{location}}/queues/{{name}}")
+			if err != nil {
+				return err
+			}
+
+			if new.(string) == "PAUSED" {
+				actionUrl = fmt.Sprintf("%s:pause", actionUrl)
+				action = "pausing"
+			} else if new.(string) == "RUNNING" {
+				actionUrl = fmt.Sprintf("%s:resume", actionUrl)
+				action = "resuming"
+			}
+
+			if actionUrl != "" {
+				_, err = transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+					Config:    config,
+					Method:    "POST",
+					Project:   billingProject,
+					RawURL:    actionUrl,
+					UserAgent: userAgent,
+				})
+
+				if err != nil {
+					return fmt.Errorf("Error %s queue %q: %s", action, d.Id(), err)
+				}
+			}
+		}
+	}
 	return resourceCloudTasksQueueRead(d, meta)
 }
 
@@ -787,6 +999,11 @@ func resourceCloudTasksQueueImport(d *schema.ResourceData, meta interface{}) ([]
 	}
 	d.SetId(id)
 
+	// Explicitly set virtual fields to default values on import
+	if err := d.Set("desired_state", "RUNNING"); err != nil {
+		return nil, fmt.Errorf("Error setting desired_state: %s", err)
+	}
+
 	return []*schema.ResourceData{d}, nil
 }
 
@@ -794,7 +1011,7 @@ func flattenCloudTasksQueueName(v interface{}, d *schema.ResourceData, config *t
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 // service, version, and instance are input-only. host is output-only.
@@ -952,6 +1169,10 @@ func flattenCloudTasksQueueStackdriverLoggingConfig(v interface{}, d *schema.Res
 	return []interface{}{transformed}
 }
 func flattenCloudTasksQueueStackdriverLoggingConfigSamplingRatio(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenCloudTasksQueueState(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1145,6 +1366,9 @@ func expandCloudTasksQueueName(v interface{}, d tpgresource.TerraformResourceDat
 }
 
 func expandCloudTasksQueueAppEngineRoutingOverride(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1201,6 +1425,9 @@ func expandCloudTasksQueueAppEngineRoutingOverrideHost(v interface{}, d tpgresou
 }
 
 func expandCloudTasksQueueRateLimits(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1246,6 +1473,9 @@ func expandCloudTasksQueueRateLimitsMaxBurstSize(v interface{}, d tpgresource.Te
 }
 
 func expandCloudTasksQueueRetryConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1313,6 +1543,9 @@ func expandCloudTasksQueueRetryConfigMaxDoublings(v interface{}, d tpgresource.T
 }
 
 func expandCloudTasksQueueStackdriverLoggingConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1336,6 +1569,9 @@ func expandCloudTasksQueueStackdriverLoggingConfigSamplingRatio(v interface{}, d
 }
 
 func expandCloudTasksQueueHttpTarget(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1387,6 +1623,9 @@ func expandCloudTasksQueueHttpTargetHttpMethod(v interface{}, d tpgresource.Terr
 }
 
 func expandCloudTasksQueueHttpTargetUriOverride(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1453,6 +1692,9 @@ func expandCloudTasksQueueHttpTargetUriOverridePort(v interface{}, d tpgresource
 }
 
 func expandCloudTasksQueueHttpTargetUriOverridePathOverride(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1476,6 +1718,9 @@ func expandCloudTasksQueueHttpTargetUriOverridePathOverridePath(v interface{}, d
 }
 
 func expandCloudTasksQueueHttpTargetUriOverrideQueryOverride(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1503,6 +1748,9 @@ func expandCloudTasksQueueHttpTargetUriOverrideUriOverrideEnforceMode(v interfac
 }
 
 func expandCloudTasksQueueHttpTargetHeaderOverrides(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1525,6 +1773,9 @@ func expandCloudTasksQueueHttpTargetHeaderOverrides(v interface{}, d tpgresource
 }
 
 func expandCloudTasksQueueHttpTargetHeaderOverridesHeader(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1559,6 +1810,9 @@ func expandCloudTasksQueueHttpTargetHeaderOverridesHeaderValue(v interface{}, d 
 }
 
 func expandCloudTasksQueueHttpTargetOauthToken(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1593,6 +1847,9 @@ func expandCloudTasksQueueHttpTargetOauthTokenScope(v interface{}, d tpgresource
 }
 
 func expandCloudTasksQueueHttpTargetOidcToken(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

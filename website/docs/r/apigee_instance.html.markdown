@@ -237,9 +237,6 @@ The following arguments are supported:
   in the format `organizations/{{org_name}}`.
 
 
-- - -
-
-
 * `peering_cidr_range` -
   (Optional)
   The size of the CIDR block range that will be reserved by the instance. For valid values,
@@ -275,6 +272,26 @@ The following arguments are supported:
   which the customers can provide during the instance creation. By default, the customer
   project associated with the Apigee organization will be included to the list.
 
+* `access_logging_config` -
+  (Optional)
+  Access logging configuration enables the access logging feature at the instance.
+  Apigee customers can enable access logging to ship the access logs to their own project's cloud logging.
+  Structure is [documented below](#nested_access_logging_config).
+
+
+
+<a name="nested_access_logging_config"></a>The `access_logging_config` block supports:
+
+* `enabled` -
+  (Required)
+  Boolean flag that specifies whether the customer access log feature is enabled.
+
+* `filter` -
+  (Optional)
+  Ship the access log entries that match the statusCode defined in the filter.
+  The statusCode is the only expected/supported filter field. (Ex: statusCode)
+  The filter will parse it to the Common Expression Language semantics for expression
+  evaluation to build the filter condition. (Ex: "filter": statusCode >= 200 && statusCode < 300 )
 
 ## Attributes Reference
 
@@ -311,6 +328,17 @@ Instance can be imported using any of these accepted formats:
 * `{{org_id}}/instances/{{name}}`
 * `{{org_id}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    orgId = "<-required value->"
+  }
+  to = google_apigee_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

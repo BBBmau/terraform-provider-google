@@ -30,8 +30,6 @@ flow of CryptoKeys for CMEK.
 Destroying a Terraform-managed AutokeyConfig will remove it from state but
 *will not delete the resource from the project.*
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about AutokeyConfig, see:
 
@@ -46,7 +44,7 @@ To get more information about AutokeyConfig, see:
 # Create Folder in GCP Organization
 resource "google_folder" "autokms_folder" {
   provider     = google-beta
-  display_name = "my-folder"
+  display_name = "folder-cfg"
   parent       = "organizations/123456789"
   deletion_protection = false
 }
@@ -67,7 +65,6 @@ resource "google_project_service" "kms_api_service" {
   provider                   = google-beta
   service                    = "cloudkms.googleapis.com"
   project                    = google_project.key_project.project_id
-  disable_on_destroy         = false
   disable_dependent_services = true
   depends_on                 = [google_project.key_project]
 }
@@ -132,9 +129,6 @@ The following arguments are supported:
   The folder for which to retrieve config.
 
 
-- - -
-
-
 * `key_project` -
   (Optional)
   The target key project for a given folder where KMS Autokey will provision a
@@ -142,11 +136,15 @@ The following arguments are supported:
   `projects/<project_id_or_number>`.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
 
 * `id` - an identifier for the resource with format `folders/{{folder}}/autokeyConfig`
+
+* `etag` -
+  The etag of the AutokeyConfig for optimistic concurrency control.
 
 
 ## Timeouts
@@ -166,6 +164,16 @@ AutokeyConfig can be imported using any of these accepted formats:
 * `folders/{{folder}}/autokeyConfig`
 * `{{folder}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AutokeyConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    folder = "<-required value->"
+  }
+  to = google_kms_autokey_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AutokeyConfig using one of the formats above. For example:
 

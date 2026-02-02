@@ -24,6 +24,9 @@ description: |-
 A Google Vmware Node Pool.
 
 
+To get more information about VmwareNodePool, see:
+
+* [API documentation](https://cloud.google.com/kubernetes-engine/distributed-cloud/reference/on-prem-api/rest/v1/projects.locations.vmwareClusters.vmwareNodePools)
 
 ## Example Usage - Gkeonprem Vmware Node Pool Basic
 
@@ -87,7 +90,7 @@ resource "google_gkeonprem_vmware_cluster" "default-full" {
   location = "us-west1"
   admin_cluster_membership = "projects/870316890899/locations/global/memberships/gkeonprem-terraform-test"
   description = "test cluster"
-  on_prem_version = "1.13.1-gke.35"
+  on_prem_version = "1.33.0-gke.35"
   network_config {
     service_address_cidr_blocks = ["10.96.0.0/12"]
     pod_address_cidr_blocks = ["192.168.0.0/16"]
@@ -124,6 +127,7 @@ resource "google_gkeonprem_vmware_node_pool" "nodepool-full" {
   name = "my-nodepool"
   location = "us-west1"
   vmware_cluster = google_gkeonprem_vmware_cluster.default-full.name
+  on_prem_version = "1.33.0-gke.35"
   annotations = {}
   config {
     cpus = 4
@@ -184,6 +188,38 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location of the resource.
+
+
+* `display_name` -
+  (Optional)
+  The display name for the node pool.
+
+* `annotations` -
+  (Optional)
+  Annotations on the node Pool.
+  This field has the same restrictions as Kubernetes annotations.
+  The total size of all keys and values combined is limited to 256k.
+  Key can have 2 segments: prefix (optional) and name (required),
+  separated by a slash (/).
+  Prefix must be a DNS subdomain.
+  Name must be 63 characters or less, begin and end with alphanumerics,
+  with dashes (-), underscores (_), dots (.), and alphanumerics between.
+
+  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
+  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+
+* `node_pool_autoscaling` -
+  (Optional)
+  Node Pool autoscaling config for the node pool.
+  Structure is [documented below](#nested_node_pool_autoscaling).
+
+* `on_prem_version` -
+  (Optional)
+  Anthos version for the node pool. Defaults to the user cluster version.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_config"></a>The `config` block supports:
@@ -279,36 +315,6 @@ The following arguments are supported:
   (Optional)
   The Vsphere tag name.
 
-- - -
-
-
-* `display_name` -
-  (Optional)
-  The display name for the node pool.
-
-* `annotations` -
-  (Optional)
-  Annotations on the node Pool.
-  This field has the same restrictions as Kubernetes annotations.
-  The total size of all keys and values combined is limited to 256k.
-  Key can have 2 segments: prefix (optional) and name (required),
-  separated by a slash (/).
-  Prefix must be a DNS subdomain.
-  Name must be 63 characters or less, begin and end with alphanumerics,
-  with dashes (-), underscores (_), dots (.), and alphanumerics between.
-
-  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
-  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
-
-* `node_pool_autoscaling` -
-  (Optional)
-  Node Pool autoscaling config for the node pool.
-  Structure is [documented below](#nested_node_pool_autoscaling).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 <a name="nested_node_pool_autoscaling"></a>The `node_pool_autoscaling` block supports:
 
 * `min_replicas` -
@@ -353,9 +359,6 @@ In addition to the arguments listed above, the following computed attributes are
   client has an up-to-date value before proceeding.
   Allows clients to perform consistent read-modify-writes
   through optimistic concurrency control.
-
-* `on_prem_version` -
-  Anthos version for the node pool. Defaults to the user cluster version.
 
 * `effective_annotations` -
   All of annotations (key/value pairs) present on the resource in GCP, including the annotations configured through Terraform, other clients and services.
@@ -418,6 +421,19 @@ VmwareNodePool can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{vmware_cluster}}/{{name}}`
 * `{{location}}/{{vmware_cluster}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import VmwareNodePool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    vmwareCluster = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gkeonprem_vmware_node_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import VmwareNodePool using one of the formats above. For example:
 

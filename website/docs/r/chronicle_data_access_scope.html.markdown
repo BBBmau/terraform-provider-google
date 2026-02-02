@@ -154,9 +154,6 @@ The following arguments are supported:
   Needs to be compliant with https://google.aip.dev/122
 
 
-- - -
-
-
 * `allowed_data_access_labels` -
   (Optional)
   The allowed labels for the scope. There has to be at
@@ -195,6 +192,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_allowed_data_access_labels"></a>The `allowed_data_access_labels` block supports:
 
 * `data_access_label` -
@@ -213,7 +211,7 @@ The following arguments are supported:
 * `ingestion_label` -
   (Optional)
   Representation of an ingestion label type.
-  Structure is [documented below](#nested_allowed_data_access_labels_allowed_data_access_labels_ingestion_label).
+  Structure is [documented below](#nested_allowed_data_access_labels_ingestion_label).
 
 * `display_name` -
   (Output)
@@ -224,7 +222,7 @@ The following arguments are supported:
   The ingestion key value pair will match the key of the tuple.
 
 
-<a name="nested_allowed_data_access_labels_allowed_data_access_labels_ingestion_label"></a>The `ingestion_label` block supports:
+<a name="nested_allowed_data_access_labels_ingestion_label"></a>The `ingestion_label` block supports:
 
 * `ingestion_label_key` -
   (Required)
@@ -262,10 +260,10 @@ The following arguments are supported:
 * `ingestion_label` -
   (Optional)
   Representation of an ingestion label type.
-  Structure is [documented below](#nested_denied_data_access_labels_denied_data_access_labels_ingestion_label).
+  Structure is [documented below](#nested_denied_data_access_labels_ingestion_label).
 
 
-<a name="nested_denied_data_access_labels_denied_data_access_labels_ingestion_label"></a>The `ingestion_label` block supports:
+<a name="nested_denied_data_access_labels_ingestion_label"></a>The `ingestion_label` block supports:
 
 * `ingestion_label_key` -
   (Required)
@@ -322,6 +320,19 @@ DataAccessScope can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance}}/{{data_access_scope_id}}`
 * `{{location}}/{{instance}}/{{data_access_scope_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DataAccessScope using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instance = "<-required value->"
+    dataAccessScopeId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_chronicle_data_access_scope.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DataAccessScope using one of the formats above. For example:
 

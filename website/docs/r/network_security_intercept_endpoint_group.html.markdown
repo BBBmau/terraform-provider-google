@@ -27,8 +27,6 @@ In order to configure intercept for a network, consumers must create:
 - A security profile that points to the endpoint group.
 - A firewall rule that references the security profile (group).
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -41,24 +39,21 @@ See [Provider Versions](https://terraform.io/docs/providers/google/guides/provid
 
 ```hcl
 resource "google_compute_network" "network" {
-  provider                = google-beta
   name                    = "example-network"
   auto_create_subnetworks = false
 }
 
 resource "google_network_security_intercept_deployment_group" "deployment_group" {
-  provider                      = google-beta
   intercept_deployment_group_id = "example-dg"
   location                      = "global"
   network                       = google_compute_network.network.id
 }
 
 resource "google_network_security_intercept_endpoint_group" "default" {
-  provider                      = google-beta
-  intercept_endpoint_group_id   = "example-eg"
-  location                      = "global"
-  intercept_deployment_group    = google_network_security_intercept_deployment_group.deployment_group.id
-  description                   = "some description"
+  intercept_endpoint_group_id = "example-eg"
+  location                    = "global"
+  intercept_deployment_group  = google_network_security_intercept_deployment_group.deployment_group.id
+  description                 = "some description"
   labels = {
     foo = "bar"
   }
@@ -86,9 +81,6 @@ The following arguments are supported:
   of the endpoint group's resource name.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels are key/value pairs that help to organize and filter resources.
@@ -102,6 +94,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -229,6 +222,18 @@ InterceptEndpointGroup can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{intercept_endpoint_group_id}}`
 * `{{location}}/{{intercept_endpoint_group_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InterceptEndpointGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    interceptEndpointGroupId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_intercept_endpoint_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InterceptEndpointGroup using one of the formats above. For example:
 

@@ -59,9 +59,6 @@ The following arguments are supported:
   The client-provided identifier of the scope.
 
 
-- - -
-
-
 * `namespace_labels` -
   (Optional)
   Scope-level cluster namespace labels. For the member clusters bound
@@ -79,6 +76,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -138,6 +136,17 @@ Scope can be imported using any of these accepted formats:
 * `{{project}}/{{scope_id}}`
 * `{{scope_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Scope using identity values. For example:
+
+```tf
+import {
+  identity = {
+    scopeId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gke_hub_scope.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Scope using one of the formats above. For example:
 

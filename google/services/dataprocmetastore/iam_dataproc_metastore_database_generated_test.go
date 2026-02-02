@@ -21,12 +21,22 @@ package dataprocmetastore_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
+	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = strings.Trim
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
 )
 
 func TestAccDataprocMetastoreDatabaseIamBindingGenerated(t *testing.T) {
@@ -40,13 +50,16 @@ func TestAccDataprocMetastoreDatabaseIamBindingGenerated(t *testing.T) {
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"time": {},
+		},
 		Steps: []resource.TestStep{
 			{
 				Config: testAccDataprocMetastoreDatabaseIamBinding_basicGenerated(context),
 			},
 			{
 				ResourceName:      "google_dataproc_metastore_database_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s roles/viewer", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-metastore-srv-%s", context["random_suffix"]), "testdb"),
+				ImportStateIdFunc: generateDataprocMetastoreDatabaseIAMBindingStateID("google_dataproc_metastore_database_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -56,7 +69,7 @@ func TestAccDataprocMetastoreDatabaseIamBindingGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_dataproc_metastore_database_iam_binding.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s roles/viewer", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-metastore-srv-%s", context["random_suffix"]), "testdb"),
+				ImportStateIdFunc: generateDataprocMetastoreDatabaseIAMBindingStateID("google_dataproc_metastore_database_iam_binding.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -75,6 +88,9 @@ func TestAccDataprocMetastoreDatabaseIamMemberGenerated(t *testing.T) {
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"time": {},
+		},
 		Steps: []resource.TestStep{
 			{
 				// Test Iam Member creation (no update for member, no need to test)
@@ -82,7 +98,7 @@ func TestAccDataprocMetastoreDatabaseIamMemberGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_dataproc_metastore_database_iam_member.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s roles/viewer user:admin@hashicorptest.com", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-metastore-srv-%s", context["random_suffix"]), "testdb"),
+				ImportStateIdFunc: generateDataprocMetastoreDatabaseIAMMemberStateID("google_dataproc_metastore_database_iam_member.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -101,6 +117,9 @@ func TestAccDataprocMetastoreDatabaseIamPolicyGenerated(t *testing.T) {
 	acctest.VcrTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"time": {},
+		},
 		Steps: []resource.TestStep{
 			{
 				Config: testAccDataprocMetastoreDatabaseIamPolicy_basicGenerated(context),
@@ -108,7 +127,7 @@ func TestAccDataprocMetastoreDatabaseIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_dataproc_metastore_database_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-metastore-srv-%s", context["random_suffix"]), "testdb"),
+				ImportStateIdFunc: generateDataprocMetastoreDatabaseIAMPolicyStateID("google_dataproc_metastore_database_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -117,7 +136,7 @@ func TestAccDataprocMetastoreDatabaseIamPolicyGenerated(t *testing.T) {
 			},
 			{
 				ResourceName:      "google_dataproc_metastore_database_iam_policy.foo",
-				ImportStateId:     fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s", envvar.GetTestProjectFromEnv(), envvar.GetTestRegionFromEnv(), fmt.Sprintf("tf-test-metastore-srv-%s", context["random_suffix"]), "testdb"),
+				ImportStateIdFunc: generateDataprocMetastoreDatabaseIAMPolicyStateID("google_dataproc_metastore_database_iam_policy.foo"),
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -185,6 +204,13 @@ resource "google_dataproc_job" "hive" {
       "CREATE DATABASE testdb",
     ]
   }
+}
+
+# There is no simple way to wait on the Dataproc job to be SUCCESS
+# rather than RUNNING.
+resource "time_sleep" "wait_hive_job" {
+  create_duration = "90s"
+  depends_on      = [google_dataproc_job.hive]
 }
 
 resource "google_dataproc_metastore_database_iam_member" "foo" {
@@ -258,6 +284,13 @@ resource "google_dataproc_job" "hive" {
       "CREATE DATABASE testdb",
     ]
   }
+}
+
+# There is no simple way to wait on the Dataproc job to be SUCCESS
+# rather than RUNNING.
+resource "time_sleep" "wait_hive_job" {
+  create_duration = "90s"
+  depends_on      = [google_dataproc_job.hive]
 }
 
 data "google_iam_policy" "foo" {
@@ -349,6 +382,13 @@ resource "google_dataproc_job" "hive" {
   }
 }
 
+# There is no simple way to wait on the Dataproc job to be SUCCESS
+# rather than RUNNING.
+resource "time_sleep" "wait_hive_job" {
+  create_duration = "90s"
+  depends_on      = [google_dataproc_job.hive]
+}
+
 data "google_iam_policy" "foo" {
 }
 
@@ -424,6 +464,13 @@ resource "google_dataproc_job" "hive" {
   }
 }
 
+# There is no simple way to wait on the Dataproc job to be SUCCESS
+# rather than RUNNING.
+resource "time_sleep" "wait_hive_job" {
+  create_duration = "90s"
+  depends_on      = [google_dataproc_job.hive]
+}
+
 resource "google_dataproc_metastore_database_iam_binding" "foo" {
   project = google_dataproc_metastore_service.dpms_service.project
   location = google_dataproc_metastore_service.dpms_service.location
@@ -497,6 +544,13 @@ resource "google_dataproc_job" "hive" {
   }
 }
 
+# There is no simple way to wait on the Dataproc job to be SUCCESS
+# rather than RUNNING.
+resource "time_sleep" "wait_hive_job" {
+  create_duration = "90s"
+  depends_on      = [google_dataproc_job.hive]
+}
+
 resource "google_dataproc_metastore_database_iam_binding" "foo" {
   project = google_dataproc_metastore_service.dpms_service.project
   location = google_dataproc_metastore_service.dpms_service.location
@@ -506,4 +560,61 @@ resource "google_dataproc_metastore_database_iam_binding" "foo" {
   members = ["user:admin@hashicorptest.com", "user:gterraformtest1@gmail.com"]
 }
 `, context)
+}
+
+func generateDataprocMetastoreDatabaseIAMPolicyStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		serviceId := tpgresource.GetResourceNameFromSelfLink(rawState["service_id"])
+		database := tpgresource.GetResourceNameFromSelfLink(rawState["database"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s", project, location, serviceId, database), "", "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateDataprocMetastoreDatabaseIAMBindingStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		serviceId := tpgresource.GetResourceNameFromSelfLink(rawState["service_id"])
+		database := tpgresource.GetResourceNameFromSelfLink(rawState["database"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s", project, location, serviceId, database), rawState["role"], "", rawState["condition.0.title"]), nil
+	}
+}
+
+func generateDataprocMetastoreDatabaseIAMMemberStateID(iamResourceAddr string) func(*terraform.State) (string, error) {
+	return func(state *terraform.State) (string, error) {
+		var rawState map[string]string
+		for _, m := range state.Modules {
+			if len(m.Resources) > 0 {
+				if v, ok := m.Resources[iamResourceAddr]; ok {
+					rawState = v.Primary.Attributes
+				}
+			}
+		}
+		fmt.Printf("raw state %s\n", rawState)
+		project := tpgresource.GetResourceNameFromSelfLink(rawState["project"])
+		location := tpgresource.GetResourceNameFromSelfLink(rawState["location"])
+		serviceId := tpgresource.GetResourceNameFromSelfLink(rawState["service_id"])
+		database := tpgresource.GetResourceNameFromSelfLink(rawState["database"])
+		return acctest.BuildIAMImportId(fmt.Sprintf("projects/%s/locations/%s/services/%s/databases/%s", project, location, serviceId, database), rawState["role"], rawState["member"], rawState["condition.0.title"]), nil
+	}
 }

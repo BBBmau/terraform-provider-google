@@ -184,96 +184,6 @@ The following arguments are supported:
   Structure is [documented below](#nested_networks).
 
 
-<a name="nested_file_shares"></a>The `file_shares` block supports:
-
-* `name` -
-  (Required)
-  The name of the fileshare (16 characters or less)
-
-* `capacity_gb` -
-  (Required)
-  File share capacity in GiB. This must be at least 1024 GiB
-  for the standard tier, or 2560 GiB for the premium tier.
-
-* `source_backup` -
-  (Optional)
-  The resource name of the backup, in the format
-  projects/{projectId}/locations/{locationId}/backups/{backupId},
-  that this file share has been restored from.
-
-* `nfs_export_options` -
-  (Optional)
-  Nfs Export Options. There is a limit of 10 export options per file share.
-  Structure is [documented below](#nested_file_shares_file_shares_nfs_export_options).
-
-
-<a name="nested_file_shares_file_shares_nfs_export_options"></a>The `nfs_export_options` block supports:
-
-* `ip_ranges` -
-  (Optional)
-  List of either IPv4 addresses, or ranges in CIDR notation which may mount the file share.
-  Overlapping IP ranges are not allowed, both within and across NfsExportOptions. An error will be returned.
-  The limit is 64 IP ranges/addresses for each FileShareConfig among all NfsExportOptions.
-
-* `access_mode` -
-  (Optional)
-  Either READ_ONLY, for allowing only read requests on the exported directory,
-  or READ_WRITE, for allowing both read and write requests. The default is READ_WRITE.
-  Default value is `READ_WRITE`.
-  Possible values are: `READ_ONLY`, `READ_WRITE`.
-
-* `squash_mode` -
-  (Optional)
-  Either NO_ROOT_SQUASH, for allowing root access on the exported directory, or ROOT_SQUASH,
-  for not allowing root access. The default is NO_ROOT_SQUASH.
-  Default value is `NO_ROOT_SQUASH`.
-  Possible values are: `NO_ROOT_SQUASH`, `ROOT_SQUASH`.
-
-* `anon_uid` -
-  (Optional)
-  An integer representing the anonymous user id with a default value of 65534.
-  Anon_uid may only be set with squashMode of ROOT_SQUASH. An error will be returned
-  if this field is specified for other squashMode settings.
-
-* `anon_gid` -
-  (Optional)
-  An integer representing the anonymous group id with a default value of 65534.
-  Anon_gid may only be set with squashMode of ROOT_SQUASH. An error will be returned
-  if this field is specified for other squashMode settings.
-
-<a name="nested_networks"></a>The `networks` block supports:
-
-* `network` -
-  (Required)
-  The name of the GCE VPC network to which the
-  instance is connected.
-
-* `modes` -
-  (Required)
-  IP versions for which the instance has
-  IP addresses assigned.
-  Each value may be one of: `ADDRESS_MODE_UNSPECIFIED`, `MODE_IPV4`, `MODE_IPV6`.
-
-* `reserved_ip_range` -
-  (Optional)
-  A /29 CIDR block that identifies the range of IP
-  addresses reserved for this instance.
-
-* `ip_addresses` -
-  (Output)
-  A list of IPv4 or IPv6 addresses.
-
-* `connect_mode` -
-  (Optional)
-  The network connect mode of the Filestore instance.
-  If not provided, the connect mode defaults to
-  DIRECT_PEERING.
-  Default value is `DIRECT_PEERING`.
-  Possible values are: `DIRECT_PEERING`, `PRIVATE_SERVICE_ACCESS`.
-
-- - -
-
-
 * `description` -
   (Optional)
   A description of the instance.
@@ -327,8 +237,14 @@ The following arguments are supported:
 * `initial_replication` -
   (Optional)
   Replication configuration, once set, this cannot be updated.
-  Addtionally this should be specified on the replica instance only, indicating the active as the peer_instance
+  Additionally this should be specified on the replica instance only, indicating the active as the peer_instance
   Structure is [documented below](#nested_initial_replication).
+
+* `directory_services` -
+  (Optional)
+  Directory Services configuration.
+  Should only be set if protocol is "NFS_V4_1".
+  Structure is [documented below](#nested_directory_services).
 
 * `zone` -
   (Optional, Deprecated)
@@ -343,6 +259,115 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_file_shares"></a>The `file_shares` block supports:
+
+* `name` -
+  (Required)
+  The name of the fileshare (16 characters or less)
+
+* `capacity_gb` -
+  (Required)
+  File share capacity in GiB. This must be at least 1024 GiB
+  for the standard tier, or 2560 GiB for the premium tier.
+
+* `source_backup` -
+  (Optional)
+  The resource name of the backup, in the format
+  projects/{projectId}/locations/{locationId}/backups/{backupId},
+  that this file share has been restored from.
+
+* `nfs_export_options` -
+  (Optional)
+  Nfs Export Options. There is a limit of 10 export options per file share.
+  Structure is [documented below](#nested_file_shares_nfs_export_options).
+
+
+<a name="nested_file_shares_nfs_export_options"></a>The `nfs_export_options` block supports:
+
+* `ip_ranges` -
+  (Optional)
+  List of either IPv4 addresses, or ranges in CIDR notation which may mount the file share.
+  Overlapping IP ranges are not allowed, both within and across NfsExportOptions. An error will be returned.
+  The limit is 64 IP ranges/addresses for each FileShareConfig among all NfsExportOptions.
+
+* `access_mode` -
+  (Optional)
+  Either READ_ONLY, for allowing only read requests on the exported directory,
+  or READ_WRITE, for allowing both read and write requests. The default is READ_WRITE.
+  Default value is `READ_WRITE`.
+  Possible values are: `READ_ONLY`, `READ_WRITE`.
+
+* `squash_mode` -
+  (Optional)
+  Either NO_ROOT_SQUASH, for allowing root access on the exported directory, or ROOT_SQUASH,
+  for not allowing root access. The default is NO_ROOT_SQUASH.
+  Default value is `NO_ROOT_SQUASH`.
+  Possible values are: `NO_ROOT_SQUASH`, `ROOT_SQUASH`.
+
+* `anon_uid` -
+  (Optional)
+  An integer representing the anonymous user id with a default value of 65534.
+  Anon_uid may only be set with squashMode of ROOT_SQUASH. An error will be returned
+  if this field is specified for other squashMode settings.
+
+* `anon_gid` -
+  (Optional)
+  An integer representing the anonymous group id with a default value of 65534.
+  Anon_gid may only be set with squashMode of ROOT_SQUASH. An error will be returned
+  if this field is specified for other squashMode settings.
+
+* `network` -
+  (Optional)
+  The source VPC network for `ip_ranges`.
+  Required for instances using Private Service Connect, optional otherwise.
+
+<a name="nested_networks"></a>The `networks` block supports:
+
+* `network` -
+  (Required)
+  The name of the GCE VPC network to which the
+  instance is connected.
+
+* `modes` -
+  (Required)
+  IP versions for which the instance has
+  IP addresses assigned.
+  Each value may be one of: `ADDRESS_MODE_UNSPECIFIED`, `MODE_IPV4`, `MODE_IPV6`.
+
+* `reserved_ip_range` -
+  (Optional)
+  A /29 CIDR block that identifies the range of IP
+  addresses reserved for this instance.
+
+* `ip_addresses` -
+  (Output)
+  A list of IPv4 or IPv6 addresses.
+
+* `connect_mode` -
+  (Optional)
+  The network connect mode of the Filestore instance.
+  If not provided, the connect mode defaults to
+  DIRECT_PEERING.
+  Default value is `DIRECT_PEERING`.
+  Possible values are: `DIRECT_PEERING`, `PRIVATE_SERVICE_ACCESS`, `PRIVATE_SERVICE_CONNECT`.
+
+* `psc_config` -
+  (Optional)
+  Private Service Connect configuration.
+  Should only be set when connect_mode is PRIVATE_SERVICE_CONNECT.
+  Structure is [documented below](#nested_networks_psc_config).
+
+
+<a name="nested_networks_psc_config"></a>The `psc_config` block supports:
+
+* `endpoint_project` -
+  (Optional)
+  Consumer service project in which the Private Service Connect endpoint
+  would be set up. This is optional, and only relevant in case the network
+  is a shared VPC. If this is not specified, the endpoint would be set up
+  in the VPC host project.
 
 <a name="nested_performance_config"></a>The `performance_config` block supports:
 
@@ -397,6 +422,41 @@ The following arguments are supported:
   (Required)
   The peer instance.
 
+<a name="nested_directory_services"></a>The `directory_services` block supports:
+
+* `ldap` -
+  (Optional)
+  Configuration for LDAP servers.
+  Structure is [documented below](#nested_directory_services_ldap).
+
+
+<a name="nested_directory_services_ldap"></a>The `ldap` block supports:
+
+* `domain` -
+  (Required)
+  The LDAP domain name in the format of `my-domain.com`.
+
+* `servers` -
+  (Required)
+  The servers names are used for specifying the LDAP servers names.
+  The LDAP servers names can come with two formats:
+  1. DNS name, for example: `ldap.example1.com`, `ldap.example2.com`.
+  2. IP address, for example: `10.0.0.1`, `10.0.0.2`, `10.0.0.3`.
+  All servers names must be in the same format: either all DNS names or all
+  IP addresses.
+
+* `users_ou` -
+  (Optional)
+  The users Organizational Unit (OU) is optional. This parameter is a hint
+  to allow faster lookup in the LDAP namespace. In case that this parameter
+  is not provided, Filestore instance will query the whole LDAP namespace.
+
+* `groups_ou` -
+  (Optional)
+  The groups Organizational Unit (OU) is optional. This parameter is a hint
+  to allow faster lookup in the LDAP namespace. In case that this parameter
+  is not provided, Filestore instance will query the whole LDAP namespace.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -424,6 +484,10 @@ In addition to the arguments listed above, the following computed attributes are
 
 <a name="nested_effective_replication"></a>The `effective_replication` block contains:
 
+* `role` -
+  (Output)
+  The replication role.
+
 * `replicas` -
   (Optional)
   The replication role.
@@ -431,6 +495,10 @@ In addition to the arguments listed above, the following computed attributes are
 
 
 <a name="nested_effective_replication_replicas"></a>The `replicas` block supports:
+
+* `peer_instance` -
+  (Output)
+  The peer instance.
 
 * `state` -
   (Output)
@@ -464,6 +532,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_filestore_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

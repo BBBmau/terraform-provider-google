@@ -41,8 +41,8 @@ To get more information about Instance, see:
 ```hcl
 resource "google_memorystore_instance" "instance-basic" {
   instance_id = "basic-instance"
-  shard_count = 3
-  desired_psc_auto_connections {
+  shard_count = 1
+  desired_auto_created_endpoints {
     network    = google_compute_network.producer_net.id
     project_id = data.google_project.project.project_id
   }
@@ -104,40 +104,41 @@ data "google_project" "project" {
 
 ```hcl
 resource "google_memorystore_instance" "instance-full" {
-  instance_id = "full-instance"
-  shard_count = 3
-  desired_psc_auto_connections {
-    network    = google_compute_network.producer_net.id
-    project_id = data.google_project.project.project_id
-  }
-  location                = "us-central1"
-  replica_count           = 2
-  node_type               = "SHARED_CORE_NANO"
-  transit_encryption_mode = "TRANSIT_ENCRYPTION_DISABLED"
-  authorization_mode      = "AUTH_DISABLED"
-  engine_configs = {
-    maxmemory-policy = "volatile-ttl"
+  instance_id                  = "full-instance"
+  shard_count                  = 1
+  desired_auto_created_endpoints {
+    network                    = google_compute_network.producer_net.id
+    project_id                 = data.google_project.project.project_id
+  }     
+  location                     = "us-central1"
+  replica_count                = 1
+  node_type                    = "SHARED_CORE_NANO"
+  transit_encryption_mode      = "TRANSIT_ENCRYPTION_DISABLED"
+  authorization_mode           = "AUTH_DISABLED"
+  kms_key                      = "my-key"
+  engine_configs = {     
+    maxmemory-policy           = "volatile-ttl"
   }
   zone_distribution_config {
-    mode = "SINGLE_ZONE"
-    zone = "us-central1-b"
+    mode                       = "SINGLE_ZONE"
+    zone                       = "us-central1-b"
   }
   maintenance_policy {
     weekly_maintenance_window {
-      day = "MONDAY"
+      day                      = "MONDAY"
       start_time {
-        hours = 1
-        minutes = 0
-        seconds = 0
-        nanos = 0
+        hours                  = 1
+        minutes                = 0
+        seconds                = 0
+        nanos                  = 0
       }
     }
   }
   engine_version              = "VALKEY_7_2"
   deletion_protection_enabled = false
-  mode = "CLUSTER"
+  mode                        = "CLUSTER"
   persistence_config {
-    mode = "RDB"
+    mode                      = "RDB"
     rdb_config {
       rdb_snapshot_period     = "ONE_HOUR"
       rdb_snapshot_start_time = "2024-10-02T15:01:23Z"
@@ -192,8 +193,8 @@ data "google_project" "project" {
 ```hcl
 resource "google_memorystore_instance" "instance-persistence-aof" {
   instance_id = "aof-instance"
-  shard_count = 3
-  desired_psc_auto_connections {
+  shard_count = 1
+  desired_auto_created_endpoints {
     network    = google_compute_network.producer_net.id
     project_id = data.google_project.project.project_id
   }
@@ -252,7 +253,7 @@ data "google_project" "project" {
 resource "google_memorystore_instance" "primary_instance" {
   instance_id                    = "primary-instance"
   shard_count                    = 1
-  desired_psc_auto_connections {
+  desired_auto_created_endpoints {
     network                      = google_compute_network.primary_producer_net.id
     project_id                   = data.google_project.project.project_id
   }
@@ -313,7 +314,7 @@ resource "google_compute_network" "primary_producer_net" {
 resource "google_memorystore_instance" "secondary_instance" {
   instance_id                    = "secondary-instance"
   shard_count                    = 1
-  desired_psc_auto_connections {
+  desired_auto_created_endpoints {
     network                      = google_compute_network.secondary_producer_net.id
     project_id                   = data.google_project.project.project_id
   }
@@ -406,9 +407,6 @@ The following arguments are supported:
   * Must be unique within a location
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Optional. Labels to represent user-provided metadata. 
@@ -456,6 +454,11 @@ The following arguments are supported:
   Maintenance policy for a cluster
   Structure is [documented below](#nested_maintenance_policy).
 
+* `maintenance_version` -
+  (Optional)
+  This field can be used to trigger self service update to indicate the desired maintenance version. The input to this field can be determined by the available_maintenance_versions field.
+  *Note*: This field can only be specified when updating an existing cluster to a newer version. Downgrades are currently not supported!
+
 * `engine_version` -
   (Optional)
   Optional. Engine version of the instance.
@@ -496,10 +499,16 @@ The following arguments are supported:
   Managed backup source for the instance.
   Structure is [documented below](#nested_managed_backup_source).
 
+* `kms_key` -
+  (Optional)
+  The KMS key used to encrypt the at-rest data of the cluster
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
-* `desired_psc_auto_connections` - (Optional) Immutable. User inputs for the auto-created PSC connections. 
+* `desired_psc_auto_connections` - (Optional) `desired_psc_auto_connections` is deprecated  Use `desired_auto_created_endpoints` instead `terraform import` will only work with desired_auto_created_endpoints`.
+* `desired_auto_created_endpoints` - (Optional) Immutable. User inputs for the auto-created endpoints connections. 
+
 
 <a name="nested_automated_backup_config"></a>The `automated_backup_config` block supports:
 
@@ -627,10 +636,10 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Start time of the window in UTC time.
-  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time).
+  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_start_time).
 
 
-<a name="nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_policy_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -754,13 +763,13 @@ The following arguments are supported:
 * `uris` -
   (Required)
   URIs of the GCS objects to import.
-  Example: gs://bucket1/object1, gs//bucket2/folder2/object2
+  Example: gs://bucket1/object1, gs://bucket2/folder2/object2
 
 <a name="nested_managed_backup_source"></a>The `managed_backup_source` block supports:
 
 * `backup` -
   (Required)
-  Example: //memorystore.googleapis.com/projects/{project}/locations/{location}/backups/{backupId}. In this case, it assumes the backup is under memorystore.googleapis.com.
+  Example: `projects/{project}/locations/{location}/backupCollections/{collection}/backups/{backup}`.
 
 ## Attributes Reference
 
@@ -794,13 +803,21 @@ In addition to the arguments listed above, the following computed attributes are
   Output only. System assigned, unique identifier for the instance.
 
 * `discovery_endpoints` -
-  Output only. Endpoints clients can connect to the instance through. Currently only one
-  discovery endpoint is supported.
+  (Deprecated)
+  Deprecated. Output only. Endpoints clients can connect to the instance through.
   Structure is [documented below](#nested_discovery_endpoints).
+
+  ~> **Warning:** This field is deprecated. As a result it will not be populated if the connections are created using `desired_auto_created_endpoints` parameter or `google_memorystore_instance_desired_user_created_endpoints` resource. Instead of this parameter, for discovery, use `endpoints.connections.pscConnection` and `endpoints.connections.pscAutoConnection` with `connectionType` CONNECTION_TYPE_DISCOVERY.
 
 * `maintenance_schedule` -
   Upcoming maintenance schedule.
   Structure is [documented below](#nested_maintenance_schedule).
+
+* `effective_maintenance_version` -
+  This field represents the actual maintenance version of the cluster.
+
+* `available_maintenance_versions` -
+  This field is used to determine the available maintenance versions for the self service update.
 
 * `node_config` -
   Represents configuration for nodes of the instance.
@@ -815,12 +832,19 @@ In addition to the arguments listed above, the following computed attributes are
   Structure is [documented below](#nested_psc_attachment_details).
 
 * `psc_auto_connections` -
+  (Deprecated)
   Output only. User inputs and resource details of the auto-created PSC connections.
   Structure is [documented below](#nested_psc_auto_connections).
+
+  ~> **Warning:** `psc_auto_connections` is deprecated  Use `endpoints.connections.pscAutoConnections` instead.
 
 * `backup_collection` -
   The backup collection full resource name.
   Example: projects/{project}/locations/{location}/backupCollections/{collection}
+
+* `managed_server_ca` -
+  Instance's Certificate Authority. This field will only be populated if instance's transit_encryption_mode is SERVER_AUTHENTICATION
+  Structure is [documented below](#nested_managed_server_ca).
 
 * `terraform_labels` -
   The combination of labels configured directly on the resource
@@ -904,18 +928,18 @@ In addition to the arguments listed above, the following computed attributes are
 * `connections` -
   (Optional)
   A group of PSC connections. They are created in the same VPC network, one for each service attachment in the cluster.
-  Structure is [documented below](#nested_endpoints_endpoints_connections).
+  Structure is [documented below](#nested_endpoints_connections).
 
 
-<a name="nested_endpoints_endpoints_connections"></a>The `connections` block supports:
+<a name="nested_endpoints_connections"></a>The `connections` block supports:
 
 * `psc_auto_connection` -
   (Optional)
   Detailed information of a PSC connection that is created through service connectivity automation.
-  Structure is [documented below](#nested_endpoints_endpoints_connections_connections_psc_auto_connection).
+  Structure is [documented below](#nested_endpoints_connections_psc_auto_connection).
 
 
-<a name="nested_endpoints_endpoints_connections_connections_psc_auto_connection"></a>The `psc_auto_connection` block supports:
+<a name="nested_endpoints_connections_psc_auto_connection"></a>The `psc_auto_connection` block supports:
 
 * `psc_connection_id` -
   (Output)
@@ -1016,6 +1040,20 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Output only. Ports of the exposed endpoint.
 
+<a name="nested_managed_server_ca"></a>The `managed_server_ca` block contains:
+
+* `ca_certs` -
+  (Output)
+  The PEM encoded CA certificate chains for managed server authentication
+  Structure is [documented below](#nested_managed_server_ca_ca_certs).
+
+
+<a name="nested_managed_server_ca_ca_certs"></a>The `ca_certs` block contains:
+
+* `certificates` -
+  (Output)
+  The certificates that form the CA chain, from leaf to root order
+
 ## Timeouts
 
 This resource provides the following
@@ -1034,6 +1072,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance_id}}`
 * `{{location}}/{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instanceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_memorystore_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

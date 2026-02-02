@@ -45,7 +45,7 @@ resource "google_bigquery_analytics_hub_data_exchange" "subscription" {
   location         = "US"
   data_exchange_id = "my_data_exchange"
   display_name     = "my_data_exchange"
-  description      = ""
+  description      = "Test Description"
 }
 
 resource "google_bigquery_analytics_hub_listing" "subscription" {
@@ -53,7 +53,7 @@ resource "google_bigquery_analytics_hub_listing" "subscription" {
   data_exchange_id = google_bigquery_analytics_hub_data_exchange.subscription.data_exchange_id
   listing_id       = "my_listing"
   display_name     = "my_listing"
-  description      = ""
+  description      = "Test Description"
 
   bigquery_dataset {
     dataset = google_bigquery_dataset.subscription.id
@@ -63,7 +63,7 @@ resource "google_bigquery_analytics_hub_listing" "subscription" {
 resource "google_bigquery_dataset" "subscription" {
   dataset_id                  = "my_listing"
   friendly_name               = "my_listing"
-  description                 = ""
+  description                 = "Test Description"
   location                    = "US"
 }
 
@@ -109,6 +109,11 @@ The following arguments are supported:
   The name of the location of the data exchange. Distinct from the location of the destination data set.
 
 
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_destination_dataset"></a>The `destination_dataset` block supports:
 
 * `location` -
@@ -144,13 +149,6 @@ The following arguments are supported:
 * `project_id` -
   (Required)
   The ID of the project containing this dataset.
-
-- - -
-
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -194,6 +192,13 @@ In addition to the arguments listed above, the following computed attributes are
   Output only. Linked resources created in the subscription. Only contains values if state = STATE_ACTIVE.
   Structure is [documented below](#nested_linked_resources).
 
+* `log_linked_dataset_query_user_email` -
+  Output only. By default, false. If true, the Subscriber agreed to the email sharing mandate that is enabled for Listing.
+
+* `commercial_info` -
+  Commercial info metadata for this subscription. This is set if this is a commercial subscription i.e. if this subscription was created from subscribing to a commercial listing.
+  Structure is [documented below](#nested_commercial_info).
+
 
 <a name="nested_linked_dataset_map"></a>The `linked_dataset_map` block contains:
 
@@ -217,6 +222,20 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Output only. Name of the linked dataset, e.g. projects/subscriberproject/datasets/linkedDataset
 
+<a name="nested_commercial_info"></a>The `commercial_info` block contains:
+
+* `cloud_marketplace` -
+  (Output)
+  Cloud Marketplace commercial metadata for this subscription.
+  Structure is [documented below](#nested_commercial_info_cloud_marketplace).
+
+
+<a name="nested_commercial_info_cloud_marketplace"></a>The `cloud_marketplace` block contains:
+
+* `order` -
+  (Output)
+  Resource name of the Marketplace Order.
+
 ## Timeouts
 
 This resource provides the following
@@ -234,6 +253,18 @@ ListingSubscription can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{subscription_id}}`
 * `{{location}}/{{subscription_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ListingSubscription using identity values. For example:
+
+```tf
+import {
+  identity = {
+    subscriptionId = "<-optional value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_bigquery_analytics_hub_listing_subscription.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ListingSubscription using one of the formats above. For example:
 

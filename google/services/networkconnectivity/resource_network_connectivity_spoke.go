@@ -20,18 +20,70 @@
 package networkconnectivity
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceNetworkConnectivitySpoke() *schema.Resource {
@@ -55,6 +107,26 @@ func ResourceNetworkConnectivitySpoke() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"hub": {
@@ -83,11 +155,12 @@ func ResourceNetworkConnectivitySpoke() *schema.Resource {
 				Description: `An optional description of the spoke.`,
 			},
 			"group": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Optional:    true,
-				ForceNew:    true,
-				Description: `The name of the group that this spoke is associated with.`,
+				Type:             schema.TypeString,
+				Computed:         true,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
+				Description:      `The name of the group that this spoke is associated with.`,
 			},
 			"labels": {
 				Type:     schema.TypeMap,
@@ -131,7 +204,7 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 						},
 					},
 				},
-				ConflictsWith: []string{"linked_vpn_tunnels", "linked_router_appliance_instances", "linked_vpc_network", "linked_producer_vpc_network"},
+				ConflictsWith: []string{"linked_producer_vpc_network", "linked_router_appliance_instances", "linked_vpc_network", "linked_vpn_tunnels"},
 			},
 			"linked_producer_vpc_network": {
 				Type:        schema.TypeList,
@@ -177,7 +250,7 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 						},
 					},
 				},
-				ConflictsWith: []string{"linked_interconnect_attachments", "linked_router_appliance_instances", "linked_vpn_tunnels", "linked_vpc_network"},
+				ConflictsWith: []string{"linked_interconnect_attachments", "linked_router_appliance_instances", "linked_vpc_network", "linked_vpn_tunnels"},
 			},
 			"linked_router_appliance_instances": {
 				Type:        schema.TypeList,
@@ -189,20 +262,17 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 						"instances": {
 							Type:        schema.TypeList,
 							Required:    true,
-							ForceNew:    true,
 							Description: `The list of router appliance instances`,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"ip_address": {
 										Type:        schema.TypeString,
 										Required:    true,
-										ForceNew:    true,
 										Description: `The IP address on the VM to use for peering.`,
 									},
 									"virtual_machine": {
 										Type:             schema.TypeString,
 										Required:         true,
-										ForceNew:         true,
 										DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
 										Description:      `The URI of the virtual machine resource`,
 									},
@@ -226,12 +296,11 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 						},
 					},
 				},
-				ConflictsWith: []string{"linked_interconnect_attachments", "linked_vpn_tunnels", "linked_vpc_network", "linked_producer_vpc_network"},
+				ConflictsWith: []string{"linked_interconnect_attachments", "linked_producer_vpc_network", "linked_vpc_network", "linked_vpn_tunnels"},
 			},
 			"linked_vpc_network": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				ForceNew:    true,
 				Description: `VPC network that is associated with the spoke.`,
 				MaxItems:    1,
 				Elem: &schema.Resource{
@@ -261,7 +330,7 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 						},
 					},
 				},
-				ConflictsWith: []string{"linked_interconnect_attachments", "linked_router_appliance_instances", "linked_vpn_tunnels", "linked_producer_vpc_network"},
+				ConflictsWith: []string{"linked_interconnect_attachments", "linked_producer_vpc_network", "linked_router_appliance_instances", "linked_vpn_tunnels"},
 			},
 			"linked_vpn_tunnels": {
 				Type:        schema.TypeList,
@@ -296,7 +365,7 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 						},
 					},
 				},
-				ConflictsWith: []string{"linked_interconnect_attachments", "linked_router_appliance_instances", "linked_vpc_network", "linked_producer_vpc_network"},
+				ConflictsWith: []string{"linked_interconnect_attachments", "linked_producer_vpc_network", "linked_router_appliance_instances", "linked_vpc_network"},
 			},
 			"create_time": {
 				Type:        schema.TypeString,
@@ -308,6 +377,30 @@ The only allowed value for now is "ALL_IPV4_RANGES".`,
 				Computed:    true,
 				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"reasons": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `The reasons for the current state in the lifecycle`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"code": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `The code associated with this reason.`,
+						},
+						"message": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `Human-readable details about this reason.`,
+						},
+						"user_details": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `Additional information provided by the user in the RejectSpoke call.`,
+						},
+					},
+				},
 			},
 			"state": {
 				Type:         schema.TypeString,
@@ -405,11 +498,11 @@ func resourceNetworkConnectivitySpokeCreate(d *schema.ResourceData, meta interfa
 	} else if v, ok := d.GetOkExists("linked_producer_vpc_network"); !tpgresource.IsEmptyValue(reflect.ValueOf(linkedProducerVpcNetworkProp)) && (ok || !reflect.DeepEqual(v, linkedProducerVpcNetworkProp)) {
 		obj["linkedProducerVpcNetwork"] = linkedProducerVpcNetworkProp
 	}
-	labelsProp, err := expandNetworkConnectivitySpokeEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandNetworkConnectivitySpokeEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVarsForId(d, config, "{{NetworkConnectivityBasePath}}projects/{{project}}/locations/{{location}}/spokes?spokeId={{name}}")
@@ -452,6 +545,27 @@ func resourceNetworkConnectivitySpokeCreate(d *schema.ResourceData, meta interfa
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = NetworkConnectivityOperationWaitTime(
 		config, res, tpgresource.GetResourceNameFromSelfLink(project), "Creating Spoke", userAgent,
@@ -552,11 +666,38 @@ func resourceNetworkConnectivitySpokeRead(d *schema.ResourceData, meta interface
 	if err := d.Set("state", flattenNetworkConnectivitySpokeState(res["state"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Spoke: %s", err)
 	}
+	if err := d.Set("reasons", flattenNetworkConnectivitySpokeReasons(res["reasons"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Spoke: %s", err)
+	}
 	if err := d.Set("terraform_labels", flattenNetworkConnectivitySpokeTerraformLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Spoke: %s", err)
 	}
 	if err := d.Set("effective_labels", flattenNetworkConnectivitySpokeEffectiveLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Spoke: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -567,6 +708,26 @@ func resourceNetworkConnectivitySpokeUpdate(d *schema.ResourceData, meta interfa
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -602,11 +763,17 @@ func resourceNetworkConnectivitySpokeUpdate(d *schema.ResourceData, meta interfa
 	} else if v, ok := d.GetOkExists("linked_router_appliance_instances"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, linkedRouterApplianceInstancesProp)) {
 		obj["linkedRouterApplianceInstances"] = linkedRouterApplianceInstancesProp
 	}
-	labelsProp, err := expandNetworkConnectivitySpokeEffectiveLabels(d.Get("effective_labels"), d, config)
+	linkedVpcNetworkProp, err := expandNetworkConnectivitySpokeLinkedVpcNetwork(d.Get("linked_vpc_network"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("linked_vpc_network"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, linkedVpcNetworkProp)) {
+		obj["linkedVpcNetwork"] = linkedVpcNetworkProp
+	}
+	effectiveLabelsProp, err := expandNetworkConnectivitySpokeEffectiveLabels(d.Get("effective_labels"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVarsForId(d, config, "{{NetworkConnectivityBasePath}}projects/{{project}}/locations/{{location}}/spokes/{{name}}")
@@ -633,6 +800,11 @@ func resourceNetworkConnectivitySpokeUpdate(d *schema.ResourceData, meta interfa
 	if d.HasChange("linked_router_appliance_instances") {
 		updateMask = append(updateMask, "linkedRouterApplianceInstances.instances",
 			"linkedRouterApplianceInstances.includeImportRanges")
+	}
+
+	if d.HasChange("linked_vpc_network") {
+		updateMask = append(updateMask, "linkedVpcNetwork.excludeExportRanges",
+			"linkedVpcNetwork.includeExportRanges")
 	}
 
 	if d.HasChange("effective_labels") {
@@ -758,7 +930,8 @@ func resourceNetworkConnectivitySpokeImport(d *schema.ResourceData, meta interfa
 }
 
 func flattenNetworkConnectivitySpokeName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	return v
+	parts := strings.Split(d.Get("name").(string), "/")
+	return parts[len(parts)-1]
 }
 
 func flattenNetworkConnectivitySpokeCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -987,6 +1160,38 @@ func flattenNetworkConnectivitySpokeState(v interface{}, d *schema.ResourceData,
 	return v
 }
 
+func flattenNetworkConnectivitySpokeReasons(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"code":         flattenNetworkConnectivitySpokeReasonsCode(original["code"], d, config),
+			"message":      flattenNetworkConnectivitySpokeReasonsMessage(original["message"], d, config),
+			"user_details": flattenNetworkConnectivitySpokeReasonsUserDetails(original["userDetails"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenNetworkConnectivitySpokeReasonsCode(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetworkConnectivitySpokeReasonsMessage(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenNetworkConnectivitySpokeReasonsUserDetails(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenNetworkConnectivitySpokeTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -1023,6 +1228,9 @@ func expandNetworkConnectivitySpokeGroup(v interface{}, d tpgresource.TerraformR
 }
 
 func expandNetworkConnectivitySpokeLinkedVpnTunnels(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1068,6 +1276,9 @@ func expandNetworkConnectivitySpokeLinkedVpnTunnelsIncludeImportRanges(v interfa
 }
 
 func expandNetworkConnectivitySpokeLinkedInterconnectAttachments(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1113,6 +1324,9 @@ func expandNetworkConnectivitySpokeLinkedInterconnectAttachmentsIncludeImportRan
 }
 
 func expandNetworkConnectivitySpokeLinkedRouterApplianceInstances(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1146,6 +1360,9 @@ func expandNetworkConnectivitySpokeLinkedRouterApplianceInstances(v interface{},
 }
 
 func expandNetworkConnectivitySpokeLinkedRouterApplianceInstancesInstances(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1191,6 +1408,9 @@ func expandNetworkConnectivitySpokeLinkedRouterApplianceInstancesIncludeImportRa
 }
 
 func expandNetworkConnectivitySpokeLinkedVpcNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1236,6 +1456,9 @@ func expandNetworkConnectivitySpokeLinkedVpcNetworkIncludeExportRanges(v interfa
 }
 
 func expandNetworkConnectivitySpokeLinkedProducerVpcNetwork(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

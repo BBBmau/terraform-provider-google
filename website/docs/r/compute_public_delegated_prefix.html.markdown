@@ -110,6 +110,36 @@ resource "google_compute_public_delegated_prefix" "subprefix" {
   mode = "EXTERNAL_IPV6_SUBNETWORK_CREATION"
 }
 ```
+## Example Usage - Public Delegated Prefix Internal Ipv6 Subnet Mode
+
+
+```hcl
+resource "google_compute_public_advertised_prefix" "advertised" {
+  name = "ipv6-pap"
+  description = "description"
+  ip_cidr_range = "2001:db8::/32"
+  pdp_scope = "REGIONAL"
+  ipv6_access_type = "INTERNAL"
+}
+
+resource "google_compute_public_delegated_prefix" "prefix" {
+  name = "ipv6-root-pdp"
+  description = "test-delegation-mode-pdp"
+  region = "us-east1"
+  ip_cidr_range = "2001:db8::/40"
+  parent_prefix = google_compute_public_advertised_prefix.advertised.id
+  mode = "DELEGATION"
+}
+
+resource "google_compute_public_delegated_prefix" "subprefix" {
+  name = "ipv6-sub-pdp"
+  description = "test-subnet-mode-pdp"
+  region = "us-east1"
+  ip_cidr_range = "2001:db8::/48"
+  parent_prefix = google_compute_public_delegated_prefix.prefix.id
+  mode = "INTERNAL_IPV6_SUBNETWORK_CREATION"
+}
+```
 
 ## Argument Reference
 
@@ -138,9 +168,6 @@ The following arguments are supported:
   The IP address range, in CIDR format, represented by this public delegated prefix.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource.
@@ -151,9 +178,12 @@ The following arguments are supported:
 
 * `mode` -
   (Optional)
-  Specifies the mode of this IPv6 PDP. MODE must be one of: DELEGATION,
-  EXTERNAL_IPV6_FORWARDING_RULE_CREATION and EXTERNAL_IPV6_SUBNETWORK_CREATION.
-  Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`.
+  Specifies the mode of this IPv6 PDP. MODE must be one of:
+    * DELEGATION
+    * EXTERNAL_IPV6_FORWARDING_RULE_CREATION
+    * EXTERNAL_IPV6_SUBNETWORK_CREATION
+    * INTERNAL_IPV6_SUBNETWORK_CREATION
+  Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`, `INTERNAL_IPV6_SUBNETWORK_CREATION`.
 
 * `allocatable_prefix_length` -
   (Optional)
@@ -163,13 +193,88 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
 
 * `id` - an identifier for the resource with format `projects/{{project}}/regions/{{region}}/publicDelegatedPrefixes/{{name}}`
+
+* `ipv6_access_type` -
+  The internet access type for IPv6 Public Delegated Prefixes. Inherited
+  from parent prefix and can be one of following:
+    * EXTERNAL: The prefix will be announced to the internet. All children
+    PDPs will have access type as EXTERNAL.
+    * INTERNAL: The prefix won’t be announced to the internet. Prefix will
+    be used privately within Google Cloud. All children PDPs will have
+    access type as INTERNAL.
+
+* `enable_enhanced_ipv4_allocation` -
+  Whether this PublicDelegatedPrefix supports enhanced IPv4 allocations.
+  Applicable for IPv4 PDPs only.
+
+* `public_delegated_sub_prefixs` -
+  List of sub public delegated fixes for BYO IP functionality.
+  Each item in this array represents a sub prefix that can be
+  used to create addresses or further allocations.
+  Structure is [documented below](#nested_public_delegated_sub_prefixs).
 * `self_link` - The URI of the created resource.
 
+
+<a name="nested_public_delegated_sub_prefixs"></a>The `public_delegated_sub_prefixs` block contains:
+
+* `name` -
+  (Optional)
+  The name of the sub public delegated prefix.
+
+* `description` -
+  (Optional)
+  An optional description of this sub public delegated prefix.
+
+* `region` -
+  (Optional)
+  Output-only. The region of the sub public delegated prefix if it is regional. If absent, the sub prefix is global.
+
+* `status` -
+  (Optional)
+  The status of the sub public delegated prefix.
+  Possible values are: `INITIALIZING`, `READY_TO_ANNOUNCE`, `ANNOUNCED`, `DELETING`.
+
+* `ip_cidr_range` -
+  (Optional)
+  The IP address range in the CIDR format represented by this sub prefix.
+
+* `is_address` -
+  (Optional)
+  Whether the sub prefix is delegated for address creation.
+
+* `mode` -
+  (Optional)
+  The PublicDelegatedSubPrefix mode for IPv6 only.
+  Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`, `INTERNAL_IPV6_SUBNETWORK_CREATION`.
+
+* `allocatable_prefix_length` -
+  (Optional)
+  The allocatable prefix length supported by this PublicDelegatedSubPrefix.
+
+* `ipv6_access_type` -
+  (Output)
+  The internet access type for IPv6 Public Delegated Prefixes. Inherited
+  from parent prefix and can be one of following:
+    * EXTERNAL: The prefix will be announced to the internet. All children
+    PDPs will have access type as EXTERNAL.
+    * INTERNAL: The prefix won’t be announced to the internet. Prefix will
+    be used privately within Google Cloud. All children PDPs will have
+    access type as INTERNAL.
+
+* `enable_enhanced_ipv4_allocation` -
+  (Output)
+  Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
+  Applicable for IPv4 sub-PDPs only.
+
+* `delegatee_project` -
+  (Optional)
+  Name of the project scoping this PublicDelegatedSubPrefix.
 
 ## Timeouts
 
@@ -189,6 +294,18 @@ PublicDelegatedPrefix can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PublicDelegatedPrefix using identity values. For example:
+
+```tf
+import {
+  identity = {
+    region = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_public_delegated_prefix.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PublicDelegatedPrefix using one of the formats above. For example:
 

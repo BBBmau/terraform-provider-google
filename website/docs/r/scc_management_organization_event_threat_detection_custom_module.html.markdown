@@ -68,9 +68,6 @@ The following arguments are supported:
   Numerical ID of the parent organization.
 
 
-- - -
-
-
 * `config` -
   (Optional)
   Config for the module. For the resident module, its config value is defined at this level.
@@ -92,6 +89,7 @@ The following arguments are supported:
 * `location` -
   (Optional)
   Location ID of the parent organization. Only global is supported at the moment.
+
 
 
 ## Attributes Reference
@@ -130,6 +128,18 @@ OrganizationEventThreatDetectionCustomModule can be imported using any of these 
 * `organizations/{{organization}}/locations/{{location}}/eventThreatDetectionCustomModules/{{name}}`
 * `{{organization}}/{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationEventThreatDetectionCustomModule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    organization = "<-required value->"
+    location = "<-optional value->"
+  }
+  to = google_scc_management_organization_event_threat_detection_custom_module.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationEventThreatDetectionCustomModule using one of the formats above. For example:
 

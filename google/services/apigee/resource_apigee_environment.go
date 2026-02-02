@@ -20,18 +20,70 @@
 package apigee
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceApigeeEnvironment() *schema.Resource {
@@ -49,6 +101,22 @@ func ResourceApigeeEnvironment() *schema.Resource {
 			Create: schema.DefaultTimeout(30 * time.Minute),
 			Update: schema.DefaultTimeout(20 * time.Minute),
 			Delete: schema.DefaultTimeout(30 * time.Minute),
+		},
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"org_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -73,6 +141,37 @@ in the format 'organizations/{{org_name}}'.`,
 				ValidateFunc: verify.ValidateEnum([]string{"API_PROXY_TYPE_UNSPECIFIED", "PROGRAMMABLE", "CONFIGURABLE", ""}),
 				Description: `Optional. API Proxy type supported by the environment. The type can be set when creating
 the Environment and cannot be changed. Possible values: ["API_PROXY_TYPE_UNSPECIFIED", "PROGRAMMABLE", "CONFIGURABLE"]`,
+			},
+			"client_ip_resolution_config": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `The algorithm to resolve IP. This will affect Analytics, API Security, and other features that use the client ip. To remove a client ip resolution config, update the field to an empty value. Example: '{ "clientIpResolutionConfig" = {} }' For more information, see: https://cloud.google.com/apigee/docs/api-platform/system-administration/client-ip-resolution`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"header_index_algorithm": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `Resolves the client ip based on a custom header.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"ip_header_index": {
+										Type:        schema.TypeInt,
+										Required:    true,
+										Description: `The index of the ip in the header. Positive indices 0, 1, 2, 3 chooses indices from the left (first ips). Negative indices -1, -2, -3 chooses indices from the right (last ips).`,
+									},
+									"ip_header_name": {
+										Type:        schema.TypeString,
+										Required:    true,
+										Description: `The name of the header to extract the client ip from. We are currently only supporting the X-Forwarded-For header.`,
+									},
+								},
+							},
+							ExactlyOneOf: []string{"client_ip_resolution_config.0.header_index_algorithm"},
+						},
+					},
+				},
 			},
 			"deployment_type": {
 				Type:         schema.TypeString,
@@ -240,6 +339,12 @@ func resourceApigeeEnvironmentCreate(d *schema.ResourceData, meta interface{}) e
 	} else if v, ok := d.GetOkExists("properties"); !tpgresource.IsEmptyValue(reflect.ValueOf(propertiesProp)) && (ok || !reflect.DeepEqual(v, propertiesProp)) {
 		obj["properties"] = propertiesProp
 	}
+	clientIpResolutionConfigProp, err := expandApigeeEnvironmentClientIpResolutionConfig(d.Get("client_ip_resolution_config"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("client_ip_resolution_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(clientIpResolutionConfigProp)) && (ok || !reflect.DeepEqual(v, clientIpResolutionConfigProp)) {
+		obj["clientIpResolutionConfig"] = clientIpResolutionConfigProp
+	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{ApigeeBasePath}}{{org_id}}/environments")
 	if err != nil {
@@ -276,29 +381,31 @@ func resourceApigeeEnvironmentCreate(d *schema.ResourceData, meta interface{}) e
 	}
 	d.SetId(id)
 
-	// Use the resource in the operation response to populate
-	// identity fields and d.Id() before read
-	var opRes map[string]interface{}
-	err = ApigeeOperationWaitTimeWithResponse(
-		config, res, &opRes, "Creating Environment", userAgent,
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if orgIdValue, ok := d.GetOk("org_id"); ok && orgIdValue.(string) != "" {
+			if err = identity.Set("org_id", orgIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting org_id: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
+	err = ApigeeOperationWaitTime(
+		config, res, "Creating Environment", userAgent,
 		d.Timeout(schema.TimeoutCreate))
+
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
-
 		return fmt.Errorf("Error waiting to create Environment: %s", err)
 	}
-
-	if err := d.Set("name", flattenApigeeEnvironmentName(opRes["name"], d, config)); err != nil {
-		return err
-	}
-
-	// This may have caused the ID to update - update it if so.
-	id, err = tpgresource.ReplaceVars(d, config, "{{org_id}}/environments/{{name}}")
-	if err != nil {
-		return fmt.Errorf("Error constructing id: %s", err)
-	}
-	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating Environment %q: %#v", d.Id(), res)
 
@@ -364,6 +471,27 @@ func resourceApigeeEnvironmentRead(d *schema.ResourceData, meta interface{}) err
 	if err := d.Set("properties", flattenApigeeEnvironmentProperties(res["properties"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Environment: %s", err)
 	}
+	if err := d.Set("client_ip_resolution_config", flattenApigeeEnvironmentClientIpResolutionConfig(res["clientIpResolutionConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Environment: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("org_id"); !ok && v == "" {
+			err = identity.Set("org_id", d.Get("org_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting org_id: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
 
 	return nil
 }
@@ -373,6 +501,21 @@ func resourceApigeeEnvironmentUpdate(d *schema.ResourceData, meta interface{}) e
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if orgIdValue, ok := d.GetOk("org_id"); ok && orgIdValue.(string) != "" {
+			if err = identity.Set("org_id", orgIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting org_id: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -431,6 +574,12 @@ func resourceApigeeEnvironmentUpdate(d *schema.ResourceData, meta interface{}) e
 		return err
 	} else if v, ok := d.GetOkExists("properties"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, propertiesProp)) {
 		obj["properties"] = propertiesProp
+	}
+	clientIpResolutionConfigProp, err := expandApigeeEnvironmentClientIpResolutionConfig(d.Get("client_ip_resolution_config"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("client_ip_resolution_config"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, clientIpResolutionConfigProp)) {
+		obj["clientIpResolutionConfig"] = clientIpResolutionConfigProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{ApigeeBasePath}}{{org_id}}/environments/{{name}}")
@@ -658,6 +807,55 @@ func flattenApigeeEnvironmentPropertiesPropertyValue(v interface{}, d *schema.Re
 	return v
 }
 
+func flattenApigeeEnvironmentClientIpResolutionConfig(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["header_index_algorithm"] =
+		flattenApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithm(original["headerIndexAlgorithm"], d, config)
+	return []interface{}{transformed}
+}
+func flattenApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithm(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["ip_header_name"] =
+		flattenApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderName(original["ipHeaderName"], d, config)
+	transformed["ip_header_index"] =
+		flattenApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderIndex(original["ipHeaderIndex"], d, config)
+	return []interface{}{transformed}
+}
+func flattenApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderIndex(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
 func expandApigeeEnvironmentName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -679,6 +877,9 @@ func expandApigeeEnvironmentApiProxyType(v interface{}, d tpgresource.TerraformR
 }
 
 func expandApigeeEnvironmentNodeConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -732,6 +933,9 @@ func expandApigeeEnvironmentForwardProxyUri(v interface{}, d tpgresource.Terrafo
 }
 
 func expandApigeeEnvironmentProperties(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -751,6 +955,9 @@ func expandApigeeEnvironmentProperties(v interface{}, d tpgresource.TerraformRes
 }
 
 func expandApigeeEnvironmentPropertiesProperty(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -784,5 +991,64 @@ func expandApigeeEnvironmentPropertiesPropertyName(v interface{}, d tpgresource.
 }
 
 func expandApigeeEnvironmentPropertiesPropertyValue(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandApigeeEnvironmentClientIpResolutionConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedHeaderIndexAlgorithm, err := expandApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithm(original["header_index_algorithm"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedHeaderIndexAlgorithm); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["headerIndexAlgorithm"] = transformedHeaderIndexAlgorithm
+	}
+
+	return transformed, nil
+}
+
+func expandApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithm(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedIpHeaderName, err := expandApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderName(original["ip_header_name"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedIpHeaderName); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["ipHeaderName"] = transformedIpHeaderName
+	}
+
+	transformedIpHeaderIndex, err := expandApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderIndex(original["ip_header_index"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedIpHeaderIndex); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["ipHeaderIndex"] = transformedIpHeaderIndex
+	}
+
+	return transformed, nil
+}
+
+func expandApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandApigeeEnvironmentClientIpResolutionConfigHeaderIndexAlgorithmIpHeaderIndex(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }

@@ -276,9 +276,6 @@ The following arguments are supported:
   The name of the Cloud Router in which this NAT will be configured.
 
 
-- - -
-
-
 * `nat_ip_allocate_option` -
   (Optional)
   How external IPs should be allocated for this NAT. Valid values are
@@ -309,6 +306,21 @@ The following arguments are supported:
   One or more subnetwork NAT configurations. Only used if
   `source_subnetwork_ip_ranges_to_nat` is set to `LIST_OF_SUBNETWORKS`
   Structure is [documented below](#nested_subnetwork).
+
+* `source_subnetwork_ip_ranges_to_nat64` -
+  (Optional)
+  Specify the Nat option for NAT64, which can take one of the following values:
+  ALL_IPV6_SUBNETWORKS: All of the IP ranges in every Subnetwork are allowed to Nat.
+  LIST_OF_IPV6_SUBNETWORKS: A list of Subnetworks are allowed to Nat (specified in the field nat64Subnetwork below).
+  Note that if this field contains NAT64_ALL_V6_SUBNETWORKS no other Router.Nat section in this region can also enable NAT64 for any Subnetworks in this network.
+  Other Router.Nat sections can still be present to enable NAT44 only.
+  Possible values are: `ALL_IPV6_SUBNETWORKS`, `LIST_OF_IPV6_SUBNETWORKS`.
+
+* `nat64_subnetwork` -
+  (Optional)
+  One or more subnetwork NAT configurations whose traffic should be translated by NAT64 Gateway.
+  Only used if `source_subnetwork_ip_ranges_to_nat64` is set to `LIST_OF_IPV6_SUBNETWORKS`
+  Structure is [documented below](#nested_nat64_subnetwork).
 
 * `min_ports_per_vm` -
   (Optional)
@@ -371,7 +383,7 @@ The following arguments are supported:
 * `enable_endpoint_independent_mapping` -
   (Optional)
   Enable endpoint independent mapping.
-  For more information see the [official documentation](https://cloud.google.com/nat/docs/overview#specs-rfcs).
+  For more information see the [official documentation](https://docs.cloud.google.com/nat/docs/public-nat#specs-rfcs).
 
 * `type` -
   (Optional)
@@ -397,6 +409,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_subnetwork"></a>The `subnetwork` block supports:
 
 * `name` -
@@ -416,6 +429,12 @@ The following arguments are supported:
   to use NAT. This can be populated only if
   `LIST_OF_SECONDARY_IP_RANGES` is one of the values in
   sourceIpRangesToNat
+
+<a name="nested_nat64_subnetwork"></a>The `nat64_subnetwork` block supports:
+
+* `name` -
+  (Required)
+  Self-link of the subnetwork resource that will use NAT64
 
 <a name="nested_log_config"></a>The `log_config` block supports:
 
@@ -452,10 +471,10 @@ The following arguments are supported:
 * `action` -
   (Optional)
   The action to be enforced for traffic that matches this rule.
-  Structure is [documented below](#nested_rules_rules_action).
+  Structure is [documented below](#nested_rules_action).
 
 
-<a name="nested_rules_rules_action"></a>The `action` block supports:
+<a name="nested_rules_action"></a>The `action` block supports:
 
 * `source_nat_active_ips` -
   (Optional)
@@ -508,6 +527,19 @@ RouterNat can be imported using any of these accepted formats:
 * `{{region}}/{{router}}/{{name}}`
 * `{{router}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RouterNat using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    router = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_router_nat.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RouterNat using one of the formats above. For example:
 

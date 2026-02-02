@@ -212,6 +212,33 @@ resource "google_compute_network" "custom-test" {
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=subnetwork_resolve_subnet_mask&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Subnetwork Resolve Subnet Mask
+
+
+```hcl
+resource "google_compute_subnetwork" "subnetwork-resolve-subnet-mask" {
+  provider         = google-beta
+
+  name             = "subnet-resolve-subnet-mask-test-subnetwork"
+  region           = "us-west2"
+  ip_cidr_range    = "10.10.0.0/24"
+  purpose          = "PRIVATE"
+  resolve_subnet_mask = "ARP_PRIMARY_RANGE"
+  network          = google_compute_network.custom-test.id
+}
+
+resource "google_compute_network" "custom-test" {
+  provider                = google-beta
+
+  name                    = "subnet-resolve-subnet-mask-test-network"
+  auto_create_subnetworks = false
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=subnetwork_cidr_overlap&open_in_editor=main.tf" target="_blank">
     <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
   </a>
@@ -346,9 +373,6 @@ The following arguments are supported:
   Only networks that are in the distributed mode can have subnetworks.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource. Provide this property when
@@ -433,6 +457,10 @@ The following arguments are supported:
   cannot enable direct path.
   Possible values are: `EXTERNAL`, `INTERNAL`.
 
+* `internal_ipv6_prefix` -
+  (Optional)
+  The internal IPv6 address range that is assigned to this subnetwork.
+
 * `external_ipv6_prefix` -
   (Optional)
   The range of external IPv6 addresses that are owned by this subnetwork.
@@ -440,9 +468,9 @@ The following arguments are supported:
 * `ip_collection` -
   (Optional)
   Resource reference of a PublicDelegatedPrefix. The PDP must be a sub-PDP
-  in EXTERNAL_IPV6_SUBNETWORK_CREATION mode.
-  Use one of the following formats to specify a sub-PDP when creating an
-  IPv6 NetLB forwarding rule using BYOIP:
+  in EXTERNAL_IPV6_SUBNETWORK_CREATION or INTERNAL_IPV6_SUBNETWORK_CREATION
+  mode. Use one of the following formats to specify a sub-PDP when creating
+  a dual stack or IPv6-only subnetwork using BYOIP:
   Full resource URL, as in:
     * `https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{sub-pdp-name}}`
   Partial URL, as in:
@@ -456,14 +484,15 @@ The following arguments are supported:
   Setting this field to true will allow these packets to match dynamic routes injected
   via BGP even if their destinations match existing subnet ranges.
 
-* `enable_flow_logs` -
-  (Optional, Deprecated)
-  Whether to enable flow logging for this subnetwork. If this field is not explicitly set,
-  it will not appear in get listings. If not set the default behavior is determined by the
-  org policy, if there is no org policy specified, then it will default to disabled.
-  This field isn't supported if the subnet purpose field is set to REGIONAL_MANAGED_PROXY.
+* `params` -
+  (Optional)
+  Additional params passed with the request, but not persisted as part of resource payload
+  Structure is [documented below](#nested_params).
 
-  ~> **Warning:** This field is being removed in favor of log_config. If log_config is present, flow logs are enabled.
+* `resolve_subnet_mask` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  'Configures subnet mask resolution for this subnetwork.'
+  Possible values are: `ARP_ALL_RANGES`, `ARP_PRIMARY_RANGE`.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
@@ -474,6 +503,7 @@ the provider will default to the API's value.
 When true, the provider will treat removing secondary_ip_range as sending an
 empty list of secondary IP ranges to the API.
 Defaults to false.
+
 
 
 <a name="nested_secondary_ip_range"></a>The `secondary_ip_range` block supports:
@@ -536,6 +566,17 @@ Defaults to false.
   https://cloud.google.com/vpc/docs/flow-logs#filtering for details on how to format this field.
   The default value is 'true', which evaluates to include everything.
 
+<a name="nested_params"></a>The `params` block supports:
+
+* `resource_manager_tags` -
+  (Optional)
+  Resource manager tags to be bound to the subnetwork. Tag keys and values have the
+  same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+  and values are in the format tagValues/456. The field is ignored when empty.
+  The field is immutable and causes resource replacement when mutated. This field is only
+  set at create time and modifying this field after creation will trigger recreation.
+  To apply tags to an existing resource, see the google_tags_tag_binding resource.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -554,9 +595,6 @@ In addition to the arguments listed above, the following computed attributes are
 
 * `ipv6_cidr_range` -
   The range of internal IPv6 addresses that are owned by this subnetwork.
-
-* `internal_ipv6_prefix` -
-  The internal IPv6 address range that is assigned to this subnetwork.
 
 * `ipv6_gce_endpoint` -
   Possible endpoints of this subnetwork. It can be one of the following:
@@ -592,6 +630,18 @@ Subnetwork can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Subnetwork using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_subnetwork.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Subnetwork using one of the formats above. For example:
 

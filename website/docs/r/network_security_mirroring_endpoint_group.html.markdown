@@ -64,17 +64,45 @@ resource "google_network_security_mirroring_endpoint_group" "default" {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=network_security_mirroring_endpoint_group_broker_basic&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Network Security Mirroring Endpoint Group Broker Basic
+
+
+```hcl
+resource "google_compute_network" "network" {
+  provider                = google-beta
+  name                    = "example-network"
+  auto_create_subnetworks = false
+}
+
+resource "google_network_security_mirroring_deployment_group" "deployment_group" {
+  provider                      = google-beta
+  mirroring_deployment_group_id = "example-dg"
+  location                      = "global"
+  network                       = google_compute_network.network.id
+}
+
+resource "google_network_security_mirroring_endpoint_group" "default" {
+  provider                    = google-beta
+  mirroring_endpoint_group_id = "example-eg"
+  location                    = "global"
+  type                        = "BROKER"
+  mirroring_deployment_groups = [google_network_security_mirroring_deployment_group.deployment_group.id]
+  description                 = "some description"
+  labels = {
+    foo = "bar"
+  }
+}
+```
 
 ## Argument Reference
 
 The following arguments are supported:
 
-
-* `mirroring_deployment_group` -
-  (Required)
-  The deployment group that this DIRECT endpoint group is connected to, for example:
-  `projects/123456789/locations/global/mirroringDeploymentGroups/my-dg`.
-  See https://google.aip.dev/124.
 
 * `location` -
   (Required)
@@ -86,14 +114,32 @@ The following arguments are supported:
   of the endpoint group's resource name.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels are key/value pairs that help to organize and filter resources.
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `mirroring_deployment_group` -
+  (Optional)
+  The deployment group that this DIRECT endpoint group is connected to, for example:
+  `projects/123456789/locations/global/mirroringDeploymentGroups/my-dg`.
+  See https://google.aip.dev/124.
+
+* `mirroring_deployment_groups` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  A list of the deployment groups that this BROKER endpoint group is
+  connected to, for example:
+  `projects/123456789/locations/global/mirroringDeploymentGroups/my-dg`.
+  See https://google.aip.dev/124.
+
+* `type` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The type of the endpoint group.
+  If left unspecified, defaults to DIRECT.
+  Possible values:
+  DIRECT
+  BROKER
 
 * `description` -
   (Optional)
@@ -102,6 +148,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -195,10 +242,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `locations` -
   (Output)
   The list of locations where the deployment group is present.
-  Structure is [documented below](#nested_connected_deployment_groups_connected_deployment_groups_locations).
+  Structure is [documented below](#nested_connected_deployment_groups_locations).
 
 
-<a name="nested_connected_deployment_groups_connected_deployment_groups_locations"></a>The `locations` block contains:
+<a name="nested_connected_deployment_groups_locations"></a>The `locations` block contains:
 
 * `location` -
   (Output)
@@ -230,6 +277,18 @@ MirroringEndpointGroup can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{mirroring_endpoint_group_id}}`
 * `{{location}}/{{mirroring_endpoint_group_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MirroringEndpointGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    mirroringEndpointGroupId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_mirroring_endpoint_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MirroringEndpointGroup using one of the formats above. For example:
 

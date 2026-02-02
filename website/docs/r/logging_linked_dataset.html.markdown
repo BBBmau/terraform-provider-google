@@ -83,9 +83,6 @@ The following arguments are supported:
   The bucket to which the linked dataset is attached.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Describes this link. The maximum length of the description is 8000 characters.
@@ -97,6 +94,7 @@ The following arguments are supported:
 * `location` -
   (Optional)
   The location of the linked dataset.
+
 
 
 ## Attributes Reference
@@ -148,6 +146,19 @@ LinkedDataset can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/buckets/{{bucket}}/links/{{link_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import LinkedDataset using identity values. For example:
+
+```tf
+import {
+  identity = {
+    linkId = "<-required value->"
+    parent = "<-optional value->"
+    location = "<-optional value->"
+    bucket = "<-required value->"
+  }
+  to = google_logging_linked_dataset.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import LinkedDataset using one of the formats above. For example:
 

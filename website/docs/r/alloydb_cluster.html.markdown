@@ -60,6 +60,8 @@ resource "google_alloydb_cluster" "default" {
   network_config {
     network = google_compute_network.default.id
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -86,40 +88,25 @@ resource "google_alloydb_instance" "default" {
     cpu_count = 2
   }
 
-  depends_on = [google_service_networking_connection.vpc_connection]
 }
 
 resource "google_alloydb_cluster" "default" {
   cluster_id = "alloydb-cluster"
   location   = "us-central1"
   network_config {
-    network = google_compute_network.default.id
+    network = data.google_compute_network.default.id
   }
   database_version = "POSTGRES_14"
 
   initial_user {
     password = "alloydb-cluster"
   }
+
+  deletion_protection = false
 }
 
-data "google_project" "project" {}
-
-resource "google_compute_network" "default" {
+data "google_compute_network" "default" {
   name = "alloydb-network"
-}
-
-resource "google_compute_global_address" "private_ip_alloc" {
-  name          =  "alloydb-cluster"
-  address_type  = "INTERNAL"
-  purpose       = "VPC_PEERING"
-  prefix_length = 16
-  network       = google_compute_network.default.id
-}
-
-resource "google_service_networking_connection" "vpc_connection" {
-  network                 = google_compute_network.default.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -140,40 +127,25 @@ resource "google_alloydb_instance" "default" {
     cpu_count = 2
   }
 
-  depends_on = [google_service_networking_connection.vpc_connection]
 }
 
 resource "google_alloydb_cluster" "default" {
   cluster_id = "alloydb-cluster"
   location   = "us-central1"
   network_config {
-    network = google_compute_network.default.id
+    network = data.google_compute_network.default.id
   }
   database_version = "POSTGRES_15"
 
   initial_user {
     password = "alloydb-cluster"
   }
+
+  deletion_protection = false
 }
 
-data "google_project" "project" {}
-
-resource "google_compute_network" "default" {
+data "google_compute_network" "default" {
   name = "alloydb-network"
-}
-
-resource "google_compute_global_address" "private_ip_alloc" {
-  name          =  "alloydb-cluster"
-  address_type  = "INTERNAL"
-  purpose       = "VPC_PEERING"
-  prefix_length = 16
-  network       = google_compute_network.default.id
-}
-
-resource "google_service_networking_connection" "vpc_connection" {
-  network                 = google_compute_network.default.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -231,6 +203,8 @@ resource "google_alloydb_cluster" "full" {
   labels = {
     test = "alloydb-cluster-full"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -251,6 +225,8 @@ resource "google_alloydb_cluster" "source" {
   initial_user {
     password = "alloydb-source-cluster"
   }
+
+  deletion_protection = false
 }
 
 resource "google_alloydb_instance" "source" {
@@ -282,6 +258,8 @@ resource "google_alloydb_cluster" "restored_from_backup" {
   restore_backup_source {
     backup_name = google_alloydb_backup.source.name
   }
+
+  deletion_protection = false
 }
 
 resource "google_alloydb_cluster" "restored_via_pitr" {
@@ -294,6 +272,8 @@ resource "google_alloydb_cluster" "restored_via_pitr" {
     cluster = google_alloydb_cluster.source.name
     point_in_time = "2023-08-03T19:19:00.094Z"
   }
+
+  deletion_protection = false
 }
 
 data "google_project" "project" {}
@@ -326,6 +306,8 @@ resource "google_alloydb_cluster" "primary" {
   network_config {
     network = google_compute_network.default.id
   }
+
+  deletion_protection = false
 }
 
 resource "google_alloydb_instance" "primary" {
@@ -356,6 +338,7 @@ resource "google_alloydb_cluster" "secondary" {
     primary_cluster_name = google_alloydb_cluster.primary.name
   }
 
+  deletion_protection = false
   depends_on = [google_alloydb_instance.primary]
 }
 
@@ -392,9 +375,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location where the alloydb cluster should reside.
-
-
-- - -
 
 
 * `labels` -
@@ -441,7 +421,7 @@ The following arguments are supported:
 
 * `initial_user` -
   (Optional)
-  Initial user to setup during cluster creation.
+  Initial user to setup during cluster creation. If unset for new Clusters, a postgres role with null password is created. You will need to create additional users or set the password in order to log in.
   Structure is [documented below](#nested_initial_user).
 
 * `restore_backup_source` -
@@ -494,9 +474,15 @@ Deleting a cluster forcefully, deletes the cluster and all its associated instan
 Deleting a Secondary cluster with a secondary instance REQUIRES setting deletion_policy = "FORCE" otherwise an error is returned. This is needed as there is no support to delete just the secondary instance, and the only way to delete secondary instance is to delete the associated secondary cluster forcefully which also deletes the secondary instance.
 Possible values: DEFAULT, FORCE
 
+* `deletion_protection` - (Optional) Whether Terraform will be prevented from destroying the cluster.
+When the field is set to true or unset in Terraform state, a `terraform apply`
+or `terraform destroy` that would delete the cluster will fail.
+When the field is set to false, deleting the cluster is allowed.
+
 * `skip_await_major_version_upgrade` - (Optional) Set to true to skip awaiting on the major version upgrade of the cluster.
 Possible values: true, false
 Default value: "true"
+
 
 
 <a name="nested_encryption_config"></a>The `encryption_config` block supports:
@@ -535,7 +521,7 @@ Default value: "true"
   The database username.
 
 * `password` -
-  (Required)
+  (Optional)
   The initial password for the user.
   **Note**: This property is sensitive and will not be displayed in the plan.
 
@@ -694,10 +680,10 @@ Default value: "true"
 * `start_time` -
   (Required)
   Preferred time to start the maintenance operation on the specified day. Maintenance will start within 1 hour of this time.
-  Structure is [documented below](#nested_maintenance_update_policy_maintenance_windows_maintenance_windows_start_time).
+  Structure is [documented below](#nested_maintenance_update_policy_maintenance_windows_start_time).
 
 
-<a name="nested_maintenance_update_policy_maintenance_windows_maintenance_windows_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_update_policy_maintenance_windows_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Required)
@@ -863,6 +849,18 @@ Cluster can be imported using any of these accepted formats:
 * `{{location}}/{{cluster_id}}`
 * `{{cluster_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Cluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    clusterId = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_alloydb_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Cluster using one of the formats above. For example:
 

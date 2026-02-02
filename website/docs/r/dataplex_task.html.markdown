@@ -229,6 +229,48 @@ The following arguments are supported:
   Structure is [documented below](#nested_execution_spec).
 
 
+* `description` -
+  (Optional)
+  User-provided description of the task.
+
+* `display_name` -
+  (Optional)
+  User friendly display name.
+
+* `labels` -
+  (Optional)
+  User-defined labels for the task.
+
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `spark` -
+  (Optional)
+  A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
+  Structure is [documented below](#nested_spark).
+
+* `notebook` -
+  (Optional)
+  A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
+  Structure is [documented below](#nested_notebook).
+
+* `location` -
+  (Optional)
+  The location in which the task will be created in.
+
+* `lake` -
+  (Optional)
+  The lake in which the task will be created in.
+
+* `task_id` -
+  (Optional)
+  The task Id of the task.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_trigger_spec"></a>The `trigger_spec` block supports:
 
 * `type` -
@@ -273,50 +315,6 @@ The following arguments are supported:
 * `kms_key` -
   (Optional)
   The Cloud KMS key to use for encryption, of the form: projects/{project_number}/locations/{locationId}/keyRings/{key-ring-name}/cryptoKeys/{key-name}.
-
-- - -
-
-
-* `description` -
-  (Optional)
-  User-provided description of the task.
-
-* `display_name` -
-  (Optional)
-  User friendly display name.
-
-* `labels` -
-  (Optional)
-  User-defined labels for the task.
-
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `spark` -
-  (Optional)
-  A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
-  Structure is [documented below](#nested_spark).
-
-* `notebook` -
-  (Optional)
-  A service with manual scaling runs continuously, allowing you to perform complex initialization and rely on the state of its memory over time.
-  Structure is [documented below](#nested_notebook).
-
-* `location` -
-  (Optional)
-  The location in which the task will be created in.
-
-* `lake` -
-  (Optional)
-  The lake in which the task will be created in.
-
-* `task_id` -
-  (Optional)
-  The task Id of the task.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 <a name="nested_spark"></a>The `spark` block supports:
 
@@ -595,6 +593,19 @@ Task can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{lake}}/{{task_id}}`
 * `{{location}}/{{lake}}/{{task_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Task using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    lake = "<-optional value->"
+    taskId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_dataplex_task.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Task using one of the formats above. For example:
 

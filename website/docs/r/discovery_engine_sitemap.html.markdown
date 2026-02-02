@@ -72,15 +72,13 @@ The following arguments are supported:
   The unique id of the data store.
 
 
-- - -
-
-
 * `uri` -
   (Optional)
   Public URI for the sitemap, e.g. "www.example.com/sitemap.xml".
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -117,6 +115,16 @@ Sitemap can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Sitemap using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_discovery_engine_sitemap.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Sitemap using one of the formats above. For example:
 

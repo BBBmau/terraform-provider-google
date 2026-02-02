@@ -110,6 +110,15 @@ The following arguments are supported:
   Structure is [documented below](#nested_split).
 
 
+* `migrate_traffic` -
+  (Optional)
+  If set to true traffic will be migrated to this version.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_split"></a>The `split` block supports:
 
 * `shard_by` -
@@ -120,17 +129,6 @@ The following arguments are supported:
 * `allocations` -
   (Required)
   Mapping from version IDs within the service to fractional (0.000, 1] allocations of traffic for that version. Each version can be specified only once, but some versions in the service may not have any traffic allocation. Services that have traffic allocated cannot be deleted until either the service is deleted or their traffic allocation is removed. Allocations must sum to 1. Up to two decimal place precision is supported for IP-based splits and up to three decimal places is supported for cookie-based splits.
-
-- - -
-
-
-* `migrate_traffic` -
-  (Optional)
-  If set to true traffic will be migrated to this version.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -157,6 +155,17 @@ ServiceSplitTraffic can be imported using any of these accepted formats:
 * `{{project}}/{{service}}`
 * `{{service}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServiceSplitTraffic using identity values. For example:
+
+```tf
+import {
+  identity = {
+    service = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_app_engine_service_split_traffic.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServiceSplitTraffic using one of the formats above. For example:
 

@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Vertex AI FeatureOnlineStore
+
 Three different resources help you manage your IAM policy for Vertex AI FeatureOnlineStore. Each of these resources serves a different use case:
 
 * `google_vertex_ai_feature_online_store_iam_policy`: Authoritative. Sets the IAM policy for the featureonlinestore and replaces any existing policy already attached.
@@ -86,10 +87,10 @@ resource "google_vertex_ai_feature_online_store_iam_member" "member" {
 
 The following arguments are supported:
 
-* `feature_online_store` - (Required) Used to find the parent resource to bind the IAM policy to
 * `region` - (Optional) The region of feature online store. eg us-central1 Used to find the parent resource to bind the IAM policy to. If not specified,
   the value will be parsed from the identifier of the parent resource. If no region is provided in the parent identifier and no
   region is specified, it is taken from the provider configuration.
+* `feature_online_store` - (Required) Used to find the parent resource to bind the IAM policy to
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the project will be parsed from the identifier of the parent resource. If no project is provided in the parent identifier and no project is specified, the provider project is used.
@@ -105,6 +106,7 @@ The following arguments are supported:
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_vertex_ai_feature_online_store_iam_binding` can be used per role. Note that custom roles must be of the format

@@ -99,6 +99,22 @@ resource "google_compute_network" "vpc_network" {
   bgp_inter_region_cost                     = "ADD_COST_TO_MED"
 }
 ```
+## Example Usage - Network Bgp Standard Mode Delete Med
+
+
+```hcl
+resource "google_compute_network" "vpc_network" {
+  name                    = "vpc-network"
+  auto_create_subnetworks = false
+  routing_mode            = "GLOBAL"
+  project                 = "my-project-name"
+  bgp_best_path_selection_mode  = "LEGACY"
+  bgp_always_compare_med        = false
+  # By setting this to true, any previous value for bgp_always_compare_med
+  # will be cleared, reverting it to the API default.
+  delete_bgp_always_compare_med = true
+}
+```
 
 ## Argument Reference
 
@@ -114,9 +130,6 @@ The following arguments are supported:
   first character must be a lowercase letter, and all following
   characters must be a dash, lowercase letter, or digit, except the last
   character, which cannot be a dash.
-
-
-- - -
 
 
 * `description` -
@@ -156,6 +169,11 @@ The following arguments are supported:
   Choice of the behavior of inter-regional cost and MED in the BPS algorithm.
   Possible values are: `DEFAULT`, `ADD_COST_TO_MED`.
 
+* `delete_bgp_always_compare_med` -
+  (Optional)
+  If set to `true`, the `bgp_always_compare_med` field will be cleared.
+  If set to `false` (the default), `bgp_always_compare_med` will be set to the value specified in the configuration.
+
 * `mtu` -
   (Optional)
   Maximum Transmission Unit in bytes. The default value is 1460 bytes.
@@ -191,12 +209,26 @@ The following arguments are supported:
   * https://www.googleapis.com/compute/v1/projects/{projectId}/global/networkProfiles/{network_profile_name}
   * projects/{projectId}/global/networkProfiles/{network_profile_name}
 
+* `params` -
+  (Optional)
+  Additional params passed with the request, but not persisted as part of resource payload
+  Structure is [documented below](#nested_params).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
 * `delete_default_routes_on_create` - (Optional) If set to `true`, default routes (`0.0.0.0/0`) will be deleted
 immediately after network creation. Defaults to `false`.
 
+
+
+<a name="nested_params"></a>The `params` block supports:
+
+* `resource_manager_tags` -
+  (Optional)
+  Resource manager tags to be bound to the network. Tag keys and values have the
+  same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+  and values are in the format tagValues/456.
 
 ## Attributes Reference
 
@@ -237,6 +269,17 @@ Network can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Network using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_network.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Network using one of the formats above. For example:
 

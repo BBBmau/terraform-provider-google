@@ -27,7 +27,7 @@ is an extraction of a user command or sentence semantics.
 
 To get more information about Intent, see:
 
-* [API documentation](https://cloud.google.com/dialogflow/docs/reference/rest/v2/projects.agent.intents)
+* [API documentation](https://docs.cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.agent.intents)
 * How-to Guides
     * [Official Documentation](https://cloud.google.com/dialogflow/docs/)
 
@@ -106,9 +106,6 @@ The following arguments are supported:
   The name of this intent to be displayed on the console.
 
 
-- - -
-
-
 * `webhook_state` -
   (Optional)
   Indicates whether webhooks are enabled for the intent.
@@ -169,6 +166,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -218,6 +216,16 @@ Intent can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Intent using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_dialogflow_intent.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Intent using one of the formats above. For example:
 

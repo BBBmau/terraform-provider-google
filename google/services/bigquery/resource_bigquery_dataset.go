@@ -20,23 +20,47 @@
 package bigquery
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
 
 	"google.golang.org/api/googleapi"
 )
 
 const datasetIdRegexp = `^[0-9A-Za-z_]+$`
+
+var bigqueryDatasetAccessPrimitiveToRoleMap = map[string]string{
+	"OWNER":  "roles/bigquery.dataOwner",
+	"WRITER": "roles/bigquery.dataEditor",
+	"READER": "roles/bigquery.dataViewer",
+}
 
 func validateDatasetId(v interface{}, k string) (ws []string, errors []error) {
 	value := v.(string)
@@ -61,6 +85,73 @@ func validateDefaultTableExpirationMs(v interface{}, k string) (ws []string, err
 
 	return
 }
+
+// bigqueryDatasetAccessHash is a custom hash function for the access block.
+// It normalizes
+// 1) the 'role' field before hashing, treating legacy roles
+// and their modern IAM equivalents as the same,
+// 2) the 'user_by_email' and 'group_by_email' fields to be case-insensitive.
+func resourceBigqueryDatasetAccessHash(v interface{}) int {
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return 0
+	}
+	// Make a copy of the map to avoid modifying the underlying data.
+	copy := make(map[string]interface{}, len(m))
+	for k, val := range m {
+		copy[k] = val
+	}
+
+	// Normalize user_by_email and group_by_email to be case-insensitive
+	if email, ok := copy["user_by_email"].(string); ok && email != "" {
+		copy["user_by_email"] = strings.ToLower(email)
+	}
+	if email, ok := copy["group_by_email"].(string); ok && email != "" {
+		copy["group_by_email"] = strings.ToLower(email)
+	}
+
+	// Normalize the role if it exists and matches a legacy role.
+	if role, ok := copy["role"].(string); ok {
+		if newRole, ok := bigqueryDatasetAccessPrimitiveToRoleMap[role]; ok {
+			copy["role"] = newRole
+		}
+	}
+
+	// Use the default HashResource function on the (potentially modified) copy.
+	return schema.HashResource(bigqueryDatasetAccessSchema())(copy)
+}
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
 
 func ResourceBigQueryDataset() *schema.Resource {
 	return &schema.Resource{
@@ -101,7 +192,7 @@ underscores (_). The maximum length is 1,024 characters.`,
 				Optional:    true,
 				Description: `An array of objects that define dataset access for one or more entities.`,
 				Elem:        bigqueryDatasetAccessSchema(),
-				// Default schema.HashSchema is used.
+				Set:         resourceBigqueryDatasetAccessHash,
 			},
 			"default_collation": {
 				Type:     schema.TypeString,
@@ -622,11 +713,11 @@ func resourceBigQueryDatasetCreate(d *schema.ResourceData, meta interface{}) err
 	} else if v, ok := d.GetOkExists("external_catalog_dataset_options"); !tpgresource.IsEmptyValue(reflect.ValueOf(externalCatalogDatasetOptionsProp)) && (ok || !reflect.DeepEqual(v, externalCatalogDatasetOptionsProp)) {
 		obj["externalCatalogDatasetOptions"] = externalCatalogDatasetOptionsProp
 	}
-	labelsProp, err := expandBigQueryDatasetEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandBigQueryDatasetEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(labelsProp)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(effectiveLabelsProp)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{BigQueryBasePath}}projects/{{project}}/datasets?accessPolicyVersion=3")
@@ -912,11 +1003,11 @@ func resourceBigQueryDatasetUpdate(d *schema.ResourceData, meta interface{}) err
 	} else if v, ok := d.GetOkExists("external_catalog_dataset_options"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, externalCatalogDatasetOptionsProp)) {
 		obj["externalCatalogDatasetOptions"] = externalCatalogDatasetOptionsProp
 	}
-	labelsProp, err := expandBigQueryDatasetEffectiveLabels(d.Get("effective_labels"), d, config)
+	effectiveLabelsProp, err := expandBigQueryDatasetEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, labelsProp)) {
-		obj["labels"] = labelsProp
+	} else if v, ok := d.GetOkExists("effective_labels"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, effectiveLabelsProp)) {
+		obj["labels"] = effectiveLabelsProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{BigQueryBasePath}}projects/{{project}}/datasets/{{dataset_id}}?accessPolicyVersion=3")
@@ -1034,7 +1125,7 @@ func flattenBigQueryDatasetAccess(v interface{}, d *schema.ResourceData, config 
 		return v
 	}
 	l := v.([]interface{})
-	transformed := schema.NewSet(schema.HashResource(bigqueryDatasetAccessSchema()), []interface{}{})
+	transformed := schema.NewSet(resourceBigqueryDatasetAccessHash, []interface{}{})
 	for _, raw := range l {
 		original := raw.(map[string]interface{})
 		if len(original) < 1 {
@@ -1061,7 +1152,11 @@ func flattenBigQueryDatasetAccessDomain(v interface{}, d *schema.ResourceData, c
 }
 
 func flattenBigQueryDatasetAccessGroupByEmail(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	return v
+	if v == nil {
+		return nil
+	}
+
+	return strings.ToLower(v.(string))
 }
 
 func flattenBigQueryDatasetAccessRole(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1077,7 +1172,11 @@ func flattenBigQueryDatasetAccessIamMember(v interface{}, d *schema.ResourceData
 }
 
 func flattenBigQueryDatasetAccessUserByEmail(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	return v
+	if v == nil {
+		return nil
+	}
+
+	return strings.ToLower(v.(string))
 }
 
 func flattenBigQueryDatasetAccessView(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1441,6 +1540,9 @@ func expandBigQueryDatasetMaxTimeTravelHours(v interface{}, d tpgresource.Terraf
 
 func expandBigQueryDatasetAccess(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	v = v.(*schema.Set).List()
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1530,7 +1632,11 @@ func expandBigQueryDatasetAccessDomain(v interface{}, d tpgresource.TerraformRes
 }
 
 func expandBigQueryDatasetAccessGroupByEmail(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	return v, nil
+	if v == nil {
+		return nil, nil
+	}
+
+	return strings.ToLower(v.(string)), nil
 }
 
 func expandBigQueryDatasetAccessRole(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
@@ -1546,10 +1652,17 @@ func expandBigQueryDatasetAccessIamMember(v interface{}, d tpgresource.Terraform
 }
 
 func expandBigQueryDatasetAccessUserByEmail(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	return v, nil
+	if v == nil {
+		return nil, nil
+	}
+
+	return strings.ToLower(v.(string)), nil
 }
 
 func expandBigQueryDatasetAccessView(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1595,6 +1708,9 @@ func expandBigQueryDatasetAccessViewTableId(v interface{}, d tpgresource.Terrafo
 }
 
 func expandBigQueryDatasetAccessDataset(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1621,6 +1737,9 @@ func expandBigQueryDatasetAccessDataset(v interface{}, d tpgresource.TerraformRe
 }
 
 func expandBigQueryDatasetAccessDatasetDataset(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1659,6 +1778,9 @@ func expandBigQueryDatasetAccessDatasetTargetTypes(v interface{}, d tpgresource.
 }
 
 func expandBigQueryDatasetAccessRoutine(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1704,6 +1826,9 @@ func expandBigQueryDatasetAccessRoutineRoutineId(v interface{}, d tpgresource.Te
 }
 
 func expandBigQueryDatasetAccessCondition(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1788,6 +1913,9 @@ func expandBigQueryDatasetDescription(v interface{}, d tpgresource.TerraformReso
 }
 
 func expandBigQueryDatasetExternalDatasetReference(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1830,6 +1958,9 @@ func expandBigQueryDatasetLocation(v interface{}, d tpgresource.TerraformResourc
 }
 
 func expandBigQueryDatasetDefaultEncryptionConfiguration(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1876,6 +2007,9 @@ func expandBigQueryDatasetResourceTags(v interface{}, d tpgresource.TerraformRes
 }
 
 func expandBigQueryDatasetExternalCatalogDatasetOptions(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

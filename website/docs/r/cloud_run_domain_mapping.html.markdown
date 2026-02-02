@@ -85,6 +85,16 @@ The following arguments are supported:
   The location of the cloud run instance. eg us-central1
 
 
+* `metadata` -
+  (Optional)
+  Metadata associated with this DomainMapping.
+  Structure is [documented below](#nested_metadata).
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_spec"></a>The `spec` block supports:
 
 * `force_override` -
@@ -104,18 +114,6 @@ The following arguments are supported:
   The mode of the certificate.
   Default value is `AUTOMATIC`.
   Possible values are: `NONE`, `AUTOMATIC`.
-
-- - -
-
-
-* `metadata` -
-  (Optional)
-  Metadata associated with this DomainMapping.
-  Structure is [documented below](#nested_metadata).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 <a name="nested_metadata"></a>The `metadata` block supports:
 
@@ -269,6 +267,18 @@ DomainMapping can be imported using any of these accepted formats:
 * `{{location}}/{{project}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DomainMapping using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloud_run_domain_mapping.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DomainMapping using one of the formats above. For example:
 

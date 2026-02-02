@@ -19,8 +19,11 @@ package billing_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccBillingBudget_billingBudgetBasicExample(t *testing.T) {
@@ -52,6 +71,12 @@ func TestAccBillingBudget_billingBudgetBasicExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
+			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -100,6 +125,12 @@ func TestAccBillingBudget_billingBudgetLastperiodExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
+			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -158,6 +189,12 @@ func TestAccBillingBudget_billingBudgetFilterExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
+			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -223,6 +260,12 @@ func TestAccBillingBudget_billingBudgetNotifyExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
+			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -301,6 +344,12 @@ func TestAccBillingBudget_billingBudgetNotifyProjectRecipientExample(t *testing.
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
 			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -358,6 +407,12 @@ func TestAccBillingBudget_billingBudgetCustomperiodExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
+			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -433,6 +488,12 @@ func TestAccBillingBudget_billingBudgetOptionalExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"billing_account"},
+			},
+			{
+				ResourceName:       "google_billing_budget.budget",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

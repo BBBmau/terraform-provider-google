@@ -23,12 +23,10 @@ description: |-
 
 An individual endpoint that provides a service.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about Endpoint, see:
 
-* [API documentation](https://cloud.google.com/service-directory/docs/reference/rest/v1beta1/projects.locations.namespaces.services.endpoints)
+* [API documentation](https://cloud.google.com/service-directory/docs/reference/rest/v1/projects.locations.namespaces.services.endpoints)
 * How-to Guides
     * [Configuring an endpoint](https://cloud.google.com/service-directory/docs/configuring-service-directory#configuring_an_endpoint)
 
@@ -42,19 +40,16 @@ To get more information about Endpoint, see:
 
 ```hcl
 resource "google_service_directory_namespace" "example" {
-  provider     = google-beta
   namespace_id = "example-namespace"
   location     = "us-central1"
 }
 
 resource "google_service_directory_service" "example" {
-  provider   = google-beta
   service_id = "example-service"
   namespace  = google_service_directory_namespace.example.id
 }
 
 resource "google_service_directory_endpoint" "example" {
-  provider    = google-beta
   endpoint_id = "example-endpoint"
   service     = google_service_directory_service.example.id
 
@@ -77,28 +72,23 @@ resource "google_service_directory_endpoint" "example" {
 
 ```hcl
 data "google_project" "project" {
-  provider  = google-beta
 }
 
 resource "google_compute_network" "example" {
-  provider  = google-beta
   name      = "example-network"
 }
 
 resource "google_service_directory_namespace" "example" {
-  provider     = google-beta
   namespace_id = "example-namespace"
   location     = "us-central1"
 }
 
 resource "google_service_directory_service" "example" {
-  provider   = google-beta
   service_id = "example-service"
   namespace  = google_service_directory_namespace.example.id
 }
 
 resource "google_service_directory_endpoint" "example" {
-  provider    = google-beta
   endpoint_id = "example-endpoint"
   service     = google_service_directory_service.example.id
 
@@ -128,9 +118,6 @@ The following arguments are supported:
   lowercase letters or the hyphen character.
 
 
-- - -
-
-
 * `address` -
   (Optional)
   IPv4 or IPv6 address of the endpoint.
@@ -150,6 +137,7 @@ The following arguments are supported:
 * `network` -
   (Optional)
   The URL to the network, such as projects/PROJECT_NUMBER/locations/global/networks/NETWORK_NAME.
+
 
 
 ## Attributes Reference
@@ -181,6 +169,17 @@ Endpoint can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{namespace_id}}/{{service_id}}/{{endpoint_id}}`
 * `{{location}}/{{namespace_id}}/{{service_id}}/{{endpoint_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Endpoint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    endpointId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_service_directory_endpoint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Endpoint using one of the formats above. For example:
 

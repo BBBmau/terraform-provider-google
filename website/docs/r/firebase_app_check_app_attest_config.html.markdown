@@ -116,9 +116,6 @@ The following arguments are supported:
   [Apple App](https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.iosApps#IosApp.FIELDS.app_id).
 
 
-- - -
-
-
 * `token_ttl` -
   (Optional)
   Specifies the duration for which App Check tokens exchanged from App Attest artifacts will be valid.
@@ -127,6 +124,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -157,6 +155,17 @@ AppAttestConfig can be imported using any of these accepted formats:
 * `{{project}}/{{app_id}}`
 * `{{app_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AppAttestConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    app_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_app_check_app_attest_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AppAttestConfig using one of the formats above. For example:
 

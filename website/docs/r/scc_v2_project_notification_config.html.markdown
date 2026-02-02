@@ -41,7 +41,6 @@ resource "google_pubsub_topic" "scc_v2_project_notification" {
 resource "google_scc_v2_project_notification_config" "custom_notification_config" {
   config_id    = "my-config"
   project      = "my-project-name"
-  location     = "global"
   description  = "My custom Cloud Security Command Center Finding Notification Configuration"
   pubsub_topic =  google_pubsub_topic.scc_v2_project_notification.id
 
@@ -64,6 +63,24 @@ The following arguments are supported:
 * `config_id` -
   (Required)
   This must be unique within the project.
+
+
+* `description` -
+  (Optional)
+  The description of the notification config (max of 1024 characters).
+
+* `pubsub_topic` -
+  (Optional)
+  The Pub/Sub topic to send notifications to. Its format is
+  "projects/[project_id]/topics/[topic]".
+
+* `location` -
+  (Optional)
+  Location ID for the parent project. Defaults to `global` if location is not provided.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_streaming_config"></a>The `streaming_config` block supports:
@@ -89,26 +106,6 @@ The following arguments are supported:
   See
   [Filtering notifications](https://cloud.google.com/security-command-center/docs/how-to-api-filter-notifications)
   for information on how to write a filter.
-
-- - -
-
-
-* `description` -
-  (Optional)
-  The description of the notification config (max of 1024 characters).
-
-* `pubsub_topic` -
-  (Optional)
-  The Pub/Sub topic to send notifications to. Its format is
-  "projects/[project_id]/topics/[topic]".
-
-* `location` -
-  (Optional)
-  Location ID of the parent organization. Only global is supported at the moment.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -143,6 +140,18 @@ ProjectNotificationConfig can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{config_id}}`
 * `{{location}}/{{config_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ProjectNotificationConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    configId = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_scc_v2_project_notification_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ProjectNotificationConfig using one of the formats above. For example:
 

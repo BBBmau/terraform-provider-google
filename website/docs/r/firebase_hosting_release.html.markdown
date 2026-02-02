@@ -125,9 +125,6 @@ The following arguments are supported:
   Required. The ID of the site to which the release belongs.
 
 
-- - -
-
-
 * `type` -
   (Optional)
   The type of the release; indicates what happened to the content of the site. There is no need to specify
@@ -152,6 +149,7 @@ The following arguments are supported:
   The content of the version specified will be actively displayed on the appropriate URL.
   The Version must belong to the same site as in the `site_id`.
   This parameter must be empty if the `type` of the release is `SITE_DISABLE`.
+
 
 
 ## Attributes Reference
@@ -187,6 +185,18 @@ Release can be imported using any of these accepted formats:
 * `{{site_id}}/{{channel_id}}/{{release_id}}`
 * `{{site_id}}/{{release_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Release using identity values. For example:
+
+```tf
+import {
+  identity = {
+    release_id = "<-optional value->"
+    site_id = "<-required value->"
+    channel_id = "<-optional value->"
+  }
+  to = google_firebase_hosting_release.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Release using one of the formats above. For example:
 

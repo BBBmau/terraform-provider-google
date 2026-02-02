@@ -20,18 +20,38 @@
 package bigquery
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 var bigqueryAccessRoleToPrimitiveMap = map[string]string{
@@ -157,6 +177,38 @@ func resourceBigQueryDatasetAccessReassignIamMemberInNestedObjectList(d *schema.
 	return "", nil, nil
 }
 
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceBigQueryDatasetAccess() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceBigQueryDatasetAccessCreate,
@@ -171,6 +223,22 @@ func ResourceBigQueryDatasetAccess() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"dataset_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"dataset_id": {
@@ -258,12 +326,13 @@ This can be used e.g. in UIs which allow to enter the expression.`,
 							Description: `Which resources in the dataset this entry applies to. Currently, only views are supported,
 but additional target types may be added in the future. Possible values: VIEWS`,
 							Elem: &schema.Schema{
-								Type: schema.TypeString,
+								Type:         schema.TypeString,
+								ValidateFunc: verify.ValidateRegexp(`^[A-Z_]+$`),
 							},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"domain": {
 				Type:             schema.TypeString,
@@ -272,7 +341,7 @@ but additional target types may be added in the future. Possible values: VIEWS`,
 				DiffSuppressFunc: resourceBigQueryDatasetAccessIamMemberDiffSuppress,
 				Description: `A domain to grant access to. Any users signed in with the
 domain specified will be granted the specified access`,
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"group_by_email": {
 				Type:             schema.TypeString,
@@ -280,7 +349,7 @@ domain specified will be granted the specified access`,
 				ForceNew:         true,
 				DiffSuppressFunc: resourceBigQueryDatasetAccessIamMemberDiffSuppress,
 				Description:      `An email address of a Google Group to grant access to.`,
-				ExactlyOneOf:     []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf:     []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"iam_member": {
 				Type:             schema.TypeString,
@@ -289,7 +358,7 @@ domain specified will be granted the specified access`,
 				DiffSuppressFunc: resourceBigQueryDatasetAccessIamMemberDiffSuppress,
 				Description: `Some other type of member that appears in the IAM Policy but isn't a user,
 group, domain, or special group. For example: 'allUsers'`,
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"role": {
 				Type:             schema.TypeString,
@@ -337,7 +406,7 @@ is 256 characters.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"special_group": {
 				Type:             schema.TypeString,
@@ -349,7 +418,7 @@ is 256 characters.`,
 * 'projectReaders': Readers of the enclosing project.
 * 'projectWriters': Writers of the enclosing project.
 * 'allAuthenticatedUsers': All authenticated BigQuery users.`,
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"user_by_email": {
 				Type:             schema.TypeString,
@@ -358,7 +427,7 @@ is 256 characters.`,
 				DiffSuppressFunc: resourceBigQueryDatasetAccessIamMemberDiffSuppress,
 				Description: `An email address of a user to grant access to. For example:
 fred@example.com`,
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"view": {
 				Type:     schema.TypeList,
@@ -394,7 +463,7 @@ is 1,024 characters.`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"user_by_email", "group_by_email", "domain", "special_group", "iam_member", "view", "dataset", "routine"},
+				ExactlyOneOf: []string{"dataset", "domain", "group_by_email", "iam_member", "routine", "special_group", "user_by_email", "view"},
 			},
 			"api_updated_member": {
 				Type:        schema.TypeBool,
@@ -541,6 +610,22 @@ func resourceBigQueryDatasetAccessCreate(d *schema.ResourceData, meta interface{
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if datasetIdValue, ok := d.GetOk("dataset_id"); ok && datasetIdValue.(string) != "" {
+			if err = identity.Set("dataset_id", datasetIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting dataset_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	// by default, we are not updating the member
 	if err := d.Set("api_updated_member", false); err != nil {
 		return fmt.Errorf("Error setting api_updated_member: %s", err)
@@ -658,6 +743,24 @@ func resourceBigQueryDatasetAccessRead(d *schema.ResourceData, meta interface{})
 	}
 	if err := d.Set("condition", flattenNestedBigQueryDatasetAccessCondition(res["condition"], d, config)); err != nil {
 		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("dataset_id"); !ok && v == "" {
+			err = identity.Set("dataset_id", d.Get("dataset_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting dataset_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -935,6 +1038,9 @@ func expandNestedBigQueryDatasetAccessIamMember(v interface{}, d tpgresource.Ter
 }
 
 func expandNestedBigQueryDatasetAccessView(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -980,6 +1086,9 @@ func expandNestedBigQueryDatasetAccessViewTableId(v interface{}, d tpgresource.T
 }
 
 func expandNestedBigQueryDatasetAccessDataset(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1006,6 +1115,9 @@ func expandNestedBigQueryDatasetAccessDataset(v interface{}, d tpgresource.Terra
 }
 
 func expandNestedBigQueryDatasetAccessDatasetDataset(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1044,6 +1156,9 @@ func expandNestedBigQueryDatasetAccessDatasetTargetTypes(v interface{}, d tpgres
 }
 
 func expandNestedBigQueryDatasetAccessRoutine(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1089,6 +1204,9 @@ func expandNestedBigQueryDatasetAccessRoutineRoutineId(v interface{}, d tpgresou
 }
 
 func expandNestedBigQueryDatasetAccessCondition(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

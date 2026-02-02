@@ -111,9 +111,6 @@ The following arguments are supported:
   The name of the Access Level to add this condition to.
 
 
-- - -
-
-
 * `ip_subnetworks` -
   (Optional)
   A list of CIDR block IP subnetwork specification. May be IPv4
@@ -170,6 +167,7 @@ The following arguments are supported:
   Structure is [documented below](#nested_vpc_network_sources).
 
 
+
 <a name="nested_device_policy"></a>The `device_policy` block supports:
 
 * `require_screen_lock` -
@@ -222,10 +220,10 @@ The following arguments are supported:
 * `vpc_subnetwork` -
   (Optional)
   Sub networks within a VPC network.
-  Structure is [documented below](#nested_vpc_network_sources_vpc_network_sources_vpc_subnetwork).
+  Structure is [documented below](#nested_vpc_network_sources_vpc_subnetwork).
 
 
-<a name="nested_vpc_network_sources_vpc_network_sources_vpc_subnetwork"></a>The `vpc_subnetwork` block supports:
+<a name="nested_vpc_network_sources_vpc_subnetwork"></a>The `vpc_subnetwork` block supports:
 
 * `network` -
   (Required)

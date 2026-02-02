@@ -124,9 +124,6 @@ The following arguments are supported:
   'projects/{project}/locations/{location}/datasets/{dataset}'
 
 
-- - -
-
-
 * `default_consent_ttl` -
   (Optional)
   Default time to live for consents in this store. Must be at least 24 hours. Updating this field will not affect the expiration time of existing consents.
@@ -149,6 +146,7 @@ The following arguments are supported:
 
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
+
 
 
 ## Attributes Reference
@@ -181,6 +179,17 @@ ConsentStore can be imported using any of these accepted formats:
 
 * `{{dataset}}/consentStores/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ConsentStore using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    dataset = "<-required value->"
+  }
+  to = google_healthcare_consent_store.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ConsentStore using one of the formats above. For example:
 

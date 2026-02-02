@@ -350,6 +350,20 @@ The following arguments are supported:
   Structure is [documented below](#nested_fields).
 
 
+* `column` -
+  (Optional)
+  Resources like Entry can have schemas associated with them. This scope allows users to attach tags to an
+  individual column based on that schema.
+  For attaching a tag to a nested column, use `.` to separate the column names. Example:
+  `outer_column.inner_column`
+
+* `parent` -
+  (Optional)
+  The name of the parent this tag is attached to. This can be the name of an entry or an entry group. If an entry group, the tag will be attached to
+  all entries in that group.
+
+
+
 <a name="nested_fields"></a>The `fields` block supports:
 
 * `field_name` - (Required) The identifier for this object. Format specified above.
@@ -384,22 +398,6 @@ The following arguments are supported:
   (Optional)
   Holds the value for a tag field with enum type. This value must be one of the allowed values in the definition of this enum.
 
-- - -
-
-
-* `column` -
-  (Optional)
-  Resources like Entry can have schemas associated with them. This scope allows users to attach tags to an
-  individual column based on that schema.
-  For attaching a tag to a nested column, use `.` to separate the column names. Example:
-  `outer_column.inner_column`
-
-* `parent` -
-  (Optional)
-  The name of the parent this tag is attached to. This can be the name of an entry or an entry group. If an entry group, the tag will be attached to
-  all entries in that group.
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -432,6 +430,16 @@ Tag can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Tag using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_data_catalog_tag.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Tag using one of the formats above. For example:
 

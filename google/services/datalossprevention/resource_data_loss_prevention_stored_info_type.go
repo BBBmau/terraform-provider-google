@@ -20,19 +20,38 @@
 package datalossprevention
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 // This customizeDiff allows updating the dictionary, regex, and large_custom_dictionary fields, but
@@ -61,6 +80,38 @@ func storedInfoTypeCustomizeDiff(_ context.Context, diff *schema.ResourceDiff, v
 	return storedInfoTypeCustomizeDiffFunc(diff)
 }
 
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceDataLossPreventionStoredInfoType() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceDataLossPreventionStoredInfoTypeCreate,
@@ -81,6 +132,22 @@ func ResourceDataLossPreventionStoredInfoType() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			storedInfoTypeCustomizeDiff,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"parent": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"parent": {
@@ -120,7 +187,7 @@ func ResourceDataLossPreventionStoredInfoType() *schema.Resource {
 									},
 								},
 							},
-							ExactlyOneOf: []string{"dictionary.0.word_list", "dictionary.0.cloud_storage_path"},
+							ExactlyOneOf: []string{"dictionary.0.cloud_storage_path", "dictionary.0.word_list"},
 						},
 						"word_list": {
 							Type:        schema.TypeList,
@@ -140,11 +207,11 @@ phrase and every phrase must contain at least 2 characters that are letters or d
 									},
 								},
 							},
-							ExactlyOneOf: []string{"dictionary.0.word_list", "dictionary.0.cloud_storage_path"},
+							ExactlyOneOf: []string{"dictionary.0.cloud_storage_path", "dictionary.0.word_list"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"dictionary", "regex", "large_custom_dictionary"},
+				ExactlyOneOf: []string{"dictionary", "large_custom_dictionary", "regex"},
 			},
 			"display_name": {
 				Type:        schema.TypeString,
@@ -223,7 +290,7 @@ If any of these artifacts are modified, the dictionary is considered invalid and
 									},
 								},
 							},
-							ExactlyOneOf: []string{"large_custom_dictionary.0.cloud_storage_file_set", "large_custom_dictionary.0.big_query_field"},
+							ExactlyOneOf: []string{"large_custom_dictionary.0.big_query_field", "large_custom_dictionary.0.cloud_storage_file_set"},
 						},
 						"cloud_storage_file_set": {
 							Type:        schema.TypeList,
@@ -239,11 +306,11 @@ If any of these artifacts are modified, the dictionary is considered invalid and
 									},
 								},
 							},
-							ExactlyOneOf: []string{"large_custom_dictionary.0.cloud_storage_file_set", "large_custom_dictionary.0.big_query_field"},
+							ExactlyOneOf: []string{"large_custom_dictionary.0.big_query_field", "large_custom_dictionary.0.cloud_storage_file_set"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"dictionary", "regex", "large_custom_dictionary"},
+				ExactlyOneOf: []string{"dictionary", "large_custom_dictionary", "regex"},
 			},
 			"regex": {
 				Type:        schema.TypeList,
@@ -268,7 +335,7 @@ Its syntax (https://github.com/google/re2/wiki/Syntax) can be found under the go
 						},
 					},
 				},
-				ExactlyOneOf: []string{"dictionary", "regex", "large_custom_dictionary"},
+				ExactlyOneOf: []string{"dictionary", "large_custom_dictionary", "regex"},
 			},
 			"stored_info_type_id": {
 				Type:     schema.TypeString,
@@ -373,6 +440,22 @@ func resourceDataLossPreventionStoredInfoTypeCreate(d *schema.ResourceData, meta
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {
+			if err = identity.Set("parent", parentValue.(string)); err != nil {
+				return fmt.Errorf("Error setting parent: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = transport_tpg.PollingWaitTime(resourceDataLossPreventionStoredInfoTypePollRead(d, meta), transport_tpg.PollCheckForExistence, "Creating StoredInfoType", d.Timeout(schema.TimeoutCreate), 1)
 	if err != nil {
@@ -491,6 +574,24 @@ func resourceDataLossPreventionStoredInfoTypeRead(d *schema.ResourceData, meta i
 		return fmt.Errorf("Error reading StoredInfoType: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("parent"); !ok && v == "" {
+			err = identity.Set("parent", d.Get("parent").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting parent: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -499,6 +600,21 @@ func resourceDataLossPreventionStoredInfoTypeUpdate(d *schema.ResourceData, meta
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if parentValue, ok := d.GetOk("parent"); ok && parentValue.(string) != "" {
+			if err = identity.Set("parent", parentValue.(string)); err != nil {
+				return fmt.Errorf("Error setting parent: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -685,7 +801,7 @@ func flattenDataLossPreventionStoredInfoTypeName(v interface{}, d *schema.Resour
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func flattenDataLossPreventionStoredInfoTypeDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -889,6 +1005,9 @@ func expandDataLossPreventionStoredInfoTypeDisplayName(v interface{}, d tpgresou
 }
 
 func expandDataLossPreventionStoredInfoTypeRegex(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -923,6 +1042,9 @@ func expandDataLossPreventionStoredInfoTypeRegexGroupIndexes(v interface{}, d tp
 }
 
 func expandDataLossPreventionStoredInfoTypeDictionary(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -949,6 +1071,9 @@ func expandDataLossPreventionStoredInfoTypeDictionary(v interface{}, d tpgresour
 }
 
 func expandDataLossPreventionStoredInfoTypeDictionaryWordList(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -972,6 +1097,9 @@ func expandDataLossPreventionStoredInfoTypeDictionaryWordListWords(v interface{}
 }
 
 func expandDataLossPreventionStoredInfoTypeDictionaryCloudStoragePath(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -995,6 +1123,9 @@ func expandDataLossPreventionStoredInfoTypeDictionaryCloudStoragePathPath(v inte
 }
 
 func expandDataLossPreventionStoredInfoTypeLargeCustomDictionary(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1028,6 +1159,9 @@ func expandDataLossPreventionStoredInfoTypeLargeCustomDictionary(v interface{}, 
 }
 
 func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryOutputPath(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1051,6 +1185,9 @@ func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryOutputPathPath(v
 }
 
 func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryCloudStorageFileSet(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1074,6 +1211,9 @@ func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryCloudStorageFile
 }
 
 func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryBigQueryField(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1100,6 +1240,9 @@ func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryBigQueryField(v 
 }
 
 func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryBigQueryFieldTable(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1145,6 +1288,9 @@ func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryBigQueryFieldTab
 }
 
 func expandDataLossPreventionStoredInfoTypeLargeCustomDictionaryBigQueryFieldField(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

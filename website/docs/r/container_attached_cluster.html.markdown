@@ -199,31 +199,6 @@ The following arguments are supported:
   Structure is [documented below](#nested_fleet).
 
 
-<a name="nested_oidc_config"></a>The `oidc_config` block supports:
-
-* `issuer_url` -
-  (Required)
-  A JSON Web Token (JWT) issuer URI. `issuer` must start with `https://`
-
-* `jwks` -
-  (Optional)
-  OIDC verification keys in JWKS format (RFC 7517).
-
-<a name="nested_fleet"></a>The `fleet` block supports:
-
-* `membership` -
-  (Output)
-  The name of the managed Hub Membership resource associated to this
-  cluster. Membership names are formatted as
-  projects/<project-number>/locations/global/membership/<cluster-id>.
-
-* `project` -
-  (Required)
-  The number of the Fleet host project where this cluster will be registered.
-
-- - -
-
-
 * `description` -
   (Optional)
   A human readable description of this attached cluster. Cannot be longer
@@ -277,6 +252,29 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 * `deletion_policy` - (Optional) Policy to determine what flags to send on delete. Possible values: DELETE, DELETE_IGNORE_ERRORS
+
+
+<a name="nested_oidc_config"></a>The `oidc_config` block supports:
+
+* `issuer_url` -
+  (Required)
+  A JSON Web Token (JWT) issuer URI. `issuer` must start with `https://`
+
+* `jwks` -
+  (Optional)
+  OIDC verification keys in JWKS format (RFC 7517).
+
+<a name="nested_fleet"></a>The `fleet` block supports:
+
+* `membership` -
+  (Output)
+  The name of the managed Hub Membership resource associated to this
+  cluster. Membership names are formatted as
+  projects/<project-number>/locations/global/membership/<cluster-id>.
+
+* `project` -
+  (Required)
+  The number of the Fleet host project where this cluster will be registered.
 
 <a name="nested_logging_config"></a>The `logging_config` block supports:
 
@@ -439,6 +437,18 @@ Cluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Cluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_container_attached_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Cluster using one of the formats above. For example:
 

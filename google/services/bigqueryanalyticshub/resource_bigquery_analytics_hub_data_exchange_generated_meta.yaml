@@ -1,20 +1,22 @@
-resource: 'google_bigquery_analytics_hub_data_exchange'
-generation_type: 'mmv1'
-source_file: 'products/bigqueryanalyticshub/DataExchange.yaml'
-api_service_name: 'analyticshub.googleapis.com'
-api_version: 'v1'
-api_resource_type_kind: 'DataExchange'
+resource: google_bigquery_analytics_hub_data_exchange
+generation_type: mmv1
+source_file: products/bigqueryanalyticshub/DataExchange.yaml
+api_service_name: analyticshub.googleapis.com
+api_version: v1
+api_resource_type_kind: DataExchange
 fields:
-  - field: 'data_exchange_id'
-    provider_only: true
-  - field: 'description'
-  - field: 'display_name'
-  - field: 'documentation'
-  - field: 'icon'
-  - field: 'listing_count'
-  - field: 'location'
-    provider_only: true
-  - field: 'name'
-  - field: 'primary_contact'
-  - field: 'sharing_environment_config.dcr_exchange_config'
-  - field: 'sharing_environment_config.default_exchange_config'
+    - field: data_exchange_id
+      provider_only: true
+    - api_field: description
+    - api_field: discoveryType
+    - api_field: displayName
+    - api_field: documentation
+    - api_field: icon
+    - api_field: listingCount
+    - field: location
+      provider_only: true
+    - api_field: logLinkedDatasetQueryUserEmail
+    - api_field: name
+    - api_field: primaryContact
+    - api_field: sharingEnvironmentConfig.dcrExchangeConfig
+    - api_field: sharingEnvironmentConfig.defaultExchangeConfig

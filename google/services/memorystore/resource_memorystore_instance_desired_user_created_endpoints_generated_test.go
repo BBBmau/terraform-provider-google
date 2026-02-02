@@ -19,15 +19,35 @@ package memorystore_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccMemorystoreInstanceDesiredUserCreatedEndpoints_memorystoreInstanceDesiredUserCreatedEndpointsExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccMemorystoreInstanceDesiredUserCreatedEndpoints_memorystoreInstanceDe
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "region"},
+			},
+			{
+				ResourceName:       "google_memorystore_instance_desired_user_created_endpoints.instance-user-conn",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -229,6 +255,12 @@ func TestAccMemorystoreInstanceDesiredUserCreatedEndpoints_memorystoreInstanceDe
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "region"},
 			},
+			{
+				ResourceName:       "google_memorystore_instance_desired_user_created_endpoints.instance-user-auto-conn",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -310,7 +342,7 @@ resource "google_compute_network" "network2" {
 resource "google_memorystore_instance" "instance-user-auto-conn" {
   instance_id                 = "tf-test-instance-user-auto-conn%{random_suffix}"
   shard_count                 = 1
-  desired_psc_auto_connections {
+  desired_auto_created_endpoints {
     network                   = google_compute_network.network1.id
     project_id                = data.google_project.project.project_id
   }

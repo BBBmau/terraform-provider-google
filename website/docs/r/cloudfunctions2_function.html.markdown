@@ -836,7 +836,7 @@ resource "google_cloudfunctions2_function" "function" {
 
 }
 ```
-## Example Usage - Cloudfunctions2 Abiu
+## Example Usage - Cloudfunctions2 Automatic Base Image Update
 
 
 ```hcl
@@ -913,7 +913,7 @@ resource "google_cloudfunctions2_function" "function" {
   }
 }
 ```
-## Example Usage - Cloudfunctions2 Abiu On Deploy
+## Example Usage - Cloudfunctions2 On Deploy Base Image Update
 
 
 ```hcl
@@ -990,6 +990,58 @@ resource "google_cloudfunctions2_function" "function" {
   }
 }
 ```
+## Example Usage - Cloudfunctions2 Directvpc
+
+
+```hcl
+locals {
+  project = "my-project-name" # Google Cloud Platform Project ID
+}
+
+resource "google_storage_bucket" "bucket" {
+  provider = google-beta
+  name     = "${local.project}-gcf-source"  # Every bucket name must be globally unique
+  location = "US"
+  uniform_bucket_level_access = true
+}
+
+resource "google_storage_bucket_object" "object" {
+  provider = google-beta
+  name   = "function-source.zip"
+  bucket = google_storage_bucket.bucket.name
+  source = "function-source.zip"  # Add path to the zipped function source code
+}
+
+resource "google_cloudfunctions2_function" "function" {
+  provider = google-beta
+  name = "function-v2"
+  location = "us-central1"
+  description = "a new function"
+
+  build_config {
+    runtime = "nodejs20"
+    entry_point = "helloHttp"  # Set the entry point
+    source {
+    storage_source {
+        bucket = google_storage_bucket.bucket.name
+        object = google_storage_bucket_object.object.name
+      }
+    }
+  }
+
+  service_config {
+    max_instance_count  = 1
+    available_memory    = "256M"
+    timeout_seconds     = 60
+    direct_vpc_network_interface {
+      network = "default"
+      subnetwork = "default"
+      tags = ["tag1", "tag2"]
+    }
+    direct_vpc_egress = "VPC_EGRESS_ALL_TRAFFIC"
+  }
+}
+```
 
 ## Argument Reference
 
@@ -1004,9 +1056,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location of this cloud function.
-
-
-- - -
 
 
 * `description` -
@@ -1044,6 +1093,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_build_config"></a>The `build_config` block supports:
@@ -1167,7 +1217,7 @@ The following arguments are supported:
 <a name="nested_service_config"></a>The `service_config` block supports:
 
 * `service` -
-  (Optional)
+  (Output)
   Name of the service associated with a Function.
 
 * `timeout_seconds` -
@@ -1213,6 +1263,16 @@ The following arguments are supported:
   Available egress settings.
   Possible values are: `VPC_CONNECTOR_EGRESS_SETTINGS_UNSPECIFIED`, `PRIVATE_RANGES_ONLY`, `ALL_TRAFFIC`.
 
+* `direct_vpc_network_interface` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  The Direct VPC network interface for the Cloud Function. Currently only a single Direct VPC is supported.
+  Structure is [documented below](#nested_service_config_direct_vpc_network_interface).
+
+* `direct_vpc_egress` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Egress settings for direct VPC. If not provided, it defaults to VPC_EGRESS_PRIVATE_RANGES_ONLY.
+  Possible values are: `VPC_EGRESS_ALL_TRAFFIC`, `VPC_EGRESS_PRIVATE_RANGES_ONLY`.
+
 * `ingress_settings` -
   (Optional)
   Available ingress settings. Defaults to "ALLOW_ALL" if unspecified.
@@ -1250,6 +1310,20 @@ The following arguments are supported:
   The binary authorization policy to be checked when deploying the Cloud Run service.
 
 
+<a name="nested_service_config_direct_vpc_network_interface"></a>The `direct_vpc_network_interface` block supports:
+
+* `network` -
+  (Optional)
+  The name of the VPC network to which the function will be connected. Specify either a VPC network or a subnet, or both. If you specify only a network, the subnet uses the same name as the network.
+
+* `subnetwork` -
+  (Optional)
+  The name of the VPC subnetwork that the Cloud Function resource will get IPs from. Specify either a VPC network or a subnet, or both. If both network and subnetwork are specified, the given VPC subnetwork must belong to the given VPC network. If subnetwork is not specified, the subnetwork with the same name with the network will be used.
+
+* `tags` -
+  (Optional)
+  Network tags applied to this Cloud Function resource.
+
 <a name="nested_service_config_secret_environment_variables"></a>The `secret_environment_variables` block supports:
 
 * `key` -
@@ -1285,10 +1359,10 @@ The following arguments are supported:
 * `versions` -
   (Optional)
   List of secret versions to mount for this secret. If empty, the latest version of the secret will be made available in a file named after the secret under the mount point.'
-  Structure is [documented below](#nested_service_config_secret_volumes_secret_volumes_versions).
+  Structure is [documented below](#nested_service_config_secret_volumes_versions).
 
 
-<a name="nested_service_config_secret_volumes_secret_volumes_versions"></a>The `versions` block supports:
+<a name="nested_service_config_secret_volumes_versions"></a>The `versions` block supports:
 
 * `version` -
   (Required)
@@ -1312,7 +1386,7 @@ The following arguments are supported:
   region. If not provided, defaults to the same region as the function.
 
 * `event_type` -
-  (Optional)
+  (Required)
   Required. The type of event to observe.
 
 * `event_filters` -
@@ -1403,6 +1477,18 @@ function can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import function using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloudfunctions2_function.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import function using one of the formats above. For example:
 

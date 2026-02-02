@@ -58,6 +58,36 @@ resource "google_discovery_engine_search_engine" "basic" {
   }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=discoveryengine_searchengine_agentspace_basic&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Discoveryengine Searchengine Agentspace Basic
+
+
+```hcl
+resource "google_discovery_engine_data_store" "agentspace_basic" {
+  location                    = "global"
+  data_store_id               = "example-datastore-id"
+  display_name                = "tf-test-structured-datastore"
+  industry_vertical           = "GENERIC"
+  content_config              = "NO_CONTENT"
+  solution_types              = ["SOLUTION_TYPE_SEARCH"]
+  create_advanced_site_search = false
+}
+resource "google_discovery_engine_search_engine" "agentspace_basic" {
+  engine_id                   = "example-engine-id"
+  collection_id               = "default_collection"
+  location                    = google_discovery_engine_data_store.agentspace_basic.location
+  display_name                = "tf-test-agentspace-search-engine"
+  data_store_ids              = [google_discovery_engine_data_store.agentspace_basic.data_store_id]
+  industry_vertical           = "GENERIC"
+  app_type                    = "APP_TYPE_INTRANET"
+  search_engine_config {
+  }
+}
+```
 
 ## Argument Reference
 
@@ -90,6 +120,39 @@ The following arguments are supported:
   Location.
 
 
+* `industry_vertical` -
+  (Optional)
+  The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
+  Default value is `GENERIC`.
+  Possible values are: `GENERIC`, `MEDIA`, `HEALTHCARE_FHIR`.
+
+* `common_config` -
+  (Optional)
+  Common config spec that specifies the metadata of the engine.
+  Structure is [documented below](#nested_common_config).
+
+* `app_type` -
+  (Optional)
+  This is the application type this engine resource represents.
+  The supported values: 'APP_TYPE_UNSPECIFIED', 'APP_TYPE_INTRANET'.
+
+* `features` -
+  (Optional)
+  A map of the feature config for the engine to opt in or opt out of features.
+
+* `kms_key_name` -
+  (Optional)
+  The KMS key to be used to protect this Engine at creation time.
+  Must be set for requests that need to comply with CMEK Org Policy
+  protections.
+  If this field is set and processed successfully, the Engine will be
+  protected by the KMS key, as indicated in the cmek_config field.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_search_engine_config"></a>The `search_engine_config` block supports:
 
 * `search_tier` -
@@ -102,24 +165,6 @@ The following arguments are supported:
   (Optional)
   The add-on that this search engine enables.
   Each value may be one of: `SEARCH_ADD_ON_LLM`.
-
-- - -
-
-
-* `industry_vertical` -
-  (Optional)
-  The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine.
-  Default value is `GENERIC`.
-  Possible values are: `GENERIC`, `MEDIA`, `HEALTHCARE_FHIR`.
-
-* `common_config` -
-  (Optional)
-  Common config spec that specifies the metadata of the engine.
-  Structure is [documented below](#nested_common_config).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 <a name="nested_common_config"></a>The `common_config` block supports:
 
@@ -164,6 +209,19 @@ SearchEngine can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{collection_id}}/{{engine_id}}`
 * `{{location}}/{{collection_id}}/{{engine_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SearchEngine using identity values. For example:
+
+```tf
+import {
+  identity = {
+    engineId = "<-required value->"
+    collectionId = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_discovery_engine_search_engine.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SearchEngine using one of the formats above. For example:
 

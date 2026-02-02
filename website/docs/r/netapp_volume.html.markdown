@@ -72,10 +72,6 @@ data "google_compute_network" "default" {
 The following arguments are supported:
 
 
-* `share_name` -
-  (Required)
-  Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
-
 * `storage_pool` -
   (Required)
   Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume.
@@ -87,7 +83,7 @@ The following arguments are supported:
 * `protocols` -
   (Required)
   The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-  Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+  Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
 
 * `location` -
   (Required)
@@ -98,8 +94,9 @@ The following arguments are supported:
   The name of the volume. Needs to be unique per location.
 
 
-- - -
-
+* `share_name` -
+  (Optional)
+  Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
 
 * `export_policy` -
   (Optional)
@@ -175,6 +172,28 @@ The following arguments are supported:
   Tiering policy for the volume.
   Structure is [documented below](#nested_tiering_policy).
 
+* `hybrid_replication_parameters` -
+  (Optional)
+  [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+  [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+  are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
+  Structure is [documented below](#nested_hybrid_replication_parameters).
+
+* `throughput_mibps` -
+  (Optional)
+  Optional. Custom Performance Total Throughput of the pool (in MiB/s).
+
+* `cache_parameters` -
+  (Optional)
+  Cache parameters for the volume.
+  Structure is [documented below](#nested_cache_parameters).
+
+* `block_devices` -
+  (Optional)
+  Block device represents the device(s) which are stored in the block volume.
+  Currently, only one block device is permitted per Volume.
+  Structure is [documented below](#nested_block_devices).
+
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
@@ -182,6 +201,7 @@ The following arguments are supported:
 Volumes may have nested snapshot resources. Deleting such a volume will fail.
 Setting this parameter to FORCE will delete volumes including nested snapshots.
 Possible values: DEFAULT, FORCE.
+
 
 
 <a name="nested_export_policy"></a>The `export_policy` block supports:
@@ -201,6 +221,7 @@ Possible values: DEFAULT, FORCE.
 * `has_root_access` -
   (Optional)
   If enabled, the root user (UID = 0) of the specified clients doesn't get mapped to nobody (UID = 65534). This is also known as no_root_squash.
+  Use either squash_mode or has_root_access, but never both at the same time. These parameters are mutually exclusive.
 
 * `access_type` -
   (Optional)
@@ -238,6 +259,16 @@ Possible values: DEFAULT, FORCE.
 * `kerberos5p_read_write` -
   (Optional)
   If enabled (true) the rule defines read and write access for clients matching the 'allowedClients' specification. It enables nfs clients to mount using 'privacy' kerberos security mode. The 'kerberos5pReadOnly' value is ignored if this is enabled.
+
+* `squash_mode` -
+  (Optional)
+  SquashMode defines how remote user privileges are restricted when accessing an NFS export. It controls how the user identities (like root) are mapped to anonymous users to limit access and enforce security.
+  Use either squash_mode or has_root_access, but never both at the same time. These parameters are mutually exclusive.
+  Possible values are: `SQUASH_MODE_UNSPECIFIED`, `NO_ROOT_SQUASH`, `ROOT_SQUASH`, `ALL_SQUASH`.
+
+* `anon_uid` -
+  (Optional)
+  An integer representing the anonymous user ID. Range is 0 to 4294967295. Required when `squash_mode` is `ALL_SQUASH`.
 
 <a name="nested_restore_parameters"></a>The `restore_parameters` block supports:
 
@@ -369,6 +400,155 @@ Possible values: DEFAULT, FORCE.
   Default value is `PAUSED`.
   Possible values are: `ENABLED`, `PAUSED`.
 
+* `hot_tier_bypass_mode_enabled` -
+  (Optional)
+  Optional. Flag indicating that the hot tier bypass mode is enabled. Default is false.
+  Only applicable to Flex service level.
+
+<a name="nested_hybrid_replication_parameters"></a>The `hybrid_replication_parameters` block supports:
+
+* `replication` -
+  (Optional)
+  Required. Desired name for the replication of this volume.
+
+* `peer_volume_name` -
+  (Optional)
+  Required. Name of the ONTAP source volume to be replicated to NetApp Volumes destination volume.
+
+* `peer_cluster_name` -
+  (Optional)
+  Required. Name of the ONTAP source cluster to be peered with NetApp Volumes.
+
+* `peer_svm_name` -
+  (Optional)
+  Required. Name of the ONTAP source vserver SVM to be peered with NetApp Volumes.
+
+* `peer_ip_addresses` -
+  (Optional)
+  Required. List of all intercluster LIF IP addresses of the ONTAP source cluster.
+
+* `cluster_location` -
+  (Optional)
+  Optional. Name of source cluster location associated with the replication. This is a free-form field
+  for display purposes only.
+
+* `description` -
+  (Optional)
+  Optional. Description of the replication.
+
+* `labels` -
+  (Optional)
+  Optional. Labels to be added to the replication as the key value pairs.
+  An object containing a list of "key": value pairs. Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.
+
+* `replication_schedule` -
+  (Optional)
+  Optional. Replication Schedule for the replication created.
+  Possible values are: `EVERY_10_MINUTES`, `HOURLY`, `DAILY`.
+
+* `hybrid_replication_type` -
+  (Optional)
+  Optional. Type of the hybrid replication. Use `MIGRATION` to create a volume migration
+  and `ONPREM_REPLICATION` to create an external replication.
+  Other values are read-only. `REVERSE_ONPREM_REPLICATION` is used to represent an external
+  replication which got reversed. Default is `MIGRATION`.
+  Possible values are: `MIGRATION`, `CONTINUOUS_REPLICATION`, `ONPREM_REPLICATION`, `REVERSE_ONPREM_REPLICATION`.
+
+* `large_volume_constituent_count` -
+  (Optional)
+  Optional. If the source is a FlexGroup volume, this field needs to match the number of constituents in the FlexGroup.
+
+<a name="nested_cache_parameters"></a>The `cache_parameters` block supports:
+
+* `peer_volume_name` -
+  (Optional)
+  Required. Name of the origin volume for the cache volume.
+
+* `peer_cluster_name` -
+  (Optional)
+  Required. Name of the origin volume's ONTAP cluster.
+
+* `peer_svm_name` -
+  (Optional)
+  Required. Name of the origin volume's SVM.
+
+* `peer_ip_addresses` -
+  (Optional)
+  Required. List of IC LIF addresses of the origin volume's ONTAP cluster.
+
+* `enable_global_file_lock` -
+  (Optional)
+  Optional. Field indicating whether cache volume as global file lock enabled.
+
+* `peering_command_expiry_time` -
+  (Optional)
+  Optional. Expiration time for the peering command to be executed on user's ONTAP. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
+
+* `cache_state` -
+  (Output)
+  State of the cache volume indicating the peering status.
+
+* `command` -
+  (Output)
+  Copy-paste-able commands to be used on user's ONTAP to accept peering requests.
+
+* `passphrase` -
+  (Output)
+  Temporary passphrase generated to accept cluster peering command.
+
+* `state_details` -
+  (Output)
+  Detailed description of the current cache state.
+
+* `cache_config` -
+  (Optional)
+  Optional. Configuration of the cache volume.
+  Structure is [documented below](#nested_cache_parameters_cache_config).
+
+
+<a name="nested_cache_parameters_cache_config"></a>The `cache_config` block supports:
+
+* `cifs_change_notify_enabled` -
+  (Optional)
+  Optional. Flag indicating whether a CIFS change notification is enabled for the FlexCache volume.
+
+<a name="nested_block_devices"></a>The `block_devices` block supports:
+
+* `name` -
+  (Optional)
+  User-defined name for the block device, unique within the Volume. In case
+  no user input is provided, name will be autogenerated in the backend.
+  The name must meet the following requirements:
+  *   Be between 1 and 255 characters long.
+  *   Contain only uppercase or lowercase letters (A-Z, a-z), numbers (0-9),
+      and the following special characters: "-", "_", "}", "{", ".".
+  *   Spaces are not allowed.
+
+* `host_groups` -
+  (Optional)
+  A list of host groups that identify hosts that can mount the block volume.
+  Format:
+  `projects/{project_id}/locations/{location}/hostGroups/{host_group_id}`
+  This field can be updated after the block device is created.
+
+* `identifier` -
+  (Output)
+  Device identifier of the Block volume. This represents lun_serial_number
+  for ISCSI volumes
+
+* `size_gib` -
+  (Output)
+  The size of the block device in GiB.
+  Any value provided in this field during Volume creation is IGNORED.
+  The block device's size is system-managed and will be set to match
+  the parent Volume's `capacity_gib`.
+
+* `os_type` -
+  (Required)
+  The OS type of the volume.
+  This field can't be changed after the block device is created.
+  Possible values are: `LINUX`, `WINDOWS`, `ESXI`.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -424,6 +604,9 @@ In addition to the arguments listed above, the following computed attributes are
 * `cold_tier_size_gib` -
   Output only. Size of the volume cold tier data in GiB.
 
+* `hot_tier_size_used_gib` -
+  Total hot tier data rounded down to the nearest GiB used by the volume. This field is only used for flex Service Level
+
 * `terraform_labels` -
   The combination of labels configured directly on the resource
    and default labels configured on the provider.
@@ -452,14 +635,18 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   Protocol to mount with.
 
+* `ip_address` -
+  (Output)
+  IP Address.
+
 ## Timeouts
 
 This resource provides the following
 [Timeouts](https://developer.hashicorp.com/terraform/plugin/sdkv2/resources/retries-and-customizable-timeouts) configuration options:
 
-- `create` - Default is 20 minutes.
-- `update` - Default is 20 minutes.
-- `delete` - Default is 20 minutes.
+- `create` - Default is 50 minutes.
+- `update` - Default is 30 minutes.
+- `delete` - Default is 30 minutes.
 
 ## Import
 
@@ -470,6 +657,18 @@ Volume can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Volume using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_netapp_volume.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Volume using one of the formats above. For example:
 

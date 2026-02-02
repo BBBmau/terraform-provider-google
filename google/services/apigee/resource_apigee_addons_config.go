@@ -20,17 +20,70 @@
 package apigee
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceApigeeAddonsConfig() *schema.Resource {
@@ -50,6 +103,18 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"org": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"org": {
 				Type:        schema.TypeString,
@@ -67,7 +132,7 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 						"advanced_api_ops_config": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `Configuration for the Monetization add-on.`,
+							Description: `Configuration for the Advanced API Ops add-on.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -82,19 +147,19 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 						"api_security_config": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `Configuration for the Monetization add-on.`,
+							Description: `Configuration for the API Security add-on.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"enabled": {
 										Type:        schema.TypeBool,
 										Optional:    true,
-										Description: `Flag that specifies whether the Advanced API Ops add-on is enabled.`,
+										Description: `Flag that specifies whether the API security add-on is enabled.`,
 									},
 									"expires_at": {
 										Type:        schema.TypeString,
 										Computed:    true,
-										Description: `Flag that specifies whether the Advanced API Ops add-on is enabled.`,
+										Description: `Time at which the API Security add-on expires in in milliseconds since epoch. If unspecified, the add-on will never expire.`,
 									},
 								},
 							},
@@ -109,12 +174,12 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 									"enabled": {
 										Type:        schema.TypeBool,
 										Optional:    true,
-										Description: `Flag that specifies whether the Advanced API Ops add-on is enabled.`,
+										Description: `Flag that specifies whether the Connectors Platform add-on is enabled.`,
 									},
 									"expires_at": {
 										Type:        schema.TypeString,
 										Computed:    true,
-										Description: `Flag that specifies whether the Advanced API Ops add-on is enabled.`,
+										Description: `Time at which the Connectors Platform add-on expires in milliseconds since epoch. If unspecified, the add-on will never expire.`,
 									},
 								},
 							},
@@ -122,14 +187,14 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 						"integration_config": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `Configuration for the Monetization add-on.`,
+							Description: `Configuration for the Integration add-on.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"enabled": {
 										Type:        schema.TypeBool,
 										Optional:    true,
-										Description: `Flag that specifies whether the Advanced API Ops add-on is enabled.`,
+										Description: `Flag that specifies whether the Integration add-on is enabled.`,
 									},
 								},
 							},
@@ -144,7 +209,7 @@ func ResourceApigeeAddonsConfig() *schema.Resource {
 									"enabled": {
 										Type:        schema.TypeBool,
 										Optional:    true,
-										Description: `Flag that specifies whether the Advanced API Ops add-on is enabled.`,
+										Description: `Flag that specifies whether the Monetization add-on is enabled.`,
 									},
 								},
 							},
@@ -207,6 +272,17 @@ func resourceApigeeAddonsConfigCreate(d *schema.ResourceData, meta interface{}) 
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if orgValue, ok := d.GetOk("org"); ok && orgValue.(string) != "" {
+			if err = identity.Set("org", orgValue.(string)); err != nil {
+				return fmt.Errorf("Error setting org: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = ApigeeOperationWaitTime(
 		config, res, "Creating AddonsConfig", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -258,6 +334,18 @@ func resourceApigeeAddonsConfigRead(d *schema.ResourceData, meta interface{}) er
 		return fmt.Errorf("Error reading AddonsConfig: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("org"); !ok && v == "" {
+			err = identity.Set("org", d.Get("org").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting org: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -266,6 +354,16 @@ func resourceApigeeAddonsConfigUpdate(d *schema.ResourceData, meta interface{}) 
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if orgValue, ok := d.GetOk("org"); ok && orgValue.(string) != "" {
+			if err = identity.Set("org", orgValue.(string)); err != nil {
+				return fmt.Errorf("Error setting org: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -527,6 +625,9 @@ func flattenApigeeAddonsConfigAddonsConfigConnectorsPlatformConfigExpiresAt(v in
 }
 
 func expandApigeeAddonsConfigAddonsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -574,6 +675,9 @@ func expandApigeeAddonsConfigAddonsConfig(v interface{}, d tpgresource.Terraform
 }
 
 func expandApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -597,6 +701,9 @@ func expandApigeeAddonsConfigAddonsConfigAdvancedApiOpsConfigEnabled(v interface
 }
 
 func expandApigeeAddonsConfigAddonsConfigIntegrationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -620,6 +727,9 @@ func expandApigeeAddonsConfigAddonsConfigIntegrationConfigEnabled(v interface{},
 }
 
 func expandApigeeAddonsConfigAddonsConfigMonetizationConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -643,6 +753,9 @@ func expandApigeeAddonsConfigAddonsConfigMonetizationConfigEnabled(v interface{}
 }
 
 func expandApigeeAddonsConfigAddonsConfigApiSecurityConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -677,6 +790,9 @@ func expandApigeeAddonsConfigAddonsConfigApiSecurityConfigExpiresAt(v interface{
 }
 
 func expandApigeeAddonsConfigAddonsConfigConnectorsPlatformConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

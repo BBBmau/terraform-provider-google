@@ -126,6 +126,19 @@ The following arguments are supported:
   Format: projects/{project-id|project-number} or organizations/{organization-number} or folders/{folder-number}
 
 
+* `approval_workflow` -
+  (Optional)
+  The approvals needed before access will be granted to a requester.
+  No approvals will be needed if this field is null. Different types of approval workflows that can be used to gate privileged access granting.
+  Structure is [documented below](#nested_approval_workflow).
+
+* `additional_notification_targets` -
+  (Optional)
+  AdditionalNotificationTargets includes email addresses to be notified.
+  Structure is [documented below](#nested_additional_notification_targets).
+
+
+
 <a name="nested_eligible_users"></a>The `eligible_users` block supports:
 
 * `principals` -
@@ -167,6 +180,10 @@ The following arguments are supported:
   The expression field of the IAM condition to be associated with the role. If specified, a user with an active grant for this entitlement would be able to access the resource only if this condition evaluates to true for their request.
   https://cloud.google.com/iam/docs/conditions-overview#attributes.
 
+* `id` -
+  (Output, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Output Only. The ID corresponding to this role binding in the policy binding. This will be unique within an entitlement across time. Gets re-generated each time the entitlement is updated.
+
 <a name="nested_requester_justification_config"></a>The `requester_justification_config` block supports:
 
 * `not_mandatory` -
@@ -176,21 +193,6 @@ The following arguments are supported:
 * `unstructured` -
   (Optional)
   The requester has to provide a justification in the form of free flowing text.
-
-- - -
-
-
-* `approval_workflow` -
-  (Optional)
-  The approvals needed before access will be granted to a requester.
-  No approvals will be needed if this field is null. Different types of approval workflows that can be used to gate privileged access granting.
-  Structure is [documented below](#nested_approval_workflow).
-
-* `additional_notification_targets` -
-  (Optional)
-  AdditionalNotificationTargets includes email addresses to be notified.
-  Structure is [documented below](#nested_additional_notification_targets).
-
 
 <a name="nested_approval_workflow"></a>The `approval_workflow` block supports:
 
@@ -214,7 +216,7 @@ The following arguments are supported:
 
 * `steps` -
   (Required)
-  List of approval steps in this workflow. These steps would be followed in the specified order sequentially.  1 step is supported for now.
+  List of approval steps in this workflow. These steps would be followed in the specified order sequentially.
   Structure is [documented below](#nested_approval_workflow_manual_approvals_steps).
 
 
@@ -223,7 +225,7 @@ The following arguments are supported:
 * `approvers` -
   (Required)
   The potential set of approvers in this step. This list should contain at only one entry.
-  Structure is [documented below](#nested_approval_workflow_manual_approvals_steps_steps_approvers).
+  Structure is [documented below](#nested_approval_workflow_manual_approvals_steps_approvers).
 
 * `approvals_needed` -
   (Optional)
@@ -236,8 +238,12 @@ The following arguments are supported:
   (Optional)
   Optional. Additional email addresses to be notified when a grant is pending approval.
 
+* `id` -
+  (Output, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Output Only. The ID of the approval step.
 
-<a name="nested_approval_workflow_manual_approvals_steps_steps_approvers"></a>The `approvers` block supports:
+
+<a name="nested_approval_workflow_manual_approvals_steps_approvers"></a>The `approvers` block supports:
 
 * `principals` -
   (Required)
@@ -294,6 +300,18 @@ Entitlement can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/entitlements/{{entitlement_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Entitlement using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    entitlementId = "<-required value->"
+    parent = "<-required value->"
+  }
+  to = google_privileged_access_manager_entitlement.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Entitlement using one of the formats above. For example:
 

@@ -248,9 +248,6 @@ The following arguments are supported:
   Name of the Gateway resource.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Set of label tags associated with the Gateway resource.
@@ -317,7 +314,7 @@ The following arguments are supported:
 * `routing_mode` -
   (Optional)
   The routing mode of the Gateway. This field is configurable only for gateways of type SECURE_WEB_GATEWAY. This field is required for gateways of type SECURE_WEB_GATEWAY.
-  Possible values are: `NEXT_HOP_ROUTING_MODE`.
+  Possible values are: `NEXT_HOP_ROUTING_MODE`, `EXPLICIT_ROUTING_MODE`.
 
 * `location` -
   (Optional)
@@ -329,6 +326,7 @@ The following arguments are supported:
 
 * `delete_swg_autogen_router_on_destroy` - (Optional) When deleting a gateway of type 'SECURE_WEB_GATEWAY', this boolean option will also delete auto generated router by the gateway creation.
 If there is no other gateway of type 'SECURE_WEB_GATEWAY' remaining for that region and network it will be deleted.
+
 
 
 ## Attributes Reference
@@ -372,6 +370,18 @@ Gateway can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Gateway using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_gateway.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Gateway using one of the formats above. For example:
 

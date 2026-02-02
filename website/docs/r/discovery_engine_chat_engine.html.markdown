@@ -149,6 +149,22 @@ The following arguments are supported:
   Location.
 
 
+* `industry_vertical` -
+  (Optional)
+  The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
+  Default value is `GENERIC`.
+  Possible values are: `GENERIC`.
+
+* `common_config` -
+  (Optional)
+  Common config spec that specifies the metadata of the engine.
+  Structure is [documented below](#nested_common_config).
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_chat_engine_config"></a>The `chat_engine_config` block supports:
 
 * `agent_creation_config` -
@@ -190,24 +206,6 @@ The following arguments are supported:
 * `location` -
   (Optional)
   Agent location for Agent creation, currently supported values: global/us/eu, it needs to be the same region as the Chat Engine.
-
-- - -
-
-
-* `industry_vertical` -
-  (Optional)
-  The industry vertical that the chat engine registers. Vertical on Engine has to match vertical of the DataStore linked to the engine.
-  Default value is `GENERIC`.
-  Possible values are: `GENERIC`.
-
-* `common_config` -
-  (Optional)
-  Common config spec that specifies the metadata of the engine.
-  Structure is [documented below](#nested_common_config).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 <a name="nested_common_config"></a>The `common_config` block supports:
 
@@ -262,6 +260,19 @@ ChatEngine can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{collection_id}}/{{engine_id}}`
 * `{{location}}/{{collection_id}}/{{engine_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ChatEngine using identity values. For example:
+
+```tf
+import {
+  identity = {
+    engineId = "<-required value->"
+    collection_id = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_discovery_engine_chat_engine.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ChatEngine using one of the formats above. For example:
 

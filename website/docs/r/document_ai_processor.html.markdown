@@ -64,15 +64,13 @@ The following arguments are supported:
   The location of the resource.
 
 
-- - -
-
-
 * `kms_key_name` -
   (Optional)
   The KMS key used for encryption/decryption in CMEK scenarios. See https://cloud.google.com/security-key-management.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -102,6 +100,18 @@ Processor can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Processor using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_document_ai_processor.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Processor using one of the formats above. For example:
 

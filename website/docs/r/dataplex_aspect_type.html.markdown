@@ -34,6 +34,7 @@ resource "google_dataplex_aspect_type" "test_aspect_type_basic" {
   project = "my-project-name"
   location = "us-central1"
 
+  data_classification = "DATA_CLASSIFICATION_UNSPECIFIED"
   metadata_template = <<EOF
 {
   "name": "tf-test-template",
@@ -73,7 +74,8 @@ resource "google_dataplex_aspect_type" "test_aspect_type_full" {
 
   labels = { "tag": "test-tf" }
   display_name = "terraform aspect type"
-  description = "aspect type created by Terraform"
+  description = "data aspect type created by Terraform"
+  data_classification = "METADATA_AND_DATA"
   metadata_template = <<EOF
 {
   "type": "record",
@@ -213,9 +215,6 @@ The following arguments are supported:
 
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Description of the AspectType.
@@ -235,6 +234,14 @@ The following arguments are supported:
   (Optional)
   MetadataTemplate of the Aspect.
 
+* `data_classification` -
+  (Optional)
+  Classifies the data stored by the aspect.
+  `DATA_CLASSIFICATION_UNSPECIFIED` denotes that the aspect contains only metadata
+  while `METADATA_AND_DATA` indicates data derived content.
+  <br><br>
+  Possible values are: `DATA_CLASSIFICATION_UNSPECIFIED`, `METADATA_AND_DATA`.
+
 * `location` -
   (Optional)
   The location where aspect type will be created in.
@@ -245,6 +252,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -295,6 +303,18 @@ AspectType can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{aspect_type_id}}`
 * `{{location}}/{{aspect_type_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import AspectType using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    aspectTypeId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_dataplex_aspect_type.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import AspectType using one of the formats above. For example:
 

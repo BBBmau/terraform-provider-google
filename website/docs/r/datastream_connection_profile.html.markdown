@@ -31,7 +31,7 @@ To get more information about ConnectionProfile, see:
     * [Official Documentation](https://cloud.google.com/datastream/docs/create-connection-profiles)
 
 ~> **Warning:** All arguments including the following potentially sensitive
-values will be stored in the raw state as plain text: `oracle_profile.password`, `mysql_profile.password`, `mysql_profile.ssl_config.client_key`, `mysql_profile.ssl_config.client_certificate`, `mysql_profile.ssl_config.ca_certificate`, `postgresql_profile.password`, `sql_server_profile.password`, `forward_ssh_connectivity.password`, `forward_ssh_connectivity.private_key`.
+values will be stored in the raw state as plain text: `oracle_profile.password`, `mysql_profile.password`, `mysql_profile.ssl_config.client_key`, `mysql_profile.ssl_config.client_certificate`, `mysql_profile.ssl_config.ca_certificate`, `postgresql_profile.password`, `postgresql_profile.ssl_config.server_verification.ca_certificate`, `postgresql_profile.ssl_config.server_and_client_verification.client_certificate`, `postgresql_profile.ssl_config.server_and_client_verification.client_key`, `postgresql_profile.ssl_config.server_and_client_verification.ca_certificate`, `sql_server_profile.password`, `mongodb_profile.password`, `mongodb_profile.ssl_config.client_key`, `mongodb_profile.ssl_config.client_certificate`, `mongodb_profile.ssl_config.ca_certificate`, `mongodb_profile.ssl_config.secret_manager_stored_client_key`, `forward_ssh_connectivity.password`, `forward_ssh_connectivity.private_key`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -357,6 +357,85 @@ resource "google_datastream_connection_profile" "default" {
     }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=datastream_stream_postgresql_sslconfig_server_and_client_verification&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Datastream Stream Postgresql Sslconfig Server And Client Verification
+
+
+```hcl
+data "google_datastream_static_ips" "datastream_ips" {
+  location           = "us-central1"
+}
+
+resource "google_sql_database_instance" "instance" {
+  name             = "my-instance"
+  database_version = "POSTGRES_15"
+  region           = "us-central1"
+  settings {
+    tier = "db-f1-micro"
+    ip_configuration {
+      ipv4_enabled = true
+      ssl_mode = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
+      dynamic "authorized_networks" {
+        for_each = data.google_datastream_static_ips.datastream_ips.static_ips
+        iterator = ip
+
+        content {
+          name  = format("datastream-%d", ip.key)
+          value = ip.value
+        }
+      }
+    }
+  }
+
+  deletion_protection  = true
+}
+
+resource "google_sql_database" "db" {
+    instance = google_sql_database_instance.instance.name
+    name     = "db"
+}
+
+resource "random_password" "pwd" {
+  length  = 16
+  special = false
+}
+
+resource "google_sql_user" "user" {
+    name = "user"
+    instance = google_sql_database_instance.instance.name
+    password = random_password.pwd.result
+}
+
+resource "google_sql_ssl_cert" "client_cert" {
+  common_name = "client-name"
+  instance    = google_sql_database_instance.instance.name
+}
+
+resource "google_datastream_connection_profile" "default" {
+    display_name          = "Connection Profile"
+    location              = "us-central1"
+    connection_profile_id = "profile-id"
+
+    postgresql_profile {
+        hostname = google_sql_database_instance.instance.public_ip_address
+        port     = 5432
+        username = "user"
+        password = random_password.pwd.result
+        database = google_sql_database.db.name
+        ssl_config {
+            server_and_client_verification {
+              client_certificate = google_sql_ssl_cert.client_cert.cert
+              client_key = google_sql_ssl_cert.client_cert.private_key
+              ca_certificate = google_sql_ssl_cert.client_cert.server_ca_cert
+            }
+        }
+    }
+}
+```
 ## Example Usage - Datastream Connection Profile Salesforce
 
 
@@ -375,6 +454,23 @@ resource "google_datastream_connection_profile" "default" {
           secret_manager_stored_password = "fake-password"
           secret_manager_stored_security_token = "fake-token"
         }
+    }
+}
+```
+## Example Usage - Datastream Connection Profile Spanner
+
+
+```hcl
+resource "google_datastream_connection_profile" "default" {
+    display_name          = "Spanner Source"
+    location              = "us-central1"
+    connection_profile_id = "source-profile"
+    create_without_validation = true
+    provider = google-beta
+
+    spanner_profile {
+        database = "projects/example-project/instances/example-instance/databases/example-database"
+        host = "https://spanner.example-region.rep.googleapis.com"
     }
 }
 ```
@@ -403,6 +499,32 @@ resource "google_datastream_connection_profile" "default" {
     }
 }
 ```
+## Example Usage - Datastream Connection Profile Mongodb
+
+
+```hcl
+resource "google_datastream_connection_profile" "default" {
+    display_name          = "Mongodb Source"
+    location              = "us-central1"
+    connection_profile_id = "source-profile"
+
+    mongodb_profile {
+        host_addresses = [
+          {
+            hostname = "mongodb-primary.example.com"
+            port     = 27017
+          }
+        ]
+
+        replica_set = "myReplicaSet"
+        username    = "mongoUser"
+        password    = "mongoPassword"
+        database    = "myDatabase"
+
+        standard_connection_format = {}
+    }
+}
+```
 
 ## Argument Reference
 
@@ -420,9 +542,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The name of the location this connection profile is located in.
-
-
-- - -
 
 
 * `labels` -
@@ -460,10 +579,20 @@ The following arguments are supported:
   Salesforce profile.
   Structure is [documented below](#nested_salesforce_profile).
 
+* `spanner_profile` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Spanner profile.
+  Structure is [documented below](#nested_spanner_profile).
+
 * `sql_server_profile` -
   (Optional)
   SQL Server database profile.
   Structure is [documented below](#nested_sql_server_profile).
+
+* `mongodb_profile` -
+  (Optional)
+  Configuration for connecting to a MongoDB database.
+  Structure is [documented below](#nested_mongodb_profile).
 
 * `forward_ssh_connectivity` -
   (Optional)
@@ -481,6 +610,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_oracle_profile"></a>The `oracle_profile` block supports:
@@ -615,6 +745,58 @@ The following arguments are supported:
   (Required)
   Database for the PostgreSQL connection.
 
+* `ssl_config` -
+  (Optional)
+  SSL configuration for the PostgreSQL connection.
+  Structure is [documented below](#nested_postgresql_profile_ssl_config).
+
+
+<a name="nested_postgresql_profile_ssl_config"></a>The `ssl_config` block supports:
+
+* `server_verification` -
+  (Optional)
+  If this field is set, the communication will be encrypted with TLS encryption
+  and the server identity will be authenticated.
+  Structure is [documented below](#nested_postgresql_profile_ssl_config_server_verification).
+
+* `server_and_client_verification` -
+  (Optional)
+  If this field is set, the communication will be encrypted with TLS encryption
+  and both the server identity and the client identity will be authenticated.
+  Structure is [documented below](#nested_postgresql_profile_ssl_config_server_and_client_verification).
+
+
+<a name="nested_postgresql_profile_ssl_config_server_verification"></a>The `server_verification` block supports:
+
+* `ca_certificate` -
+  (Required)
+  PEM-encoded server root CA certificate.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+<a name="nested_postgresql_profile_ssl_config_server_and_client_verification"></a>The `server_and_client_verification` block supports:
+
+* `client_certificate` -
+  (Required)
+  PEM-encoded certificate used by the source database to authenticate the
+  client identity (i.e., the Datastream's identity). This certificate is
+  signed by either a root certificate trusted by the server or one or more
+  intermediate certificates (which is stored with the leaf certificate) to
+  link to this certificate to the trusted root certificate.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+* `client_key` -
+  (Required)
+  PEM-encoded private key associated with the client certificate.
+  This value will be used during the SSL/TLS handshake, allowing
+  the PostgreSQL server to authenticate the client's identity,
+  i.e. identity of the stream.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+* `ca_certificate` -
+  (Required)
+  PEM-encoded server root CA certificate.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
 <a name="nested_salesforce_profile"></a>The `salesforce_profile` block supports:
 
 * `domain` -
@@ -668,6 +850,18 @@ The following arguments are supported:
   (Optional)
   A reference to a Secret Manager resource name storing the client secret.
 
+<a name="nested_spanner_profile"></a>The `spanner_profile` block supports:
+
+* `database` -
+  (Required)
+  The full project and resource path for Spanner database. Format:
+  projects/{project}/instances/{instance}/databases/{database}.
+
+* `host` -
+  (Optional)
+  The regional Spanner endpoint. Format:
+  https://spanner.{region}.rep.googleapis.com.
+
 <a name="nested_sql_server_profile"></a>The `sql_server_profile` block supports:
 
 * `hostname` -
@@ -694,6 +888,107 @@ The following arguments are supported:
 * `database` -
   (Required)
   Database for the SQL Server connection.
+
+<a name="nested_mongodb_profile"></a>The `mongodb_profile` block supports:
+
+* `host_addresses` -
+  (Required)
+  List of host addresses for a MongoDB cluster.
+  Structure is [documented below](#nested_mongodb_profile_host_addresses).
+
+* `replica_set` -
+  (Optional)
+  Name of the replica set.
+
+* `username` -
+  (Required)
+  Username for the MongoDB connection.
+
+* `password` -
+  (Optional)
+  Password for the MongoDB connection. Mutually exclusive with
+  secretManagerStoredPassword.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+* `secret_manager_stored_password` -
+  (Optional)
+  A reference to a Secret Manager resource name storing the MongoDB
+  connection password. Mutually exclusive with password.
+
+* `ssl_config` -
+  (Optional)
+  SSL configuration for the MongoDB connection.
+  Structure is [documented below](#nested_mongodb_profile_ssl_config).
+
+* `srv_connection_format` -
+  (Optional)
+  Srv connection format. Mutually exclusive with
+  standard_connection_Format.
+
+* `standard_connection_format` -
+  (Optional)
+  Standard connection format. Mutually exclusive with
+  srv_connection_format.
+  Structure is [documented below](#nested_mongodb_profile_standard_connection_format).
+
+
+<a name="nested_mongodb_profile_host_addresses"></a>The `host_addresses` block supports:
+
+* `hostname` -
+  (Required)
+  Hostname for the connection.
+
+* `port` -
+  (Optional)
+  Port for the connection.
+
+<a name="nested_mongodb_profile_ssl_config"></a>The `ssl_config` block supports:
+
+* `client_key` -
+  (Optional)
+  PEM-encoded private key associated with the Client Certificate.
+  If this field is used then the 'client_certificate' and the
+  'ca_certificate' fields are mandatory.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+* `client_key_set` -
+  (Output)
+  Indicates whether the clientKey field is set.
+
+* `client_certificate` -
+  (Optional)
+  PEM-encoded certificate that will be used by the replica to
+  authenticate against the source database server. If this field
+  is used then the 'clientKey' and the 'caCertificate' fields are
+  mandatory.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+* `client_certificate_set` -
+  (Output)
+  Indicates whether the clientCertificate field is set.
+
+* `ca_certificate` -
+  (Optional)
+  PEM-encoded certificate of the CA that signed the source database
+  server's certificate.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+* `ca_certificate_set` -
+  (Output)
+  Indicates whether the clientKey field is set.
+
+* `secret_manager_stored_client_key` -
+  (Optional)
+  A reference to a Secret Manager resource name storing the
+  PEM-encoded private key. Mutually exclusive with clientKey.
+  **Note**: This property is sensitive and will not be displayed in the plan.
+
+<a name="nested_mongodb_profile_standard_connection_format"></a>The `standard_connection_format` block supports:
+
+* `direct_connection` -
+  (Optional)
+  Specifies whether the client connects directly to the
+  host[:port] in the connection URI.
 
 <a name="nested_forward_ssh_connectivity"></a>The `forward_ssh_connectivity` block supports:
 
@@ -760,6 +1055,18 @@ ConnectionProfile can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{connection_profile_id}}`
 * `{{location}}/{{connection_profile_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ConnectionProfile using identity values. For example:
+
+```tf
+import {
+  identity = {
+    connectionProfileId = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_datastream_connection_profile.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ConnectionProfile using one of the formats above. For example:
 

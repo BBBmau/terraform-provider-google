@@ -41,9 +41,6 @@ resource "google_project_service" "play_integrity" {
 
   project = "my-project-name"
   service = "playintegrity.googleapis.com"
-
-  # Don't disable the service if the resource block is removed by accident.
-  disable_on_destroy = false
 }
 
 resource "google_firebase_android_app" "default" {
@@ -91,7 +88,6 @@ resource "google_project_service" "play_integrity" {
   service = "playintegrity.googleapis.com"
 
   # Don't disable the service if the resource block is removed by accident.
-  disable_on_destroy = false
 }
 
 resource "google_firebase_android_app" "default" {
@@ -140,9 +136,6 @@ The following arguments are supported:
   [Android App](https://firebase.google.com/docs/reference/firebase-management/rest/v1beta1/projects.androidApps#AndroidApp.FIELDS.app_id).
 
 
-- - -
-
-
 * `token_ttl` -
   (Optional)
   Specifies the duration for which App Check tokens exchanged from Play Integrity artifacts will be valid.
@@ -151,6 +144,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -181,6 +175,17 @@ PlayIntegrityConfig can be imported using any of these accepted formats:
 * `{{project}}/{{app_id}}`
 * `{{app_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PlayIntegrityConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    app_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_app_check_play_integrity_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PlayIntegrityConfig using one of the formats above. For example:
 

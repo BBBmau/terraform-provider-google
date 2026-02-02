@@ -101,9 +101,6 @@ The following arguments are supported:
   The cloud location of the association, currently restricted to `global`.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Labels are key/value pairs that help to organize and filter resources.
@@ -118,6 +115,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -224,6 +222,18 @@ MirroringEndpointGroupAssociation can be imported using any of these accepted fo
 * `{{project}}/{{location}}/{{mirroring_endpoint_group_association_id}}`
 * `{{location}}/{{mirroring_endpoint_group_association_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MirroringEndpointGroupAssociation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    mirroringEndpointGroupAssociationId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_mirroring_endpoint_group_association.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MirroringEndpointGroupAssociation using one of the formats above. For example:
 

@@ -308,9 +308,6 @@ The following arguments are supported:
   Name of Connection needs to be created.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An arbitrary description for the Connection.
@@ -379,6 +376,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_config_variable"></a>The `config_variable` block supports:
 
 * `key` -
@@ -400,21 +398,21 @@ The following arguments are supported:
 * `secret_value` -
   (Optional)
   Secret value of configVariable.
-  Structure is [documented below](#nested_config_variable_config_variable_secret_value).
+  Structure is [documented below](#nested_config_variable_secret_value).
 
 * `encryption_key_value` -
   (Optional)
   Encryption key value of configVariable.
-  Structure is [documented below](#nested_config_variable_config_variable_encryption_key_value).
+  Structure is [documented below](#nested_config_variable_encryption_key_value).
 
 
-<a name="nested_config_variable_config_variable_secret_value"></a>The `secret_value` block supports:
+<a name="nested_config_variable_secret_value"></a>The `secret_value` block supports:
 
 * `secret_version` -
   (Required)
   Secret version of Secret Value for Config variable.
 
-<a name="nested_config_variable_config_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
+<a name="nested_config_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
 
 * `type` -
   (Required)
@@ -490,21 +488,21 @@ The following arguments are supported:
 * `secret_value` -
   (Optional)
   Secret value of configVariable.
-  Structure is [documented below](#nested_auth_config_additional_variable_additional_variable_secret_value).
+  Structure is [documented below](#nested_auth_config_additional_variable_secret_value).
 
 * `encryption_key_value` -
   (Optional)
   Encryption key value of configVariable.
-  Structure is [documented below](#nested_auth_config_additional_variable_additional_variable_encryption_key_value).
+  Structure is [documented below](#nested_auth_config_additional_variable_encryption_key_value).
 
 
-<a name="nested_auth_config_additional_variable_additional_variable_secret_value"></a>The `secret_value` block supports:
+<a name="nested_auth_config_additional_variable_secret_value"></a>The `secret_value` block supports:
 
 * `secret_version` -
   (Required)
   Secret version of Secret Value for Config variable.
 
-<a name="nested_auth_config_additional_variable_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
+<a name="nested_auth_config_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
 
 * `type` -
   (Required)
@@ -676,10 +674,10 @@ The following arguments are supported:
 * `destination` -
   (Optional)
   The destinations for the key.
-  Structure is [documented below](#nested_destination_config_destination_config_destination).
+  Structure is [documented below](#nested_destination_config_destination).
 
 
-<a name="nested_destination_config_destination_config_destination"></a>The `destination` block supports:
+<a name="nested_destination_config_destination"></a>The `destination` block supports:
 
 * `port` -
   (Optional)
@@ -708,6 +706,11 @@ The following arguments are supported:
 * `enabled` -
   (Required)
   Enabled represents whether logging is enabled or not for a connection.
+
+* `level` -
+  (Optional)
+  Log configuration level.
+  Possible values are: `LOG_LEVEL_UNSPECIFIED`, `ERROR`, `INFO`, `DEBUG`.
 
 <a name="nested_ssl_config"></a>The `ssl_config` block supports:
 
@@ -806,21 +809,21 @@ The following arguments are supported:
 * `secret_value` -
   (Optional)
   Secret value of configVariable
-  Structure is [documented below](#nested_ssl_config_additional_variable_additional_variable_secret_value).
+  Structure is [documented below](#nested_ssl_config_additional_variable_secret_value).
 
 * `encryption_key_value` -
   (Optional)
   Encryption key value of configVariable
-  Structure is [documented below](#nested_ssl_config_additional_variable_additional_variable_encryption_key_value).
+  Structure is [documented below](#nested_ssl_config_additional_variable_encryption_key_value).
 
 
-<a name="nested_ssl_config_additional_variable_additional_variable_secret_value"></a>The `secret_value` block supports:
+<a name="nested_ssl_config_additional_variable_secret_value"></a>The `secret_value` block supports:
 
 * `secret_version` -
   (Required)
   Secret version of Secret Value for Config variable.
 
-<a name="nested_ssl_config_additional_variable_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
+<a name="nested_ssl_config_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
 
 * `type` -
   (Optional)
@@ -924,21 +927,21 @@ The following arguments are supported:
 * `secret_value` -
   (Optional)
   Secret value of configVariable
-  Structure is [documented below](#nested_eventing_config_auth_config_additional_variable_additional_variable_secret_value).
+  Structure is [documented below](#nested_eventing_config_auth_config_additional_variable_secret_value).
 
 * `encryption_key_value` -
   (Optional)
   Encryption key value of configVariable
-  Structure is [documented below](#nested_eventing_config_auth_config_additional_variable_additional_variable_encryption_key_value).
+  Structure is [documented below](#nested_eventing_config_auth_config_additional_variable_encryption_key_value).
 
 
-<a name="nested_eventing_config_auth_config_additional_variable_additional_variable_secret_value"></a>The `secret_value` block supports:
+<a name="nested_eventing_config_auth_config_additional_variable_secret_value"></a>The `secret_value` block supports:
 
 * `secret_version` -
   (Required)
   Secret version of Secret Value for Config variable.
 
-<a name="nested_eventing_config_auth_config_additional_variable_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
+<a name="nested_eventing_config_auth_config_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
 
 * `type` -
   (Optional)
@@ -991,21 +994,21 @@ The following arguments are supported:
 * `secret_value` -
   (Optional)
   Secret value of configVariable
-  Structure is [documented below](#nested_eventing_config_additional_variable_additional_variable_secret_value).
+  Structure is [documented below](#nested_eventing_config_additional_variable_secret_value).
 
 * `encryption_key_value` -
   (Optional)
   Encryption key value of configVariable.
-  Structure is [documented below](#nested_eventing_config_additional_variable_additional_variable_encryption_key_value).
+  Structure is [documented below](#nested_eventing_config_additional_variable_encryption_key_value).
 
 
-<a name="nested_eventing_config_additional_variable_additional_variable_secret_value"></a>The `secret_value` block supports:
+<a name="nested_eventing_config_additional_variable_secret_value"></a>The `secret_value` block supports:
 
 * `secret_version` -
   (Required)
   Secret version of Secret Value for Config variable.
 
-<a name="nested_eventing_config_additional_variable_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
+<a name="nested_eventing_config_additional_variable_encryption_key_value"></a>The `encryption_key_value` block supports:
 
 * `type` -
   (Optional)
@@ -1123,6 +1126,18 @@ Connection can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Connection using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_integration_connectors_connection.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Connection using one of the formats above. For example:
 

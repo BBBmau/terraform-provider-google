@@ -157,37 +157,6 @@ The following arguments are supported:
   The firewall policy of the resource.
 
 
-<a name="nested_match"></a>The `match` block supports:
-
-* `src_ip_ranges` -
-  (Optional)
-  CIDR IP address range. Maximum number of source CIDR IP ranges allowed is 5000.
-
-* `dest_ip_ranges` -
-  (Optional)
-  CIDR IP address range. Maximum number of destination CIDR IP ranges allowed is 5000.
-
-* `layer4_configs` -
-  (Required)
-  Pairs of IP protocols and ports that the rule should match.
-  Structure is [documented below](#nested_match_layer4_configs).
-
-
-<a name="nested_match_layer4_configs"></a>The `layer4_configs` block supports:
-
-* `ip_protocol` -
-  (Required)
-  The IP protocol to which this rule applies. The protocol type is required when creating a firewall rule.
-  This value can either be one of the following well known protocol strings (tcp, udp, icmp, esp, ah, ipip, sctp), or the IP protocol number.
-
-* `ports` -
-  (Optional)
-  An optional list of ports to which this rule applies. This field is only applicable for UDP or TCP protocol. Each entry must be either an integer or a range. If not specified, this rule applies to connections through any port.
-  Example inputs include: ["22"], ["80","443"], and ["12345-12349"].
-
-- - -
-
-
 * `rule_name` -
   (Optional)
   An optional name for the rule. This field is not a unique identifier and can be updated.
@@ -223,6 +192,35 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_match"></a>The `match` block supports:
+
+* `src_ip_ranges` -
+  (Optional)
+  CIDR IP address range. Maximum number of source CIDR IP ranges allowed is 5000.
+
+* `dest_ip_ranges` -
+  (Optional)
+  CIDR IP address range. Maximum number of destination CIDR IP ranges allowed is 5000.
+
+* `layer4_configs` -
+  (Required)
+  Pairs of IP protocols and ports that the rule should match.
+  Structure is [documented below](#nested_match_layer4_configs).
+
+
+<a name="nested_match_layer4_configs"></a>The `layer4_configs` block supports:
+
+* `ip_protocol` -
+  (Required)
+  The IP protocol to which this rule applies. The protocol type is required when creating a firewall rule.
+  This value can either be one of the following well known protocol strings (tcp, udp, icmp, esp, ah, ipip, sctp), or the IP protocol number.
+
+* `ports` -
+  (Optional)
+  An optional list of ports to which this rule applies. This field is only applicable for UDP or TCP protocol. Each entry must be either an integer or a range. If not specified, this rule applies to connections through any port.
+  Example inputs include: ["22"], ["80","443"], and ["12345-12349"].
 
 <a name="nested_target_secure_tags"></a>The `target_secure_tags` block supports:
 
@@ -269,6 +267,18 @@ NetworkFirewallPolicyPacketMirroringRule can be imported using any of these acce
 * `{{project}}/{{firewall_policy}}/{{priority}}`
 * `{{firewall_policy}}/{{priority}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import NetworkFirewallPolicyPacketMirroringRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    priority = "<-required value->"
+    firewallPolicy = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_network_firewall_policy_packet_mirroring_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import NetworkFirewallPolicyPacketMirroringRule using one of the formats above. For example:
 

@@ -20,20 +20,38 @@
 package monitoring
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 func resourceMonitoringUptimeCheckConfigHttpCheckPathDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
@@ -48,6 +66,38 @@ func resourceMonitoringUptimeCheckConfigMonitoredResourceLabelsDiffSuppress(k, o
 	}
 	return false
 }
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
 
 func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 	return &schema.Resource{
@@ -69,6 +119,22 @@ func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"display_name": {
@@ -195,7 +261,7 @@ func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 									},
 								},
 							},
-							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.port", "http_check.0.headers", "http_check.0.path", "http_check.0.use_ssl", "http_check.0.mask_headers"},
+							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.headers", "http_check.0.mask_headers", "http_check.0.path", "http_check.0.port", "http_check.0.use_ssl"},
 						},
 						"body": {
 							Type:        schema.TypeString,
@@ -219,13 +285,13 @@ func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 							Optional:     true,
 							Description:  `The list of headers to send as part of the uptime check request. If two headers have the same key and different values, they should be entered as a single header, with the value being a comma-separated list of all the desired values as described in [RFC 2616 (page 31)](https://www.w3.org/Protocols/rfc2616/rfc2616.txt). Entering two separate headers with the same key in a Create call will cause the first to be overwritten by the second. The maximum number of headers allowed is 100.`,
 							Elem:         &schema.Schema{Type: schema.TypeString},
-							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.port", "http_check.0.headers", "http_check.0.path", "http_check.0.use_ssl", "http_check.0.mask_headers"},
+							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.headers", "http_check.0.mask_headers", "http_check.0.path", "http_check.0.port", "http_check.0.use_ssl"},
 						},
 						"mask_headers": {
 							Type:         schema.TypeBool,
 							Optional:     true,
 							Description:  `Boolean specifying whether to encrypt the header information. Encryption should be specified for any headers related to authentication that you do not wish to be seen when retrieving the configuration. The server will be responsible for encrypting the headers. On Get/List calls, if 'mask_headers' is set to 'true' then the headers will be obscured with '******'.`,
-							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.port", "http_check.0.headers", "http_check.0.path", "http_check.0.use_ssl", "http_check.0.mask_headers"},
+							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.headers", "http_check.0.mask_headers", "http_check.0.path", "http_check.0.port", "http_check.0.use_ssl"},
 						},
 						"path": {
 							Type:             schema.TypeString,
@@ -233,7 +299,7 @@ func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 							DiffSuppressFunc: resourceMonitoringUptimeCheckConfigHttpCheckPathDiffSuppress,
 							Description:      `The path to the page to run the check against. Will be combined with the host (specified within the MonitoredResource) and port to construct the full URL. If the provided path does not begin with '/', a '/' will be prepended automatically. Optional (defaults to '/').`,
 							Default:          "/",
-							AtLeastOneOf:     []string{"http_check.0.auth_info", "http_check.0.port", "http_check.0.headers", "http_check.0.path", "http_check.0.use_ssl", "http_check.0.mask_headers"},
+							AtLeastOneOf:     []string{"http_check.0.auth_info", "http_check.0.headers", "http_check.0.mask_headers", "http_check.0.path", "http_check.0.port", "http_check.0.use_ssl"},
 						},
 						"ping_config": {
 							Type:        schema.TypeList,
@@ -255,7 +321,7 @@ func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 							Computed:     true,
 							Optional:     true,
 							Description:  `The port to the page to run the check against. Will be combined with 'host' (specified within the ['monitored_resource'](#nested_monitored_resource)) and path to construct the full URL. Optional (defaults to 80 without SSL, or 443 with SSL).`,
-							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.port", "http_check.0.headers", "http_check.0.path", "http_check.0.use_ssl", "http_check.0.mask_headers"},
+							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.headers", "http_check.0.mask_headers", "http_check.0.path", "http_check.0.port", "http_check.0.use_ssl"},
 						},
 						"request_method": {
 							Type:         schema.TypeString,
@@ -285,7 +351,7 @@ func ResourceMonitoringUptimeCheckConfig() *schema.Resource {
 							Type:         schema.TypeBool,
 							Optional:     true,
 							Description:  `If true, use HTTPS instead of HTTP to run the check.`,
-							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.port", "http_check.0.headers", "http_check.0.path", "http_check.0.use_ssl", "http_check.0.mask_headers"},
+							AtLeastOneOf: []string{"http_check.0.auth_info", "http_check.0.headers", "http_check.0.mask_headers", "http_check.0.path", "http_check.0.port", "http_check.0.use_ssl"},
 						},
 						"validate_ssl": {
 							Type:        schema.TypeBool,
@@ -356,7 +422,7 @@ uptime checks:
 							ForceNew:         true,
 							DiffSuppressFunc: tpgresource.CompareSelfLinkOrResourceName,
 							Description:      `The group of resources being monitored. Should be the 'name' of a group`,
-							AtLeastOneOf:     []string{"resource_group.0.resource_type", "resource_group.0.group_id"},
+							AtLeastOneOf:     []string{"resource_group.0.group_id", "resource_group.0.resource_type"},
 						},
 						"resource_type": {
 							Type:         schema.TypeString,
@@ -364,7 +430,7 @@ uptime checks:
 							ForceNew:     true,
 							ValidateFunc: verify.ValidateEnum([]string{"RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER", ""}),
 							Description:  `The resource type of the group members. Possible values: ["RESOURCE_TYPE_UNSPECIFIED", "INSTANCE", "AWS_ELB_LOAD_BALANCER"]`,
-							AtLeastOneOf: []string{"resource_group.0.resource_type", "resource_group.0.group_id"},
+							AtLeastOneOf: []string{"resource_group.0.group_id", "resource_group.0.resource_type"},
 						},
 					},
 				},
@@ -612,6 +678,22 @@ func resourceMonitoringUptimeCheckConfigCreate(d *schema.ResourceData, meta inte
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating UptimeCheckConfig %q: %#v", d.Id(), res)
 
 	return resourceMonitoringUptimeCheckConfigRead(d, meta)
@@ -706,6 +788,24 @@ func resourceMonitoringUptimeCheckConfigRead(d *schema.ResourceData, meta interf
 		return fmt.Errorf("Error reading UptimeCheckConfig: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -714,6 +814,21 @@ func resourceMonitoringUptimeCheckConfigUpdate(d *schema.ResourceData, meta inte
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1391,6 +1506,9 @@ func expandMonitoringUptimeCheckConfigTimeout(v interface{}, d tpgresource.Terra
 }
 
 func expandMonitoringUptimeCheckConfigContentMatchers(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1435,6 +1553,9 @@ func expandMonitoringUptimeCheckConfigContentMatchersMatcher(v interface{}, d tp
 }
 
 func expandMonitoringUptimeCheckConfigContentMatchersJsonPathMatcher(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1492,6 +1613,9 @@ func expandMonitoringUptimeCheckConfigUserLabels(v interface{}, d tpgresource.Te
 }
 
 func expandMonitoringUptimeCheckConfigHttpCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1614,6 +1738,9 @@ func expandMonitoringUptimeCheckConfigHttpCheckCustomContentType(v interface{}, 
 }
 
 func expandMonitoringUptimeCheckConfigHttpCheckAuthInfo(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1670,6 +1797,9 @@ func expandMonitoringUptimeCheckConfigHttpCheckAuthInfoUsername(v interface{}, d
 }
 
 func expandMonitoringUptimeCheckConfigHttpCheckServiceAgentAuthentication(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1728,6 +1858,9 @@ func expandMonitoringUptimeCheckConfigHttpCheckBody(v interface{}, d tpgresource
 }
 
 func expandMonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodes(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1765,6 +1898,9 @@ func expandMonitoringUptimeCheckConfigHttpCheckAcceptedResponseStatusCodesStatus
 }
 
 func expandMonitoringUptimeCheckConfigHttpCheckPingConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1788,6 +1924,9 @@ func expandMonitoringUptimeCheckConfigHttpCheckPingConfigPingsCount(v interface{
 }
 
 func expandMonitoringUptimeCheckConfigTcpCheck(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1818,6 +1957,9 @@ func expandMonitoringUptimeCheckConfigTcpCheckPort(v interface{}, d tpgresource.
 }
 
 func expandMonitoringUptimeCheckConfigTcpCheckPingConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1841,6 +1983,9 @@ func expandMonitoringUptimeCheckConfigTcpCheckPingConfigPingsCount(v interface{}
 }
 
 func expandMonitoringUptimeCheckConfigResourceGroup(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1875,6 +2020,9 @@ func expandMonitoringUptimeCheckConfigResourceGroupGroupId(v interface{}, d tpgr
 }
 
 func expandMonitoringUptimeCheckConfigMonitoredResource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1916,6 +2064,9 @@ func expandMonitoringUptimeCheckConfigMonitoredResourceLabels(v interface{}, d t
 }
 
 func expandMonitoringUptimeCheckConfigSyntheticMonitor(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1935,6 +2086,9 @@ func expandMonitoringUptimeCheckConfigSyntheticMonitor(v interface{}, d tpgresou
 }
 
 func expandMonitoringUptimeCheckConfigSyntheticMonitorCloudFunctionV2(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

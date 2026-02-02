@@ -26,7 +26,7 @@ By default, your agent responds to a matched intent with a static response. If y
 
 To get more information about Fulfillment, see:
 
-* [API documentation](https://cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.agent/getFulfillment)
+* [API documentation](https://docs.cloud.google.com/dialogflow/es/docs/reference/rest/v2/projects.agent/getFulfillment)
 * How-to Guides
     * [Official Documentation](https://cloud.google.com/dialogflow/es/docs/fulfillment-overview)
 
@@ -65,9 +65,6 @@ The following arguments are supported:
   The human-readable name of the fulfillment, unique within the agent.
 
 
-- - -
-
-
 * `enabled` -
   (Optional)
   Whether fulfillment is enabled.
@@ -84,6 +81,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_features"></a>The `features` block supports:
@@ -139,6 +137,16 @@ Fulfillment can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Fulfillment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_dialogflow_fulfillment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Fulfillment using one of the formats above. For example:
 

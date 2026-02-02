@@ -20,19 +20,70 @@
 package securitycenterv2
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceSecurityCenterV2ProjectNotificationConfig() *schema.Resource {
@@ -112,7 +163,7 @@ for information on how to write a filter.`,
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
-				Description: `Location ID of the parent organization. Only global is supported at the moment.`,
+				Description: `Location ID for the parent project. Defaults to 'global' if location is not provided.`,
 				Default:     "global",
 			},
 			"pubsub_topic": {
@@ -424,7 +475,6 @@ func resourceSecurityCenterV2ProjectNotificationConfigDelete(d *schema.ResourceD
 }
 
 func resourceSecurityCenterV2ProjectNotificationConfigImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-
 	config := meta.(*transport_tpg.Config)
 
 	// current import_formats can't import fields with forward slashes in their value
@@ -433,9 +483,9 @@ func resourceSecurityCenterV2ProjectNotificationConfigImport(d *schema.ResourceD
 	}
 
 	stringParts := strings.Split(d.Get("name").(string), "/")
-	if len(stringParts) < 2 {
+	if len(stringParts) != 6 {
 		return nil, fmt.Errorf(
-			"Could not split project from name: %s",
+			"Unexpected format of ID (%s), expected projects/{{project}}/locations/{{location}}/notificationConfigs/{{config_id}}",
 			d.Get("name"),
 		)
 	}
@@ -443,6 +493,15 @@ func resourceSecurityCenterV2ProjectNotificationConfigImport(d *schema.ResourceD
 	if err := d.Set("project", stringParts[1]); err != nil {
 		return nil, fmt.Errorf("Error setting project: %s", err)
 	}
+
+	if err := d.Set("location", stringParts[3]); err != nil {
+		return nil, fmt.Errorf("Error setting location: %s", err)
+	}
+
+	if err := d.Set("config_id", stringParts[5]); err != nil {
+		return nil, fmt.Errorf("Error setting config_id: %s", err)
+	}
+
 	return []*schema.ResourceData{d}, nil
 }
 
@@ -485,6 +544,9 @@ func expandSecurityCenterV2ProjectNotificationConfigPubsubTopic(v interface{}, d
 }
 
 func expandSecurityCenterV2ProjectNotificationConfigStreamingConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 {
 		return nil, nil

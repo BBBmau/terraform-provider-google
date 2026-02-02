@@ -24,6 +24,9 @@ description: |-
 A Google Bare Metal Node Pool.
 
 
+To get more information about BareMetalNodePool, see:
+
+* [API documentation](https://cloud.google.com/kubernetes-engine/distributed-cloud/reference/on-prem-api/rest/v1/projects.locations.bareMetalClusters.bareMetalNodePools)
 
 ## Example Usage - Gkeonprem Bare Metal Node Pool Basic
 
@@ -230,6 +233,29 @@ The following arguments are supported:
   The location of the resource.
 
 
+* `display_name` -
+  (Optional)
+  The display name for the Bare Metal Node Pool.
+
+* `annotations` -
+  (Optional)
+  Annotations on the Bare Metal Node Pool.
+  This field has the same restrictions as Kubernetes annotations.
+  The total size of all keys and values combined is limited to 256k.
+  Key can have 2 segments: prefix (optional) and name (required),
+  separated by a slash (/).
+  Prefix must be a DNS subdomain.
+  Name must be 63 characters or less, begin and end with alphanumerics,
+  with dashes (-), underscores (_), dots (.), and alphanumerics between.
+
+  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
+  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_node_pool_config"></a>The `node_pool_config` block supports:
 
 * `node_configs` -
@@ -294,31 +320,6 @@ The following arguments are supported:
   (Optional)
   Specifies the nodes operating system (default: LINUX).
   Possible values are: `EFFECT_UNSPECIFIED`, `PREFER_NO_SCHEDULE`, `NO_EXECUTE`.
-
-- - -
-
-
-* `display_name` -
-  (Optional)
-  The display name for the Bare Metal Node Pool.
-
-* `annotations` -
-  (Optional)
-  Annotations on the Bare Metal Node Pool.
-  This field has the same restrictions as Kubernetes annotations.
-  The total size of all keys and values combined is limited to 256k.
-  Key can have 2 segments: prefix (optional) and name (required),
-  separated by a slash (/).
-  Prefix must be a DNS subdomain.
-  Name must be 63 characters or less, begin and end with alphanumerics,
-  with dashes (-), underscores (_), dots (.), and alphanumerics between.
-
-  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
-  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -416,6 +417,19 @@ BareMetalNodePool can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{bare_metal_cluster}}/{{name}}`
 * `{{location}}/{{bare_metal_cluster}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BareMetalNodePool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    bareMetalCluster = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gkeonprem_bare_metal_node_pool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BareMetalNodePool using one of the formats above. For example:
 

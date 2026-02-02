@@ -27,6 +27,8 @@ ServerTlsPolicy is a resource that specifies how a server should authenticate in
 To get more information about ServerTlsPolicy, see:
 
 * [API documentation](https://cloud.google.com/traffic-director/docs/reference/network-security/rest/v1beta1/projects.locations.serverTlsPolicies)
+* How-to Guides
+    * [Use ServerTlsPolicy](https://cloud.google.com/load-balancing/docs/mtls)
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=network_security_server_tls_policy_basic&open_in_editor=main.tf" target="_blank">
@@ -163,9 +165,6 @@ The following arguments are supported:
   Name of the ServerTlsPolicy resource.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Set of label tags associated with the ServerTlsPolicy resource.
@@ -200,6 +199,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_server_certificate"></a>The `server_certificate` block supports:
@@ -254,22 +254,22 @@ The following arguments are supported:
 * `grpc_endpoint` -
   (Optional)
   gRPC specific configuration to access the gRPC server to obtain the cert and private key.
-  Structure is [documented below](#nested_mtls_policy_client_validation_ca_client_validation_ca_grpc_endpoint).
+  Structure is [documented below](#nested_mtls_policy_client_validation_ca_grpc_endpoint).
 
 * `certificate_provider_instance` -
   (Optional)
   Optional if policy is to be used with Traffic Director. For external HTTPS load balancer must be empty.
   Defines a mechanism to provision server identity (public and private keys). Cannot be combined with allowOpen as a permissive mode that allows both plain text and TLS is not supported.
-  Structure is [documented below](#nested_mtls_policy_client_validation_ca_client_validation_ca_certificate_provider_instance).
+  Structure is [documented below](#nested_mtls_policy_client_validation_ca_certificate_provider_instance).
 
 
-<a name="nested_mtls_policy_client_validation_ca_client_validation_ca_grpc_endpoint"></a>The `grpc_endpoint` block supports:
+<a name="nested_mtls_policy_client_validation_ca_grpc_endpoint"></a>The `grpc_endpoint` block supports:
 
 * `target_uri` -
   (Required)
   The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:".
 
-<a name="nested_mtls_policy_client_validation_ca_client_validation_ca_certificate_provider_instance"></a>The `certificate_provider_instance` block supports:
+<a name="nested_mtls_policy_client_validation_ca_certificate_provider_instance"></a>The `certificate_provider_instance` block supports:
 
 * `plugin_instance` -
   (Required)
@@ -313,6 +313,18 @@ ServerTlsPolicy can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServerTlsPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_server_tls_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServerTlsPolicy using one of the formats above. For example:
 

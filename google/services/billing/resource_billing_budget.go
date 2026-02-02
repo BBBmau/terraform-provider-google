@@ -20,20 +20,38 @@
 package billing
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 // Check to see if a specified value in the config exists and suppress diffs if so. Otherwise run EmptyOrDefaultStringSuppress.
@@ -46,6 +64,38 @@ func checkValAndDefaultStringSuppress(defaultVal string, checkVal string) schema
 		return (old == "" && new == defaultVal) || (new == "" && old == defaultVal)
 	}
 }
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
 
 func ResourceBillingBudget() *schema.Resource {
 	return &schema.Resource{
@@ -74,6 +124,22 @@ func ResourceBillingBudget() *schema.Resource {
 			},
 		},
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"billing_account": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"amount": {
 				Type:        schema.TypeList,
@@ -89,7 +155,7 @@ func ResourceBillingBudget() *schema.Resource {
 last period's spend.
 Boolean. Set value to true to use. Do not set to false, instead
 use the 'specified_amount' block.`,
-							ExactlyOneOf: []string{"amount.0.specified_amount", "amount.0.last_period_amount"},
+							ExactlyOneOf: []string{"amount.0.last_period_amount", "amount.0.specified_amount"},
 						},
 						"specified_amount": {
 							Type:     schema.TypeList,
@@ -125,7 +191,7 @@ is "USD", then 1 unit is one US dollar.`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"amount.0.specified_amount", "amount.0.last_period_amount"},
+							ExactlyOneOf: []string{"amount.0.last_period_amount", "amount.0.specified_amount"},
 						},
 					},
 				},
@@ -175,7 +241,7 @@ A maximum of 5 channels are allowed.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"all_updates_rule.0.pubsub_topic", "all_updates_rule.0.monitoring_notification_channels"},
+							AtLeastOneOf: []string{"all_updates_rule.0.monitoring_notification_channels", "all_updates_rule.0.pubsub_topic"},
 						},
 						"pubsub_topic": {
 							Type:     schema.TypeString,
@@ -184,7 +250,7 @@ A maximum of 5 channels are allowed.`,
 messages will be published, in the form
 projects/{project_id}/topics/{topic_id}. Updates are sent
 at regular intervals to the topic.`,
-							AtLeastOneOf: []string{"all_updates_rule.0.pubsub_topic", "all_updates_rule.0.monitoring_notification_channels"},
+							AtLeastOneOf: []string{"all_updates_rule.0.monitoring_notification_channels", "all_updates_rule.0.pubsub_topic"},
 						},
 						"schema_version": {
 							Type:     schema.TypeString,
@@ -216,21 +282,18 @@ canonical start. Grammatically, "the start of the current CalendarPeriod".
 All calendar times begin at 12 AM US and Canadian Pacific Time (UTC-8).
 
 Exactly one of 'calendar_period', 'custom_period' must be provided. Possible values: ["MONTH", "QUARTER", "YEAR", "CALENDAR_PERIOD_UNSPECIFIED"]`,
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"credit_types": {
 							Type:     schema.TypeList,
-							Computed: true,
 							Optional: true,
 							Description: `Optional. If creditTypesTreatment is INCLUDE_SPECIFIED_CREDITS,
 this is a list of credit types to be subtracted from gross cost to determine the spend for threshold calculations. See a list of acceptable credit type values.
-If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty.
-
-**Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config.`,
+If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be empty.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"credit_types_treatment": {
 							Type:         schema.TypeString,
@@ -239,7 +302,7 @@ If creditTypesTreatment is not INCLUDE_SPECIFIED_CREDITS, this field must be emp
 							Description: `Specifies how credits should be treated when determining spend
 for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"]`,
 							Default:      "INCLUDE_ALL_CREDITS",
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"custom_period": {
 							Type:     schema.TypeList,
@@ -310,7 +373,7 @@ If unset, specifies to track all usage incurred since the startDate.`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"labels": {
 							Type:     schema.TypeMap,
@@ -319,7 +382,7 @@ If unset, specifies to track all usage incurred since the startDate.`,
 							Description: `A single label and value pair specifying that usage from only
 this set of labeled resources should be included in the budget.`,
 							Elem:         &schema.Schema{Type: schema.TypeString},
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"projects": {
 							Type:     schema.TypeSet,
@@ -333,7 +396,7 @@ the usage occurred on.`,
 								Type: schema.TypeString,
 							},
 							Set:          schema.HashString,
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"resource_ancestors": {
 							Type:     schema.TypeSet,
@@ -346,7 +409,7 @@ contains projects that are paid for by a different Cloud Billing account, the bu
 								Type: schema.TypeString,
 							},
 							Set:          schema.HashString,
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"services": {
 							Type:     schema.TypeList,
@@ -361,24 +424,21 @@ https://cloud.google.com/billing/v1/how-tos/catalog-api.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 						"subaccounts": {
 							Type:     schema.TypeList,
-							Computed: true,
 							Optional: true,
 							Description: `A set of subaccounts of the form billingAccounts/{account_id},
 specifying that usage from only this set of subaccounts should
 be included in the budget. If a subaccount is set to the name of
 the parent account, usage from the parent account will be included.
 If the field is omitted, the report will include usage from the parent
-account and all subaccounts, if they exist.
-
-**Note:** If the field has a value in the config and needs to be removed, the field has to be an empty array in the config.`,
+account and all subaccounts, if they exist.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							AtLeastOneOf: []string{"budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.credit_types_treatment", "budget_filter.0.services", "budget_filter.0.subaccounts", "budget_filter.0.labels", "budget_filter.0.calendar_period", "budget_filter.0.custom_period"},
+							AtLeastOneOf: []string{"budget_filter.0.calendar_period", "budget_filter.0.credit_types_treatment", "budget_filter.0.custom_period", "budget_filter.0.labels", "budget_filter.0.projects", "budget_filter.0.resource_ancestors", "budget_filter.0.services", "budget_filter.0.subaccounts"},
 						},
 					},
 				},
@@ -464,11 +524,11 @@ func resourceBillingBudgetCreate(d *schema.ResourceData, meta interface{}) error
 	} else if v, ok := d.GetOkExists("threshold_rules"); !tpgresource.IsEmptyValue(reflect.ValueOf(thresholdRulesProp)) && (ok || !reflect.DeepEqual(v, thresholdRulesProp)) {
 		obj["thresholdRules"] = thresholdRulesProp
 	}
-	notificationsRuleProp, err := expandBillingBudgetAllUpdatesRule(d.Get("all_updates_rule"), d, config)
+	allUpdatesRuleProp, err := expandBillingBudgetAllUpdatesRule(d.Get("all_updates_rule"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("all_updates_rule"); !tpgresource.IsEmptyValue(reflect.ValueOf(notificationsRuleProp)) && (ok || !reflect.DeepEqual(v, notificationsRuleProp)) {
-		obj["notificationsRule"] = notificationsRuleProp
+	} else if v, ok := d.GetOkExists("all_updates_rule"); !tpgresource.IsEmptyValue(reflect.ValueOf(allUpdatesRuleProp)) && (ok || !reflect.DeepEqual(v, allUpdatesRuleProp)) {
+		obj["notificationsRule"] = allUpdatesRuleProp
 	}
 	ownershipScopeProp, err := expandBillingBudgetOwnershipScope(d.Get("ownership_scope"), d, config)
 	if err != nil {
@@ -517,6 +577,22 @@ func resourceBillingBudgetCreate(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if billingAccountValue, ok := d.GetOk("billing_account"); ok && billingAccountValue.(string) != "" {
+			if err = identity.Set("billing_account", billingAccountValue.(string)); err != nil {
+				return fmt.Errorf("Error setting billing_account: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	log.Printf("[DEBUG] Finished creating Budget %q: %#v", d.Id(), res)
 
@@ -577,6 +653,24 @@ func resourceBillingBudgetRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error reading Budget: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("billing_account"); !ok && v == "" {
+			err = identity.Set("billing_account", d.Get("billing_account").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting billing_account: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -585,6 +679,21 @@ func resourceBillingBudgetUpdate(d *schema.ResourceData, meta interface{}) error
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if billingAccountValue, ok := d.GetOk("billing_account"); ok && billingAccountValue.(string) != "" {
+			if err = identity.Set("billing_account", billingAccountValue.(string)); err != nil {
+				return fmt.Errorf("Error setting billing_account: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -614,11 +723,11 @@ func resourceBillingBudgetUpdate(d *schema.ResourceData, meta interface{}) error
 	} else if v, ok := d.GetOkExists("threshold_rules"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, thresholdRulesProp)) {
 		obj["thresholdRules"] = thresholdRulesProp
 	}
-	notificationsRuleProp, err := expandBillingBudgetAllUpdatesRule(d.Get("all_updates_rule"), d, config)
+	allUpdatesRuleProp, err := expandBillingBudgetAllUpdatesRule(d.Get("all_updates_rule"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("all_updates_rule"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, notificationsRuleProp)) {
-		obj["notificationsRule"] = notificationsRuleProp
+	} else if v, ok := d.GetOkExists("all_updates_rule"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, allUpdatesRuleProp)) {
+		obj["notificationsRule"] = allUpdatesRuleProp
 	}
 	ownershipScopeProp, err := expandBillingBudgetOwnershipScope(d.Get("ownership_scope"), d, config)
 	if err != nil {
@@ -775,7 +884,7 @@ func flattenBillingBudgetName(v interface{}, d *schema.ResourceData, config *tra
 	if v == nil {
 		return v
 	}
-	return tpgresource.NameFromSelfLinkStateFunc(v)
+	return tpgresource.GetResourceNameFromSelfLink(v.(string))
 }
 
 func flattenBillingBudgetDisplayName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1163,6 +1272,9 @@ func expandBillingBudgetDisplayName(v interface{}, d tpgresource.TerraformResour
 }
 
 func expandBillingBudgetBudgetFilter(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1279,6 +1391,9 @@ func expandBillingBudgetBudgetFilterCalendarPeriod(v interface{}, d tpgresource.
 }
 
 func expandBillingBudgetBudgetFilterCustomPeriod(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1305,6 +1420,9 @@ func expandBillingBudgetBudgetFilterCustomPeriod(v interface{}, d tpgresource.Te
 }
 
 func expandBillingBudgetBudgetFilterCustomPeriodStartDate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1350,6 +1468,9 @@ func expandBillingBudgetBudgetFilterCustomPeriodStartDateDay(v interface{}, d tp
 }
 
 func expandBillingBudgetBudgetFilterCustomPeriodEndDate(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1395,6 +1516,9 @@ func expandBillingBudgetBudgetFilterCustomPeriodEndDateDay(v interface{}, d tpgr
 }
 
 func expandBillingBudgetAmount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1421,6 +1545,9 @@ func expandBillingBudgetAmount(v interface{}, d tpgresource.TerraformResourceDat
 }
 
 func expandBillingBudgetAmountSpecifiedAmount(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1474,6 +1601,9 @@ func expandBillingBudgetAmountLastPeriodAmount(v interface{}, d tpgresource.Terr
 }
 
 func expandBillingBudgetThresholdRules(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1511,6 +1641,9 @@ func expandBillingBudgetThresholdRulesSpendBasis(v interface{}, d tpgresource.Te
 }
 
 func expandBillingBudgetAllUpdatesRule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

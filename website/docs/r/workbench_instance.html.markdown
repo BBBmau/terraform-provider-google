@@ -74,6 +74,26 @@ resource "google_workbench_instance" "instance" {
 
 
 ```hcl
+resource "google_compute_reservation" "gpu_reservation" {
+  name     = "wbi-reservation"
+  zone     = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    
+    instance_properties {
+      machine_type = "n1-standard-1"
+      
+      guest_accelerators {
+        accelerator_type  = "nvidia-tesla-t4"
+        accelerator_count = 1
+      }
+    }
+  }
+
+  specific_reservation_required = false
+}
+
 resource "google_workbench_instance" "instance" {
   name = "workbench-instance"
   location = "us-central1-a"
@@ -87,7 +107,15 @@ resource "google_workbench_instance" "instance" {
       project      = "cloud-notebooks-managed"
       family       = "workbench-instances"
     }
+    reservation_affinity {
+      consume_reservation_type = "RESERVATION_ANY"
+    }
   }
+
+  depends_on = [
+    google_compute_reservation.gpu_reservation
+  ]
+
 }
 ```
 ## Example Usage - Workbench Instance Labels Stopped
@@ -153,6 +181,26 @@ resource "google_service_account_iam_binding" "act_as_permission" {
   ]
 }
 
+resource "google_compute_reservation" "gpu_reservation" {
+  name     = "wbi-reservation"
+  zone     = "us-central1-a"
+
+  specific_reservation {
+    count = 1
+    
+    instance_properties {
+      machine_type = "n1-standard-4"
+      
+      guest_accelerators {
+        accelerator_type  = "nvidia-tesla-t4"
+        accelerator_count = 1
+      }
+    }
+  }
+
+  specific_reservation_required = true
+}
+
 resource "google_workbench_instance" "instance" {
   name = "workbench-instance"
   location = "us-central1-a"
@@ -200,7 +248,15 @@ resource "google_workbench_instance" "instance" {
     }
 
     metadata = {
-      terraform = "true"
+      terraform = "true",
+      serial-port-logging-enable = "false"
+      "enable-jupyterlab4" = "false"
+    }
+
+    reservation_affinity {
+      consume_reservation_type = "RESERVATION_SPECIFIC"
+      key = "compute.googleapis.com/reservation-name"
+      values = [google_compute_reservation.gpu_reservation.name]
     }
 
     enable_ip_forwarding = true
@@ -226,6 +282,7 @@ resource "google_workbench_instance" "instance" {
     google_compute_subnetwork.my_subnetwork,
     google_compute_address.static,
     google_service_account_iam_binding.act_as_permission,
+    google_compute_reservation.gpu_reservation
   ]
 }
 ```
@@ -262,6 +319,39 @@ resource "google_workbench_instance" "instance" {
   }
 }
 ```
+## Example Usage - Workbench Instance Euc
+
+
+```hcl
+resource "google_service_account_iam_binding" "act_as_permission" {
+  service_account_id = "projects/my-project-name/serviceAccounts/1111111111111-compute@developer.gserviceaccount.com"
+  role               = "roles/iam.serviceAccountUser"
+  members = [
+    "user:example@example.com",
+  ]
+}
+
+resource "google_workbench_instance" "instance" {
+  name = "workbench-instance"
+  location = "us-central1-a"
+
+  gce_setup {
+    machine_type = "e2-standard-4"
+    
+    metadata = {
+      terraform = "true"
+    }
+  }
+
+  instance_owners  = ["example@example.com"]
+
+  enable_managed_euc = "true"
+
+  depends_on = [
+       google_service_account_iam_binding.act_as_permission,
+  ]
+}
+```
 
 ## Argument Reference
 
@@ -275,9 +365,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   Part of `parent`. See documentation of `projectsId`.
-
-
-- - -
 
 
 * `gce_setup` -
@@ -310,6 +397,10 @@ The following arguments are supported:
   Flag that specifies that a notebook can be accessed with third party
   identity provider.
 
+* `enable_managed_euc` -
+  (Optional)
+  Flag to enable managed end user credentials for the instance.
+
 * `instance_id` -
   (Optional)
   Required. User-defined unique ID of this instance.
@@ -318,6 +409,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 * `desired_state` - (Optional) Desired state of the Workbench Instance. Set this field to `ACTIVE` to start the Instance, and `STOPPED` to stop the Instance.
+
 
 
 <a name="nested_gce_setup"></a>The `gce_setup` block supports:
@@ -393,6 +485,11 @@ The following arguments are supported:
   (Optional)
   Confidential instance configuration.
   Structure is [documented below](#nested_gce_setup_confidential_instance_config).
+
+* `reservation_affinity` -
+  (Optional)
+  Reservations that this instance can consume from.
+  Structure is [documented below](#nested_gce_setup_reservation_affinity).
 
 
 <a name="nested_gce_setup_accelerator_configs"></a>The `accelerator_configs` block supports:
@@ -538,10 +635,10 @@ The following arguments are supported:
   config, ONE_TO_ONE_NAT, is supported. If no accessConfigs specified, the
   instance will have an external internet access through an ephemeral
   external IP address.
-  Structure is [documented below](#nested_gce_setup_network_interfaces_network_interfaces_access_configs).
+  Structure is [documented below](#nested_gce_setup_network_interfaces_access_configs).
 
 
-<a name="nested_gce_setup_network_interfaces_network_interfaces_access_configs"></a>The `access_configs` block supports:
+<a name="nested_gce_setup_network_interfaces_access_configs"></a>The `access_configs` block supports:
 
 * `external_ip` -
   (Required)
@@ -557,6 +654,27 @@ The following arguments are supported:
   (Optional)
   Defines the type of technology used by the confidential instance.
   Possible values are: `SEV`.
+
+<a name="nested_gce_setup_reservation_affinity"></a>The `reservation_affinity` block supports:
+
+* `consume_reservation_type` -
+  (Optional)
+  Specifies the type of reservation from which this instance can consume resources:
+  RESERVATION_ANY (default), RESERVATION_SPECIFIC, or RESERVATION_NONE.
+  Possible values are: `RESERVATION_NONE`, `RESERVATION_ANY`, `RESERVATION_SPECIFIC`.
+
+* `key` -
+  (Optional)
+  Corresponds to the label key of a reservation resource. To target a
+  RESERVATION_SPECIFIC by name, use compute.googleapis.com/reservation-name
+  as the key and specify the name of your reservation as its value.
+
+* `values` -
+  (Optional)
+  Corresponds to the label values of a reservation resource. This can be
+  either a name to a reservation in the same project or
+  "projects/different-project/reservations/some-reservation-name"
+  to target a shared reservation in the same zone but in a different project.
 
 ## Attributes Reference
 
@@ -658,6 +776,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_workbench_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

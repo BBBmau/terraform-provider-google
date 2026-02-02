@@ -78,9 +78,6 @@ The following arguments are supported:
   The name of the hub. Hub names must be unique. They use the following form: projects/{projectNumber}/locations/global/hubs/{hubId}
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Optional labels in key:value format. For more information about labels, see [Requirements for labels](https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements).
@@ -98,6 +95,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_auto_accept"></a>The `auto_accept` block supports:
@@ -153,6 +151,18 @@ Group can be imported using any of these accepted formats:
 * `{{project}}/{{hub}}/{{name}}`
 * `{{hub}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Group using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    hub = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_connectivity_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Group using one of the formats above. For example:
 

@@ -23,105 +23,60 @@ description: |-
 
 A Managed Service for Kafka Connect cluster.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 
 ## Example Usage - Managedkafka Connect Cluster Basic
 
 
 ```hcl
-resource "google_project" "project" {
-  project_id      = "tf-test%{random_suffix}"
-  name            = "tf-test%{random_suffix}"
-  org_id          = "123456789"
-  billing_account = "000000-0000000-0000000-000000"
-  deletion_policy = "DELETE"
-
-  provider = google-beta
-}
-
-resource "time_sleep" "wait_60_seconds" {
-  create_duration = "60s"
-  depends_on = [google_project.project]
-}
-
-resource "google_project_service" "compute" {
-  project = google_project.project.project_id
-  service = "compute.googleapis.com"
-  depends_on = [time_sleep.wait_60_seconds]
-
-  provider = google-beta
-}
-
-resource "google_project_service" "managedkafka" {
-  project = google_project.project.project_id
-  service = "managedkafka.googleapis.com"
-  depends_on = [google_project_service.compute]
-
-  provider = google-beta
-}
-
-resource "time_sleep" "wait_120_seconds" {
-  create_duration = "120s"
-  depends_on = [google_project_service.managedkafka]
+data "google_project" "project" {
 }
 
 resource "google_compute_subnetwork" "mkc_secondary_subnet" {
-  project       = google_project.project.project_id
+  project       = data.google_project.project.project_id
   name          = "my-secondary-subnetwork"
   ip_cidr_range = "10.3.0.0/16"
   region        = "us-central1"
   network       = "default"
-  depends_on = [time_sleep.wait_120_seconds]
-
-  provider = google-beta
 }
 
-resource "google_managed_kafka_cluster" "gmk_cluster" {
-  project = google_project.project.project_id
+resource "google_managed_kafka_cluster" "cluster" {
   cluster_id = "my-cluster"
-  location = "us-central1"
+  location   = "us-central1"
   capacity_config {
-    vcpu_count = 3
+    vcpu_count   = 3
     memory_bytes = 3221225472
   }
   gcp_config {
     access_config {
       network_configs {
-        subnet = "projects/${google_project.project.project_id}/regions/us-central1/subnetworks/default"
+        subnet = "projects/${data.google_project.project.number}/regions/us-central1/subnetworks/default"
       }
     }
   }
-  depends_on = [google_project_service.managedkafka]
-
-  provider = google-beta
 }
 
 resource "google_managed_kafka_connect_cluster" "example" {
-  project = google_project.project.project_id
   connect_cluster_id = "my-connect-cluster"
-  kafka_cluster = "projects/${google_project.project.project_id}/locations/us-central1/clusters/${google_managed_kafka_cluster.gmk_cluster.cluster_id}"
-  location = "us-central1"
+  kafka_cluster      = "projects/${data.google_project.project.project_id}/locations/us-central1/clusters/${google_managed_kafka_cluster.cluster.cluster_id}"
+  location           = "us-central1"
+
   capacity_config {
-    vcpu_count = 12
+    vcpu_count   = 12
     memory_bytes = 21474836480
   }
   gcp_config {
     access_config {
       network_configs {
-        primary_subnet = "projects/${google_project.project.project_id}/regions/us-central1/subnetworks/default"
-        additional_subnets = ["${google_compute_subnetwork.mkc_secondary_subnet.id}"]
-        dns_domain_names = ["${google_managed_kafka_cluster.gmk_cluster.cluster_id}.us-central1.managedkafka.${google_project.project.project_id}.cloud.goog"]
+        primary_subnet = "projects/${data.google_project.project.number}/regions/us-central1/subnetworks/default"
+        additional_subnets = [google_compute_subnetwork.mkc_secondary_subnet.id]
+        dns_domain_names = ["${google_managed_kafka_cluster.cluster.cluster_id}.us-central1.managedkafka.${data.google_project.project.project_id}.cloud.goog"]
       }
     }
   }
   labels = {
     key = "value"
   }
-  depends_on = [google_project_service.managedkafka]
-
-  provider = google-beta
 }
 ```
 
@@ -151,6 +106,17 @@ The following arguments are supported:
 * `connect_cluster_id` -
   (Required)
   The ID to use for the Connect Cluster, which will become the final component of the connect cluster's name. This value is structured like: `my-connect-cluster-id`.
+
+
+* `labels` -
+  (Optional)
+  List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
 
 
 <a name="nested_capacity_config"></a>The `capacity_config` block supports:
@@ -186,25 +152,14 @@ The following arguments are supported:
   VPC subnet to make available to the Kafka Connect cluster. Structured like: projects/{project}/regions/{region}/subnetworks/{subnet_id}. It is used to create a Private Service Connect (PSC) interface for the Kafka Connect workers. It must be located in the same region as the Kafka Connect cluster. The CIDR range of the subnet must be within the IPv4 address ranges for private networks, as specified in RFC 1918. The primary subnet CIDR range must have a minimum size of /22 (1024 addresses).
 
 * `additional_subnets` -
-  (Optional)
+  (Optional, Deprecated)
   Additional subnets may be specified. They may be in another region, but must be in the same VPC network. The Connect workers can communicate with network endpoints in either the primary or additional subnets.
+
+  ~> **Warning:** `additionalSubnets` is deprecated and will be removed in a future major release. Managed Kafka Connect clusters can now reach any endpoint accessible from the primary subnet without the need to define additional subnets. Please see https://cloud.google.com/managed-service-for-apache-kafka/docs/connect-cluster/create-connect-cluster#worker-subnet for more information.
 
 * `dns_domain_names` -
   (Optional)
   Additional DNS domain names from the subnet's network to be made visible to the Connect Cluster. When using MirrorMaker2, it's necessary to add the bootstrap address's dns domain name of the target cluster to make it visible to the connector. For example: my-kafka-cluster.us-central1.managedkafka.my-project.cloud.goog
-
-- - -
-
-
-* `labels` -
-  (Optional)
-  List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -250,6 +205,18 @@ ConnectCluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{connect_cluster_id}}`
 * `{{location}}/{{connect_cluster_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ConnectCluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    connectClusterId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_managed_kafka_connect_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ConnectCluster using one of the formats above. For example:
 

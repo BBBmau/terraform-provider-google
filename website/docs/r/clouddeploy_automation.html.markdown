@@ -45,11 +45,35 @@ resource "google_clouddeploy_automation" "b-automation" {
       id = "*"
     }
   }
-  suspended = false
   rules {
     promote_release_rule {
       id = "promote-release"
     }
+  }
+  rules {
+      advance_rollout_rule {
+        id                    = "advance-rollout"
+      }
+    }
+  rules {
+    repair_rollout_rule {
+      id                    = "repair-rollout"
+      repair_phases {
+      retry  {
+                      attempts = "1"
+                  }
+       }
+      repair_phases {
+             rollback {}
+          }
+      }
+  }
+  rules {
+    timed_promote_release_rule {
+      id                    = "timed-promote-release"
+      schedule              = "0 9 * * 1"
+      time_zone              = "America/New_York"
+     }
   }
 }
 
@@ -181,164 +205,6 @@ The following arguments are supported:
   The delivery_pipeline for the resource
 
 
-<a name="nested_selector"></a>The `selector` block supports:
-
-* `targets` -
-  (Required)
-  Contains attributes about a target.
-  Structure is [documented below](#nested_selector_targets).
-
-
-<a name="nested_selector_targets"></a>The `targets` block supports:
-
-* `id` -
-  (Optional)
-  ID of the `Target`. The value of this field could be one of the following: * The last segment of a target name. It only needs the ID to determine which target is being referred to * "*", all targets in a location.
-
-* `labels` -
-  (Optional)
-  Target labels.
-
-<a name="nested_rules"></a>The `rules` block supports:
-
-* `promote_release_rule` -
-  (Optional)
-  Optional. `PromoteReleaseRule` will automatically promote a release from the current target to a specified target.
-  Structure is [documented below](#nested_rules_rules_promote_release_rule).
-
-* `advance_rollout_rule` -
-  (Optional)
-  Optional. The `AdvanceRolloutRule` will automatically advance a successful Rollout.
-  Structure is [documented below](#nested_rules_rules_advance_rollout_rule).
-
-* `repair_rollout_rule` -
-  (Optional)
-  Optional. The RepairRolloutRule will automatically repair a failed rollout.
-  Structure is [documented below](#nested_rules_rules_repair_rollout_rule).
-
-* `timed_promote_release_rule` -
-  (Optional)
-  Optional. The `TimedPromoteReleaseRule` will automatically promote a release from the current target(s) to the specified target(s) on a configured schedule.
-  Structure is [documented below](#nested_rules_rules_timed_promote_release_rule).
-
-
-<a name="nested_rules_rules_promote_release_rule"></a>The `promote_release_rule` block supports:
-
-* `id` -
-  (Required)
-  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
-
-* `wait` -
-  (Optional)
-  Optional. How long the release need to be paused until being promoted to the next target.
-
-* `destination_target_id` -
-  (Optional)
-  Optional. The ID of the stage in the pipeline to which this `Release` is deploying. If unspecified, default it to the next stage in the promotion flow. The value of this field could be one of the following: * The last segment of a target name. It only needs the ID to determine if the target is one of the stages in the promotion sequence defined in the pipeline. * "@next", the next target in the promotion sequence.
-
-* `destination_phase` -
-  (Optional)
-  Optional. The starting phase of the rollout created by this operation. Default to the first phase.
-
-<a name="nested_rules_rules_advance_rollout_rule"></a>The `advance_rollout_rule` block supports:
-
-* `id` -
-  (Required)
-  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
-
-* `wait` -
-  (Optional)
-  Optional. How long to wait after a rollout is finished.
-
-* `source_phases` -
-  (Optional)
-  Optional. Proceeds only after phase name matched any one in the list. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: `^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`.
-
-<a name="nested_rules_rules_repair_rollout_rule"></a>The `repair_rollout_rule` block supports:
-
-* `id` -
-  (Required)
-  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
-
-* `phases` -
-  (Optional)
-  Optional. Phases within which jobs are subject to automatic repair actions on failure. Proceeds only after phase name matched any one in the list, or for all phases if unspecified. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$.
-
-* `jobs` -
-  (Optional)
-  Optional. Jobs to repair. Proceeds only after job name matched any one in the list, or for all jobs if unspecified or empty. The phase that includes the job must match the phase ID specified in sourcePhase. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$.
-
-* `repair_phases` -
-  (Optional)
-  Optional. Proceeds only after phase name matched any one in the list. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: `^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`.
-  Structure is [documented below](#nested_rules_rules_repair_rollout_rule_repair_phases).
-
-
-<a name="nested_rules_rules_repair_rollout_rule_repair_phases"></a>The `repair_phases` block supports:
-
-* `retry` -
-  (Optional)
-  Optional. Retries a failed job.
-  Structure is [documented below](#nested_rules_rules_repair_rollout_rule_repair_phases_repair_phases_retry).
-
-* `rollback` -
-  (Optional)
-  Optional. Rolls back a Rollout.
-  Structure is [documented below](#nested_rules_rules_repair_rollout_rule_repair_phases_repair_phases_rollback).
-
-
-<a name="nested_rules_rules_repair_rollout_rule_repair_phases_repair_phases_retry"></a>The `retry` block supports:
-
-* `attempts` -
-  (Required)
-  Required. Total number of retries. Retry is skipped if set to 0; The minimum value is 1, and the maximum value is 10.
-
-* `wait` -
-  (Optional)
-  Optional. How long to wait for the first retry. Default is 0, and the maximum value is 14d. A duration in seconds with up to nine fractional digits, ending with 's'. Example: `3.5s`.
-
-* `backoff_mode` -
-  (Optional)
-  Optional. The pattern of how wait time will be increased. Default is linear. Backoff mode will be ignored if wait is 0.
-  Possible values are: `BACKOFF_MODE_UNSPECIFIED`, `BACKOFF_MODE_LINEAR`, `BACKOFF_MODE_EXPONENTIAL`.
-
-<a name="nested_rules_rules_repair_rollout_rule_repair_phases_repair_phases_rollback"></a>The `rollback` block supports:
-
-* `destination_phase` -
-  (Optional)
-  Optional. The starting phase ID for the Rollout. If unspecified, the Rollout will start in the stable phase.
-
-* `disable_rollback_if_rollout_pending` -
-  (Optional)
-  Optional. If pending rollout exists on the target, the rollback operation will be aborted.
-
-<a name="nested_rules_rules_timed_promote_release_rule"></a>The `timed_promote_release_rule` block supports:
-
-* `id` -
-  (Required)
-  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
-
-* `destination_target_id` -
-  (Optional)
-  Optional. The ID of the stage in the pipeline to which this Release is deploying. If unspecified, default it to the next stage in the promotion flow. The value of this field could be one of the following:
-    - The last segment of a target name
-    - "@next", the next target in the promotion sequence"
-
-* `schedule` -
-  (Required)
-  Required. Schedule in crontab format. e.g. `0 9 * * 1` for every Monday at 9am.
-
-* `time_zone` -
-  (Required)
-  Required. The time zone in IANA format IANA Time Zone Database (e.g. America/New_York).
-
-* `destination_phase` -
-  (Optional)
-  Optional. The starting phase of the rollout created by this rule. Default to the first phase.
-
-- - -
-
-
 * `description` -
   (Optional)
   Optional. Description of the `Automation`. Max length is 255 characters.
@@ -362,6 +228,162 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_selector"></a>The `selector` block supports:
+
+* `targets` -
+  (Required)
+  Contains attributes about a target.
+  Structure is [documented below](#nested_selector_targets).
+
+
+<a name="nested_selector_targets"></a>The `targets` block supports:
+
+* `id` -
+  (Optional)
+  ID of the `Target`. The value of this field could be one of the following: * The last segment of a target name. It only needs the ID to determine which target is being referred to * "*", all targets in a location.
+
+* `labels` -
+  (Optional)
+  Target labels.
+
+<a name="nested_rules"></a>The `rules` block supports:
+
+* `promote_release_rule` -
+  (Optional)
+  Optional. `PromoteReleaseRule` will automatically promote a release from the current target to a specified target.
+  Structure is [documented below](#nested_rules_promote_release_rule).
+
+* `advance_rollout_rule` -
+  (Optional)
+  Optional. The `AdvanceRolloutRule` will automatically advance a successful Rollout.
+  Structure is [documented below](#nested_rules_advance_rollout_rule).
+
+* `repair_rollout_rule` -
+  (Optional)
+  Optional. The RepairRolloutRule will automatically repair a failed rollout.
+  Structure is [documented below](#nested_rules_repair_rollout_rule).
+
+* `timed_promote_release_rule` -
+  (Optional)
+  Optional. The `TimedPromoteReleaseRule` will automatically promote a release from the current target(s) to the specified target(s) on a configured schedule.
+  Structure is [documented below](#nested_rules_timed_promote_release_rule).
+
+
+<a name="nested_rules_promote_release_rule"></a>The `promote_release_rule` block supports:
+
+* `id` -
+  (Required)
+  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
+
+* `wait` -
+  (Optional)
+  Optional. How long the release need to be paused until being promoted to the next target.
+
+* `destination_target_id` -
+  (Optional)
+  Optional. The ID of the stage in the pipeline to which this `Release` is deploying. If unspecified, default it to the next stage in the promotion flow. The value of this field could be one of the following: * The last segment of a target name. It only needs the ID to determine if the target is one of the stages in the promotion sequence defined in the pipeline. * "@next", the next target in the promotion sequence.
+
+* `destination_phase` -
+  (Optional)
+  Optional. The starting phase of the rollout created by this operation. Default to the first phase.
+
+<a name="nested_rules_advance_rollout_rule"></a>The `advance_rollout_rule` block supports:
+
+* `id` -
+  (Required)
+  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
+
+* `wait` -
+  (Optional)
+  Optional. How long to wait after a rollout is finished.
+
+* `source_phases` -
+  (Optional)
+  Optional. Proceeds only after phase name matched any one in the list. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: `^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`.
+
+<a name="nested_rules_repair_rollout_rule"></a>The `repair_rollout_rule` block supports:
+
+* `id` -
+  (Required)
+  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
+
+* `phases` -
+  (Optional)
+  Optional. Phases within which jobs are subject to automatic repair actions on failure. Proceeds only after phase name matched any one in the list, or for all phases if unspecified. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$.
+
+* `jobs` -
+  (Optional)
+  Optional. Jobs to repair. Proceeds only after job name matched any one in the list, or for all jobs if unspecified or empty. The phase that includes the job must match the phase ID specified in sourcePhase. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: ^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$.
+
+* `repair_phases` -
+  (Optional)
+  Optional. Proceeds only after phase name matched any one in the list. This value must consist of lower-case letters, numbers, and hyphens, start with a letter and end with a letter or a number, and have a max length of 63 characters. In other words, it must match the following regex: `^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`.
+  Structure is [documented below](#nested_rules_repair_rollout_rule_repair_phases).
+
+
+<a name="nested_rules_repair_rollout_rule_repair_phases"></a>The `repair_phases` block supports:
+
+* `retry` -
+  (Optional)
+  Optional. Retries a failed job.
+  Structure is [documented below](#nested_rules_repair_rollout_rule_repair_phases_retry).
+
+* `rollback` -
+  (Optional)
+  Optional. Rolls back a Rollout.
+  Structure is [documented below](#nested_rules_repair_rollout_rule_repair_phases_rollback).
+
+
+<a name="nested_rules_repair_rollout_rule_repair_phases_retry"></a>The `retry` block supports:
+
+* `attempts` -
+  (Required)
+  Required. Total number of retries. Retry is skipped if set to 0; The minimum value is 1, and the maximum value is 10.
+
+* `wait` -
+  (Optional)
+  Optional. How long to wait for the first retry. Default is 0, and the maximum value is 14d. A duration in seconds with up to nine fractional digits, ending with 's'. Example: `3.5s`.
+
+* `backoff_mode` -
+  (Optional)
+  Optional. The pattern of how wait time will be increased. Default is linear. Backoff mode will be ignored if wait is 0.
+  Possible values are: `BACKOFF_MODE_UNSPECIFIED`, `BACKOFF_MODE_LINEAR`, `BACKOFF_MODE_EXPONENTIAL`.
+
+<a name="nested_rules_repair_rollout_rule_repair_phases_rollback"></a>The `rollback` block supports:
+
+* `destination_phase` -
+  (Optional)
+  Optional. The starting phase ID for the Rollout. If unspecified, the Rollout will start in the stable phase.
+
+* `disable_rollback_if_rollout_pending` -
+  (Optional)
+  Optional. If pending rollout exists on the target, the rollback operation will be aborted.
+
+<a name="nested_rules_timed_promote_release_rule"></a>The `timed_promote_release_rule` block supports:
+
+* `id` -
+  (Required)
+  Required. ID of the rule. This id must be unique in the `Automation` resource to which this rule belongs. The format is `a-z{0,62}`.
+
+* `destination_target_id` -
+  (Optional)
+  Optional. The ID of the stage in the pipeline to which this Release is deploying. If unspecified, default it to the next stage in the promotion flow. The value of this field could be one of the following:
+    - The last segment of a target name
+    - "@next", the next target in the promotion sequence"
+
+* `schedule` -
+  (Required)
+  Required. Schedule in crontab format. e.g. `0 9 * * 1` for every Monday at 9am.
+
+* `time_zone` -
+  (Required)
+  Required. The time zone in IANA format IANA Time Zone Database (e.g. America/New_York).
+
+* `destination_phase` -
+  (Optional)
+  Optional. The starting phase of the rollout created by this rule. Default to the first phase.
 
 ## Attributes Reference
 
@@ -410,6 +432,19 @@ Automation can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{delivery_pipeline}}/{{name}}`
 * `{{location}}/{{delivery_pipeline}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Automation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    delivery_pipeline = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_clouddeploy_automation.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Automation using one of the formats above. For example:
 

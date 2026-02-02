@@ -19,15 +19,35 @@ package dataprocgdc_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationBasicExample(t *testing.T) {
@@ -52,6 +72,12 @@ func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationBasicExample(
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "serviceinstance", "spark_application_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_dataproc_gdc_spark_application.spark-application",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -96,6 +122,12 @@ func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationExample(t *te
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "serviceinstance", "spark_application_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_dataproc_gdc_spark_application.spark-application",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -161,6 +193,12 @@ func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationPysparkExampl
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "serviceinstance", "spark_application_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_dataproc_gdc_spark_application.spark-application",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -210,6 +248,12 @@ func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationSparkrExample
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "serviceinstance", "spark_application_id", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_dataproc_gdc_spark_application.spark-application",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -255,6 +299,12 @@ func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationSparksqlExamp
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "serviceinstance", "spark_application_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_dataproc_gdc_spark_application.spark-application",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -304,6 +354,12 @@ func TestAccDataprocGdcSparkApplication_dataprocgdcSparkapplicationSparksqlQuery
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"annotations", "labels", "location", "serviceinstance", "spark_application_id", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_dataproc_gdc_spark_application.spark-application",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

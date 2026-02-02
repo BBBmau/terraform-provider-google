@@ -40,6 +40,48 @@ resource "google_beyondcorp_security_gateway" "example" {
   hubs { region = "us-central1" }
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=beyondcorp_security_gateway_spa&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Beyondcorp Security Gateway Spa
+
+
+```hcl
+resource "google_beyondcorp_security_gateway" "example-spa" {
+  security_gateway_id = "default-spa"
+  display_name = "My SPA Security Gateway resource"
+  proxy_protocol_config {
+    allowed_client_headers = ["header1", "header2"]
+    contextual_headers {
+      user_info {
+        output_type = "PROTOBUF"
+      }
+      group_info {
+        output_type = "JSON"
+      }
+      device_info {
+        output_type = "NONE"
+      }
+      output_type = "NONE"
+    }
+    metadata_headers = {
+      metadata-header1 = "value1"
+      metadata-header2 = "value2"
+    }
+    gateway_identity = "RESOURCE_NAME"
+    client_ip = true
+  }
+  service_discovery {
+    api_gateway {
+      resource_override {
+        path = "/api/v1/routes"
+       }
+    }
+  }
+}
+```
 
 ## Argument Reference
 
@@ -54,9 +96,6 @@ The following arguments are supported:
   * Must end with a number or letter.
 
 
-- - -
-
-
 * `hubs` -
   (Optional)
   Optional. Map of Hubs that represents regional data path deployment with GCP region
@@ -68,6 +107,16 @@ The following arguments are supported:
   Optional. An arbitrary user-provided name for the SecurityGateway.
   Cannot exceed 64 characters.
 
+* `proxy_protocol_config` -
+  (Optional)
+  Shared proxy configuration for all apps.
+  Structure is [documented below](#nested_proxy_protocol_config).
+
+* `service_discovery` -
+  (Optional)
+  Settings related to the Service Discovery.
+  Structure is [documented below](#nested_service_discovery).
+
 * `location` -
   (Optional, Deprecated)
   Resource ID segment making up resource `name`. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Must be omitted or set to `global`.
@@ -78,6 +127,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_hubs"></a>The `hubs` block supports:
 
 * `region` - (Required) The identifier for this object. Format specified above.
@@ -85,14 +135,109 @@ The following arguments are supported:
 * `internet_gateway` -
   (Optional)
   Internet Gateway configuration.
-  Structure is [documented below](#nested_hubs_hub_internet_gateway).
+  Structure is [documented below](#nested_hubs_internet_gateway).
 
 
-<a name="nested_hubs_hub_internet_gateway"></a>The `internet_gateway` block supports:
+<a name="nested_hubs_internet_gateway"></a>The `internet_gateway` block supports:
 
 * `assigned_ips` -
   (Output)
   Output only. List of IP addresses assigned to the Cloud NAT.
+
+<a name="nested_proxy_protocol_config"></a>The `proxy_protocol_config` block supports:
+
+* `allowed_client_headers` -
+  (Optional)
+  The configuration for the proxy.
+
+* `contextual_headers` -
+  (Optional)
+  Configuration for the contextual headers.
+  Structure is [documented below](#nested_proxy_protocol_config_contextual_headers).
+
+* `metadata_headers` -
+  (Optional)
+  Custom resource specific headers along with the values.
+  The names should conform to RFC 9110:
+  > Field names SHOULD constrain themselves to alphanumeric characters, "-",
+    and ".", and SHOULD begin with a letter.
+  > Field values SHOULD contain only ASCII printable characters and tab.
+
+* `gateway_identity` -
+  (Optional)
+  Gateway identity configuration.
+  Possible values are: `RESOURCE_NAME`.
+
+* `client_ip` -
+  (Optional)
+  Client IP configuration. The client IP address is included if true.
+
+
+<a name="nested_proxy_protocol_config_contextual_headers"></a>The `contextual_headers` block supports:
+
+* `user_info` -
+  (Optional)
+  User info configuration.
+  Structure is [documented below](#nested_proxy_protocol_config_contextual_headers_user_info).
+
+* `group_info` -
+  (Optional)
+  Group info configuration.
+  Structure is [documented below](#nested_proxy_protocol_config_contextual_headers_group_info).
+
+* `device_info` -
+  (Optional)
+  Device info configuration.
+  Structure is [documented below](#nested_proxy_protocol_config_contextual_headers_device_info).
+
+* `output_type` -
+  (Optional)
+  Default output type for all enabled headers.
+  Possible values are: `PROTOBUF`, `JSON`, `NONE`.
+
+
+<a name="nested_proxy_protocol_config_contextual_headers_user_info"></a>The `user_info` block supports:
+
+* `output_type` -
+  (Optional)
+  The output type of the delegated user info.
+  Possible values are: `PROTOBUF`, `JSON`, `NONE`.
+
+<a name="nested_proxy_protocol_config_contextual_headers_group_info"></a>The `group_info` block supports:
+
+* `output_type` -
+  (Optional)
+  The output type of the delegated group info.
+  Possible values are: `PROTOBUF`, `JSON`, `NONE`.
+
+<a name="nested_proxy_protocol_config_contextual_headers_device_info"></a>The `device_info` block supports:
+
+* `output_type` -
+  (Optional)
+  The output type of the delegated device info.
+  Possible values are: `PROTOBUF`, `JSON`, `NONE`.
+
+<a name="nested_service_discovery"></a>The `service_discovery` block supports:
+
+* `api_gateway` -
+  (Optional)
+  External API configuration.
+  Structure is [documented below](#nested_service_discovery_api_gateway).
+
+
+<a name="nested_service_discovery_api_gateway"></a>The `api_gateway` block supports:
+
+* `resource_override` -
+  (Optional)
+  Enables fetching resource model updates to alter service behavior per Chrome profile.
+  Structure is [documented below](#nested_service_discovery_api_gateway_resource_override).
+
+
+<a name="nested_service_discovery_api_gateway_resource_override"></a>The `resource_override` block supports:
+
+* `path` -
+  (Optional)
+  Contains uri path fragment where HTTP request is sent.
 
 ## Attributes Reference
 
@@ -124,6 +269,9 @@ In addition to the arguments listed above, the following computed attributes are
 * `name` -
   Identifier. Name of the resource.
 
+* `delegating_service_account` -
+  Service account used for operations that involve resources in consumer projects.
+
 
 ## Timeouts
 
@@ -143,6 +291,18 @@ SecurityGateway can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{security_gateway_id}}`
 * `{{location}}/{{security_gateway_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecurityGateway using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-optional value->"
+    securityGatewayId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_beyondcorp_security_gateway.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecurityGateway using one of the formats above. For example:
 

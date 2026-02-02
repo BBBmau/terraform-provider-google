@@ -20,18 +20,70 @@
 package compute
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceComputePublicDelegatedPrefix() *schema.Resource {
@@ -52,6 +104,26 @@ func ResourceComputePublicDelegatedPrefix() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"region": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"ip_cidr_range": {
@@ -107,9 +179,104 @@ except the last character, which cannot be a dash.`,
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: verify.ValidateEnum([]string{"DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION", ""}),
-				Description: `Specifies the mode of this IPv6 PDP. MODE must be one of: DELEGATION,
-EXTERNAL_IPV6_FORWARDING_RULE_CREATION and EXTERNAL_IPV6_SUBNETWORK_CREATION. Possible values: ["DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION"]`,
+				ValidateFunc: verify.ValidateEnum([]string{"DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION", "INTERNAL_IPV6_SUBNETWORK_CREATION", ""}),
+				Description: `Specifies the mode of this IPv6 PDP. MODE must be one of:
+  * DELEGATION
+  * EXTERNAL_IPV6_FORWARDING_RULE_CREATION
+  * EXTERNAL_IPV6_SUBNETWORK_CREATION
+  * INTERNAL_IPV6_SUBNETWORK_CREATION Possible values: ["DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION", "INTERNAL_IPV6_SUBNETWORK_CREATION"]`,
+			},
+			"enable_enhanced_ipv4_allocation": {
+				Type:     schema.TypeBool,
+				Computed: true,
+				Description: `Whether this PublicDelegatedPrefix supports enhanced IPv4 allocations.
+Applicable for IPv4 PDPs only.`,
+			},
+			"ipv6_access_type": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Description: `The internet access type for IPv6 Public Delegated Prefixes. Inherited
+from parent prefix and can be one of following:
+  * EXTERNAL: The prefix will be announced to the internet. All children
+  PDPs will have access type as EXTERNAL.
+  * INTERNAL: The prefix won’t be announced to the internet. Prefix will
+  be used privately within Google Cloud. All children PDPs will have
+  access type as INTERNAL.`,
+			},
+			"public_delegated_sub_prefixs": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Description: `List of sub public delegated fixes for BYO IP functionality.
+Each item in this array represents a sub prefix that can be
+used to create addresses or further allocations.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"allocatable_prefix_length": {
+							Type:        schema.TypeInt,
+							Optional:    true,
+							Description: `The allocatable prefix length supported by this PublicDelegatedSubPrefix.`,
+						},
+						"delegatee_project": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `Name of the project scoping this PublicDelegatedSubPrefix.`,
+						},
+						"description": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `An optional description of this sub public delegated prefix.`,
+						},
+						"ip_cidr_range": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `The IP address range in the CIDR format represented by this sub prefix.`,
+						},
+						"is_address": {
+							Type:        schema.TypeBool,
+							Optional:    true,
+							Description: `Whether the sub prefix is delegated for address creation.`,
+						},
+						"mode": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION", "INTERNAL_IPV6_SUBNETWORK_CREATION", ""}),
+							Description:  `The PublicDelegatedSubPrefix mode for IPv6 only. Possible values: ["DELEGATION", "EXTERNAL_IPV6_FORWARDING_RULE_CREATION", "EXTERNAL_IPV6_SUBNETWORK_CREATION", "INTERNAL_IPV6_SUBNETWORK_CREATION"]`,
+						},
+						"name": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `The name of the sub public delegated prefix.`,
+						},
+						"region": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: `Output-only. The region of the sub public delegated prefix if it is regional. If absent, the sub prefix is global.`,
+						},
+						"status": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"INITIALIZING", "READY_TO_ANNOUNCE", "ANNOUNCED", "DELETING", ""}),
+							Description:  `The status of the sub public delegated prefix. Possible values: ["INITIALIZING", "READY_TO_ANNOUNCE", "ANNOUNCED", "DELETING"]`,
+						},
+						"enable_enhanced_ipv4_allocation": {
+							Type:     schema.TypeBool,
+							Computed: true,
+							Description: `Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
+Applicable for IPv4 sub-PDPs only.`,
+						},
+						"ipv6_access_type": {
+							Type:     schema.TypeString,
+							Computed: true,
+							Description: `The internet access type for IPv6 Public Delegated Prefixes. Inherited
+from parent prefix and can be one of following:
+  * EXTERNAL: The prefix will be announced to the internet. All children
+  PDPs will have access type as EXTERNAL.
+  * INTERNAL: The prefix won’t be announced to the internet. Prefix will
+  be used privately within Google Cloud. All children PDPs will have
+  access type as INTERNAL.`,
+						},
+					},
+				},
 			},
 			"project": {
 				Type:     schema.TypeString,
@@ -218,6 +385,27 @@ func resourceComputePublicDelegatedPrefixCreate(d *schema.ResourceData, meta int
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating PublicDelegatedPrefix", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -296,8 +484,41 @@ func resourceComputePublicDelegatedPrefixRead(d *schema.ResourceData, meta inter
 	if err := d.Set("ip_cidr_range", flattenComputePublicDelegatedPrefixIpCidrRange(res["ipCidrRange"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
 	}
+	if err := d.Set("ipv6_access_type", flattenComputePublicDelegatedPrefixIpv6AccessType(res["ipv6AccessType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
+	}
+	if err := d.Set("enable_enhanced_ipv4_allocation", flattenComputePublicDelegatedPrefixEnableEnhancedIpv4Allocation(res["enableEnhancedIpv4Allocation"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
+	}
+	if err := d.Set("public_delegated_sub_prefixs", flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixs(res["publicDelegatedSubPrefixs"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
+	}
 	if err := d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
 		return fmt.Errorf("Error reading PublicDelegatedPrefix: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -418,6 +639,99 @@ func flattenComputePublicDelegatedPrefixAllocatablePrefixLength(v interface{}, d
 }
 
 func flattenComputePublicDelegatedPrefixIpCidrRange(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixIpv6AccessType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixEnableEnhancedIpv4Allocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixs(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"name":                            flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsName(original["name"], d, config),
+			"description":                     flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDescription(original["description"], d, config),
+			"region":                          flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsRegion(original["region"], d, config),
+			"status":                          flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsStatus(original["status"], d, config),
+			"ip_cidr_range":                   flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpCidrRange(original["ipCidrRange"], d, config),
+			"is_address":                      flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIsAddress(original["isAddress"], d, config),
+			"mode":                            flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsMode(original["mode"], d, config),
+			"allocatable_prefix_length":       flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsAllocatablePrefixLength(original["allocatablePrefixLength"], d, config),
+			"ipv6_access_type":                flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpv6AccessType(original["ipv6AccessType"], d, config),
+			"enable_enhanced_ipv4_allocation": flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsEnableEnhancedIpv4Allocation(original["enableEnhancedIpv4Allocation"], d, config),
+			"delegatee_project":               flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDelegateeProject(original["delegateeProject"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDescription(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsRegion(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsStatus(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpCidrRange(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIsAddress(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsMode(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsAllocatablePrefixLength(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := tpgresource.StringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsIpv6AccessType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsEnableEnhancedIpv4Allocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputePublicDelegatedPrefixPublicDelegatedSubPrefixsDelegateeProject(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 

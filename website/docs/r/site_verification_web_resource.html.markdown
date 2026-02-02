@@ -84,6 +84,8 @@ The following arguments are supported:
   Possible values are: `ANALYTICS`, `DNS_CNAME`, `DNS_TXT`, `FILE`, `META`, `TAG_MANAGER`.
 
 
+
+
 <a name="nested_site"></a>The `site` block supports:
 
 * `type` -
@@ -95,10 +97,6 @@ The following arguments are supported:
   (Required)
   The site identifier. If the type is set to SITE, the identifier is a URL. If the type is
   set to INET_DOMAIN, the identifier is a domain name.
-
-- - -
-
-
 
 ## Attributes Reference
 
@@ -130,6 +128,16 @@ WebResource can be imported using any of these accepted formats:
 * `webResource/{{web_resource_id}}`
 * `{{web_resource_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WebResource using identity values. For example:
+
+```tf
+import {
+  identity = {
+    web_resource_id = "<-optional value->"
+  }
+  to = google_site_verification_web_resource.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WebResource using one of the formats above. For example:
 

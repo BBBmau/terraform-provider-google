@@ -84,6 +84,15 @@ The following arguments are supported:
   Structure is [documented below](#nested_sp_config).
 
 
+* `enabled` -
+  (Optional)
+  If this config allows users to sign in with the provider.
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_idp_config"></a>The `idp_config` block supports:
 
 * `idp_entity_id` -
@@ -132,17 +141,6 @@ The following arguments are supported:
   (Output)
   The x509 certificate
 
-- - -
-
-
-* `enabled` -
-  (Optional)
-  If this config allows users to sign in with the provider.
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -168,6 +166,17 @@ InboundSamlConfig can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InboundSamlConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_identity_platform_inbound_saml_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InboundSamlConfig using one of the formats above. For example:
 

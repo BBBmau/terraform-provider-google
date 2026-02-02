@@ -20,19 +20,70 @@
 package bigqueryconnection
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceBigqueryConnectionConnection() *schema.Resource {
@@ -55,6 +106,26 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"connection_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"aws": {
@@ -86,7 +157,7 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"cloud_sql", "aws", "azure", "cloud_spanner", "cloud_resource", "spark"},
+				ExactlyOneOf: []string{"aws", "azure", "cloud_resource", "cloud_spanner", "cloud_sql", "spark"},
 			},
 			"azure": {
 				Type:        schema.TypeList,
@@ -132,7 +203,7 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"cloud_sql", "aws", "azure", "cloud_spanner", "cloud_resource", "spark"},
+				ExactlyOneOf: []string{"aws", "azure", "cloud_resource", "cloud_spanner", "cloud_sql", "spark"},
 			},
 			"cloud_resource": {
 				Type:        schema.TypeList,
@@ -148,7 +219,7 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"cloud_sql", "aws", "azure", "cloud_spanner", "cloud_resource", "spark"},
+				ExactlyOneOf: []string{"aws", "azure", "cloud_resource", "cloud_spanner", "cloud_sql", "spark"},
 			},
 			"cloud_spanner": {
 				Type:        schema.TypeList,
@@ -193,7 +264,7 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"cloud_sql", "aws", "azure", "cloud_spanner", "cloud_resource", "spark"},
+				ExactlyOneOf: []string{"aws", "azure", "cloud_resource", "cloud_spanner", "cloud_sql", "spark"},
 			},
 			"cloud_sql": {
 				Type:        schema.TypeList,
@@ -246,7 +317,7 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"cloud_sql", "aws", "azure", "cloud_spanner", "cloud_resource", "spark"},
+				ExactlyOneOf: []string{"aws", "azure", "cloud_resource", "cloud_spanner", "cloud_sql", "spark"},
 			},
 			"connection_id": {
 				Type:        schema.TypeString,
@@ -328,7 +399,7 @@ Azure allowed regions are azure-eastus2`,
 						},
 					},
 				},
-				ExactlyOneOf: []string{"cloud_sql", "aws", "azure", "cloud_spanner", "cloud_resource", "spark"},
+				ExactlyOneOf: []string{"aws", "azure", "cloud_resource", "cloud_spanner", "cloud_sql", "spark"},
 			},
 			"has_credential": {
 				Type:        schema.TypeBool,
@@ -360,11 +431,11 @@ func resourceBigqueryConnectionConnectionCreate(d *schema.ResourceData, meta int
 	}
 
 	obj := make(map[string]interface{})
-	connection_idProp, err := expandBigqueryConnectionConnectionConnectionId(d.Get("connection_id"), d, config)
+	connectionIdProp, err := expandBigqueryConnectionConnectionConnectionId(d.Get("connection_id"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("connection_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(connection_idProp)) && (ok || !reflect.DeepEqual(v, connection_idProp)) {
-		obj["connection_id"] = connection_idProp
+	} else if v, ok := d.GetOkExists("connection_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(connectionIdProp)) && (ok || !reflect.DeepEqual(v, connectionIdProp)) {
+		obj["connectionId"] = connectionIdProp
 	}
 	friendlyNameProp, err := expandBigqueryConnectionConnectionFriendlyName(d.Get("friendly_name"), d, config)
 	if err != nil {
@@ -473,6 +544,27 @@ func resourceBigqueryConnectionConnectionCreate(d *schema.ResourceData, meta int
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if connectionIdValue, ok := d.GetOk("connection_id"); ok && connectionIdValue.(string) != "" {
+			if err = identity.Set("connection_id", connectionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting connection_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating Connection %q: %#v", d.Id(), res)
 
 	return resourceBigqueryConnectionConnectionRead(d, meta)
@@ -523,7 +615,7 @@ func resourceBigqueryConnectionConnectionRead(d *schema.ResourceData, meta inter
 	if err := d.Set("name", flattenBigqueryConnectionConnectionName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Connection: %s", err)
 	}
-	if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connection_id"], d, config)); err != nil {
+	if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connectionId"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Connection: %s", err)
 	}
 	if err := d.Set("friendly_name", flattenBigqueryConnectionConnectionFriendlyName(res["friendlyName"], d, config)); err != nil {
@@ -557,6 +649,30 @@ func resourceBigqueryConnectionConnectionRead(d *schema.ResourceData, meta inter
 		return fmt.Errorf("Error reading Connection: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("connection_id"); !ok && v == "" {
+			err = identity.Set("connection_id", d.Get("connection_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting connection_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -565,6 +681,26 @@ func resourceBigqueryConnectionConnectionUpdate(d *schema.ResourceData, meta int
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if connectionIdValue, ok := d.GetOk("connection_id"); ok && connectionIdValue.(string) != "" {
+			if err = identity.Set("connection_id", connectionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting connection_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1094,6 +1230,9 @@ func expandBigqueryConnectionConnectionKmsKeyName(v interface{}, d tpgresource.T
 }
 
 func expandBigqueryConnectionConnectionCloudSql(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1149,6 +1288,9 @@ func expandBigqueryConnectionConnectionCloudSqlDatabase(v interface{}, d tpgreso
 }
 
 func expandBigqueryConnectionConnectionCloudSqlCredential(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1191,6 +1333,9 @@ func expandBigqueryConnectionConnectionCloudSqlServiceAccountId(v interface{}, d
 }
 
 func expandBigqueryConnectionConnectionAws(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1210,6 +1355,9 @@ func expandBigqueryConnectionConnectionAws(v interface{}, d tpgresource.Terrafor
 }
 
 func expandBigqueryConnectionConnectionAwsAccessRole(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1244,6 +1392,9 @@ func expandBigqueryConnectionConnectionAwsAccessRoleIdentity(v interface{}, d tp
 }
 
 func expandBigqueryConnectionConnectionAzure(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1333,6 +1484,9 @@ func expandBigqueryConnectionConnectionAzureIdentity(v interface{}, d tpgresourc
 }
 
 func expandBigqueryConnectionConnectionCloudSpanner(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1411,6 +1565,9 @@ func expandBigqueryConnectionConnectionCloudSpannerUseServerlessAnalytics(v inte
 }
 
 func expandBigqueryConnectionConnectionCloudResource(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1434,6 +1591,9 @@ func expandBigqueryConnectionConnectionCloudResourceServiceAccountId(v interface
 }
 
 func expandBigqueryConnectionConnectionSpark(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1471,6 +1631,9 @@ func expandBigqueryConnectionConnectionSparkServiceAccountId(v interface{}, d tp
 }
 
 func expandBigqueryConnectionConnectionSparkMetastoreServiceConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1494,6 +1657,9 @@ func expandBigqueryConnectionConnectionSparkMetastoreServiceConfigMetastoreServi
 }
 
 func expandBigqueryConnectionConnectionSparkSparkHistoryServerConfig(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1517,8 +1683,8 @@ func expandBigqueryConnectionConnectionSparkSparkHistoryServerConfigDataprocClus
 }
 
 func resourceBigqueryConnectionConnectionEncoder(d *schema.ResourceData, meta interface{}, obj map[string]interface{}) (map[string]interface{}, error) {
-	// connection_id is needed to qualify the URL but cannot be sent in the body
-	delete(obj, "connection_id")
+	// connectionId is needed to qualify the URL but cannot be sent in the body
+	delete(obj, "connectionId")
 	return obj, nil
 }
 
@@ -1530,7 +1696,7 @@ func resourceBigqueryConnectionConnectionPostCreateSetComputedFields(d *schema.R
 	}
 	// connection_id is set by API when unset
 	if tpgresource.IsEmptyValue(reflect.ValueOf(d.Get("connection_id"))) {
-		if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connection_id"], d, config)); err != nil {
+		if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connectionId"], d, config)); err != nil {
 			return fmt.Errorf(`Error setting computed identity field "connection_id": %s`, err)
 		}
 	}

@@ -155,51 +155,6 @@ The following arguments are supported:
   AppEngine service resource
 
 
-<a name="nested_deployment"></a>The `deployment` block supports:
-
-* `zip` -
-  (Optional)
-  Zip File
-  Structure is [documented below](#nested_deployment_zip).
-
-* `files` -
-  (Optional)
-  Manifest of the files stored in Google Cloud Storage that are included as part of this version.
-  All files must be readable using the credentials supplied with this call.
-  Structure is [documented below](#nested_deployment_files).
-
-
-<a name="nested_deployment_zip"></a>The `zip` block supports:
-
-* `source_url` -
-  (Required)
-  Source URL
-
-* `files_count` -
-  (Optional)
-  files count
-
-<a name="nested_deployment_files"></a>The `files` block supports:
-
-* `name` - (Required) The identifier for this object. Format specified above.
-
-* `sha1_sum` -
-  (Optional)
-  SHA1 checksum of the file
-
-* `source_url` -
-  (Required)
-  Source URL
-
-<a name="nested_entrypoint"></a>The `entrypoint` block supports:
-
-* `shell` -
-  (Required)
-  The format should be a shell command that can be fed to bash -c.
-
-- - -
-
-
 * `version_id` -
   (Optional)
   Relative name of the version within the service. For example, `v1`. Version names can contain only lowercase letters, numbers, or hyphens. Reserved names,"default", "latest", and any name with the prefix "ah-".
@@ -277,6 +232,49 @@ The following arguments are supported:
 * `delete_service_on_destroy` - (Optional) If set to `true`, the service will be deleted if it is the last version.
 
 
+
+<a name="nested_deployment"></a>The `deployment` block supports:
+
+* `zip` -
+  (Optional)
+  Zip File
+  Structure is [documented below](#nested_deployment_zip).
+
+* `files` -
+  (Optional)
+  Manifest of the files stored in Google Cloud Storage that are included as part of this version.
+  All files must be readable using the credentials supplied with this call.
+  Structure is [documented below](#nested_deployment_files).
+
+
+<a name="nested_deployment_zip"></a>The `zip` block supports:
+
+* `source_url` -
+  (Required)
+  Source URL
+
+* `files_count` -
+  (Optional)
+  files count
+
+<a name="nested_deployment_files"></a>The `files` block supports:
+
+* `name` - (Required) The identifier for this object. Format specified above.
+
+* `sha1_sum` -
+  (Optional)
+  SHA1 checksum of the file
+
+* `source_url` -
+  (Required)
+  Source URL
+
+<a name="nested_entrypoint"></a>The `entrypoint` block supports:
+
+* `shell` -
+  (Required)
+  The format should be a shell command that can be fed to bash -c.
+
 <a name="nested_handlers"></a>The `handlers` block supports:
 
 * `url_regex` -
@@ -308,21 +306,21 @@ The following arguments are supported:
   (Optional)
   Executes a script to handle the requests that match this URL pattern.
   Only the auto value is supported for Node.js in the App Engine standard environment, for example "script:" "auto".
-  Structure is [documented below](#nested_handlers_handlers_script).
+  Structure is [documented below](#nested_handlers_script).
 
 * `static_files` -
   (Optional)
   Files served directly to the user for a given URL, such as images, CSS stylesheets, or JavaScript source files. Static file handlers describe which files in the application directory are static files, and which URLs serve them.
-  Structure is [documented below](#nested_handlers_handlers_static_files).
+  Structure is [documented below](#nested_handlers_static_files).
 
 
-<a name="nested_handlers_handlers_script"></a>The `script` block supports:
+<a name="nested_handlers_script"></a>The `script` block supports:
 
 * `script_path` -
   (Required)
   Path to the script from the application root directory.
 
-<a name="nested_handlers_handlers_static_files"></a>The `static_files` block supports:
+<a name="nested_handlers_static_files"></a>The `static_files` block supports:
 
 * `path` -
   (Optional)
@@ -474,6 +472,18 @@ StandardAppVersion can be imported using any of these accepted formats:
 * `{{project}}/{{service}}/{{version_id}}`
 * `{{service}}/{{version_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import StandardAppVersion using identity values. For example:
+
+```tf
+import {
+  identity = {
+    version_id = "<-optional value->"
+    service = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_app_engine_standard_app_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import StandardAppVersion using one of the formats above. For example:
 

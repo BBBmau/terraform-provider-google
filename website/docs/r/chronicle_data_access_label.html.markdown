@@ -68,15 +68,13 @@ The following arguments are supported:
   https://google.aip.dev/122#resource-id-segments
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Optional. A description of the data access label for a human reader.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -124,6 +122,19 @@ DataAccessLabel can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance}}/{{data_access_label_id}}`
 * `{{location}}/{{instance}}/{{data_access_label_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DataAccessLabel using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instance = "<-required value->"
+    dataAccessLabelId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_chronicle_data_access_label.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DataAccessLabel using one of the formats above. For example:
 

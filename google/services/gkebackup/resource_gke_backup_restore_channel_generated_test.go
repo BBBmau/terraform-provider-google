@@ -19,8 +19,11 @@ package gkebackup_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccGKEBackupRestoreChannel_gkebackupRestorechannelBasicExample(t *testing.T) {
@@ -54,6 +73,12 @@ func TestAccGKEBackupRestoreChannel_gkebackupRestorechannelBasicExample(t *testi
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "location", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_gke_backup_restore_channel.basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -63,7 +88,7 @@ func testAccGKEBackupRestoreChannel_gkebackupRestorechannelBasicExample(context 
 resource "google_gke_backup_restore_channel" "basic" {
   name = "tf-test-basic-channel%{random_suffix}"
   location = "us-central1"
-  description = ""
+  description = "Description"
   destination_project = "%{destination_project}"
   labels = { "key": "some-value" }
 }

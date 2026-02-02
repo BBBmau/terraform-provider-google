@@ -20,18 +20,38 @@
 package compute
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 // Suppresses a diff on cases like 1:00 when it should be 01:00.
@@ -39,6 +59,38 @@ import (
 func HourlyFormatSuppressDiff(_, old, new string, _ *schema.ResourceData) bool {
 	return old == "0"+new
 }
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
 
 func ResourceComputeResourcePolicy() *schema.Resource {
 	return &schema.Resource{
@@ -61,6 +113,26 @@ func ResourceComputeResourcePolicy() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 			tpgresource.DefaultProviderRegion,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -94,7 +166,7 @@ which cannot be a dash.`,
 						},
 					},
 				},
-				ConflictsWith: []string{"snapshot_schedule_policy", "group_placement_policy", "instance_schedule_policy"},
+				ConflictsWith: []string{"group_placement_policy", "instance_schedule_policy", "snapshot_schedule_policy"},
 			},
 			"group_placement_policy": {
 				Type:        schema.TypeList,
@@ -118,6 +190,13 @@ Specify 'COLLOCATED' to enable collocation. Can only be specified with 'vm_count
 with a COLLOCATED policy, then exactly 'vm_count' instances must be created at the same time with the resource policy
 attached. Possible values: ["COLLOCATED"]`,
 						},
+						"gpu_topology": {
+							Type:          schema.TypeString,
+							Optional:      true,
+							ForceNew:      true,
+							Description:   `Specifies the shape of the GPU slice, in slice based GPU families eg. A4X.`,
+							ConflictsWith: []string{},
+						},
 						"vm_count": {
 							Type:     schema.TypeInt,
 							Optional: true,
@@ -127,7 +206,7 @@ exact number of VMs.`,
 						},
 					},
 				},
-				ConflictsWith: []string{"instance_schedule_policy", "snapshot_schedule_policy", "disk_consistency_group_policy"},
+				ConflictsWith: []string{"disk_consistency_group_policy", "instance_schedule_policy", "snapshot_schedule_policy"},
 			},
 			"instance_schedule_policy": {
 				Type:        schema.TypeList,
@@ -186,7 +265,7 @@ from the tz database: http://en.wikipedia.org/wiki/Tz_database.`,
 						},
 					},
 				},
-				ConflictsWith: []string{"snapshot_schedule_policy", "group_placement_policy", "disk_consistency_group_policy"},
+				ConflictsWith: []string{"disk_consistency_group_policy", "group_placement_policy", "snapshot_schedule_policy"},
 			},
 			"region": {
 				Type:             schema.TypeString,
@@ -233,7 +312,7 @@ both 13:00-5 and 08:00 are valid.`,
 												},
 											},
 										},
-										ExactlyOneOf: []string{"snapshot_schedule_policy.0.schedule.0.hourly_schedule", "snapshot_schedule_policy.0.schedule.0.daily_schedule", "snapshot_schedule_policy.0.schedule.0.weekly_schedule"},
+										ExactlyOneOf: []string{"snapshot_schedule_policy.0.schedule.0.daily_schedule", "snapshot_schedule_policy.0.schedule.0.hourly_schedule", "snapshot_schedule_policy.0.schedule.0.weekly_schedule"},
 									},
 									"hourly_schedule": {
 										Type:        schema.TypeList,
@@ -258,7 +337,7 @@ where HH : [00-23] and MM : [00] GMT. eg: 21:00`,
 												},
 											},
 										},
-										ExactlyOneOf: []string{"snapshot_schedule_policy.0.schedule.0.hourly_schedule", "snapshot_schedule_policy.0.schedule.0.daily_schedule", "snapshot_schedule_policy.0.schedule.0.weekly_schedule"},
+										ExactlyOneOf: []string{"snapshot_schedule_policy.0.schedule.0.daily_schedule", "snapshot_schedule_policy.0.schedule.0.hourly_schedule", "snapshot_schedule_policy.0.schedule.0.weekly_schedule"},
 									},
 									"weekly_schedule": {
 										Type:        schema.TypeList,
@@ -278,7 +357,7 @@ where HH : [00-23] and MM : [00] GMT. eg: 21:00`,
 												},
 											},
 										},
-										ExactlyOneOf: []string{"snapshot_schedule_policy.0.schedule.0.hourly_schedule", "snapshot_schedule_policy.0.schedule.0.daily_schedule", "snapshot_schedule_policy.0.schedule.0.weekly_schedule"},
+										ExactlyOneOf: []string{"snapshot_schedule_policy.0.schedule.0.daily_schedule", "snapshot_schedule_policy.0.schedule.0.hourly_schedule", "snapshot_schedule_policy.0.schedule.0.weekly_schedule"},
 									},
 								},
 							},
@@ -324,14 +403,14 @@ with RFC1035.`,
 										Type:         schema.TypeBool,
 										Optional:     true,
 										Description:  `Whether to perform a 'guest aware' snapshot.`,
-										AtLeastOneOf: []string{"snapshot_schedule_policy.0.snapshot_properties.0.labels", "snapshot_schedule_policy.0.snapshot_properties.0.storage_locations", "snapshot_schedule_policy.0.snapshot_properties.0.guest_flush"},
+										AtLeastOneOf: []string{"snapshot_schedule_policy.0.snapshot_properties.0.guest_flush", "snapshot_schedule_policy.0.snapshot_properties.0.labels", "snapshot_schedule_policy.0.snapshot_properties.0.storage_locations"},
 									},
 									"labels": {
 										Type:         schema.TypeMap,
 										Optional:     true,
 										Description:  `A set of key-value pairs.`,
 										Elem:         &schema.Schema{Type: schema.TypeString},
-										AtLeastOneOf: []string{"snapshot_schedule_policy.0.snapshot_properties.0.labels", "snapshot_schedule_policy.0.snapshot_properties.0.storage_locations", "snapshot_schedule_policy.0.snapshot_properties.0.guest_flush"},
+										AtLeastOneOf: []string{"snapshot_schedule_policy.0.snapshot_properties.0.guest_flush", "snapshot_schedule_policy.0.snapshot_properties.0.labels", "snapshot_schedule_policy.0.snapshot_properties.0.storage_locations"},
 									},
 									"storage_locations": {
 										Type:     schema.TypeSet,
@@ -343,14 +422,48 @@ with RFC1035.`,
 											Type: schema.TypeString,
 										},
 										Set:          schema.HashString,
-										AtLeastOneOf: []string{"snapshot_schedule_policy.0.snapshot_properties.0.labels", "snapshot_schedule_policy.0.snapshot_properties.0.storage_locations", "snapshot_schedule_policy.0.snapshot_properties.0.guest_flush"},
+										AtLeastOneOf: []string{"snapshot_schedule_policy.0.snapshot_properties.0.guest_flush", "snapshot_schedule_policy.0.snapshot_properties.0.labels", "snapshot_schedule_policy.0.snapshot_properties.0.storage_locations"},
 									},
 								},
 							},
 						},
 					},
 				},
-				ConflictsWith: []string{"group_placement_policy", "instance_schedule_policy", "disk_consistency_group_policy"},
+				ConflictsWith: []string{"disk_consistency_group_policy", "group_placement_policy", "instance_schedule_policy"},
+			},
+			"workload_policy": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `Represents the workload policy.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"type": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ForceNew:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"HIGH_AVAILABILITY", "HIGH_THROUGHPUT"}),
+							Description:  `The type of workload policy. Possible values: ["HIGH_AVAILABILITY", "HIGH_THROUGHPUT"]`,
+						},
+						"accelerator_topology": {
+							Type:     schema.TypeString,
+							Optional: true,
+							ForceNew: true,
+							Description: `The accelerator topology. This field can be set only when the workload policy type is HIGH_THROUGHPUT
+and cannot be set if max topology distance is set.`,
+							ConflictsWith: []string{"workload_policy.0.max_topology_distance"},
+						},
+						"max_topology_distance": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ForceNew:     true,
+							ValidateFunc: verify.ValidateEnum([]string{"BLOCK", "CLUSTER", "SUBBLOCK", ""}),
+							Description: `The maximum topology distance. This field can be set only when the workload policy type is HIGH_THROUGHPUT
+and cannot be set if accelerator topology is set. Possible values: ["BLOCK", "CLUSTER", "SUBBLOCK"]`,
+							ConflictsWith: []string{"workload_policy.0.accelerator_topology"},
+						},
+					},
+				},
 			},
 			"project": {
 				Type:     schema.TypeString,
@@ -430,6 +543,12 @@ func resourceComputeResourcePolicyCreate(d *schema.ResourceData, meta interface{
 	} else if v, ok := d.GetOkExists("disk_consistency_group_policy"); ok || !reflect.DeepEqual(v, diskConsistencyGroupPolicyProp) {
 		obj["diskConsistencyGroupPolicy"] = diskConsistencyGroupPolicyProp
 	}
+	workloadPolicyProp, err := expandComputeResourcePolicyWorkloadPolicy(d.Get("workload_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("workload_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(workloadPolicyProp)) && (ok || !reflect.DeepEqual(v, workloadPolicyProp)) {
+		obj["workloadPolicy"] = workloadPolicyProp
+	}
 	regionProp, err := expandComputeResourcePolicyRegion(d.Get("region"), d, config)
 	if err != nil {
 		return err
@@ -477,6 +596,27 @@ func resourceComputeResourcePolicyCreate(d *schema.ResourceData, meta interface{
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating ResourcePolicy", userAgent,
@@ -561,8 +701,35 @@ func resourceComputeResourcePolicyRead(d *schema.ResourceData, meta interface{})
 	if err := d.Set("disk_consistency_group_policy", flattenComputeResourcePolicyDiskConsistencyGroupPolicy(res["diskConsistencyGroupPolicy"], d, config)); err != nil {
 		return fmt.Errorf("Error reading ResourcePolicy: %s", err)
 	}
+	if err := d.Set("workload_policy", flattenComputeResourcePolicyWorkloadPolicy(res["workloadPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ResourcePolicy: %s", err)
+	}
 	if err := d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
 		return fmt.Errorf("Error reading ResourcePolicy: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -573,6 +740,26 @@ func resourceComputeResourcePolicyUpdate(d *schema.ResourceData, meta interface{
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -619,6 +806,12 @@ func resourceComputeResourcePolicyUpdate(d *schema.ResourceData, meta interface{
 		return err
 	} else if v, ok := d.GetOkExists("disk_consistency_group_policy"); ok || !reflect.DeepEqual(v, diskConsistencyGroupPolicyProp) {
 		obj["diskConsistencyGroupPolicy"] = diskConsistencyGroupPolicyProp
+	}
+	workloadPolicyProp, err := expandComputeResourcePolicyWorkloadPolicy(d.Get("workload_policy"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("workload_policy"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, workloadPolicyProp)) {
+		obj["workloadPolicy"] = workloadPolicyProp
 	}
 
 	url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/regions/{{region}}/resourcePolicies/{{name}}")
@@ -982,6 +1175,8 @@ func flattenComputeResourcePolicyGroupPlacementPolicy(v interface{}, d *schema.R
 		flattenComputeResourcePolicyGroupPlacementPolicyAvailabilityDomainCount(original["availabilityDomainCount"], d, config)
 	transformed["collocation"] =
 		flattenComputeResourcePolicyGroupPlacementPolicyCollocation(original["collocation"], d, config)
+	transformed["gpu_topology"] =
+		flattenComputeResourcePolicyGroupPlacementPolicyGpuTopology(original["gpuTopology"], d, config)
 	return []interface{}{transformed}
 }
 func flattenComputeResourcePolicyGroupPlacementPolicyVmCount(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1019,6 +1214,10 @@ func flattenComputeResourcePolicyGroupPlacementPolicyAvailabilityDomainCount(v i
 }
 
 func flattenComputeResourcePolicyGroupPlacementPolicyCollocation(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeResourcePolicyGroupPlacementPolicyGpuTopology(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 
@@ -1098,6 +1297,35 @@ func flattenComputeResourcePolicyDiskConsistencyGroupPolicy(v interface{}, d *sc
 	return []interface{}{transformed}
 }
 
+func flattenComputeResourcePolicyWorkloadPolicy(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["type"] =
+		flattenComputeResourcePolicyWorkloadPolicyType(original["type"], d, config)
+	transformed["max_topology_distance"] =
+		flattenComputeResourcePolicyWorkloadPolicyMaxTopologyDistance(original["maxTopologyDistance"], d, config)
+	transformed["accelerator_topology"] =
+		flattenComputeResourcePolicyWorkloadPolicyAcceleratorTopology(original["acceleratorTopology"], d, config)
+	return []interface{}{transformed}
+}
+func flattenComputeResourcePolicyWorkloadPolicyType(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeResourcePolicyWorkloadPolicyMaxTopologyDistance(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeResourcePolicyWorkloadPolicyAcceleratorTopology(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func expandComputeResourcePolicyName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
@@ -1107,6 +1335,9 @@ func expandComputeResourcePolicyDescription(v interface{}, d tpgresource.Terrafo
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1140,6 +1371,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicy(v interface{}, d tpgresou
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicySchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1173,6 +1407,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicySchedule(v interface{}, d 
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicyScheduleHourlySchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1207,6 +1444,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicyScheduleHourlyScheduleStar
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicyScheduleDailySchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1241,6 +1481,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicyScheduleDailyScheduleStart
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1261,6 +1504,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklySchedule(v i
 
 func expandComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayOfWeeks(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	v = v.(*schema.Set).List()
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1298,6 +1544,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicyScheduleWeeklyScheduleDayO
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicyRetentionPolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1332,6 +1581,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicyRetentionPolicyOnSourceDis
 }
 
 func expandComputeResourcePolicySnapshotSchedulePolicySnapshotProperties(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1396,6 +1648,9 @@ func expandComputeResourcePolicySnapshotSchedulePolicySnapshotPropertiesChainNam
 }
 
 func expandComputeResourcePolicyGroupPlacementPolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1425,6 +1680,13 @@ func expandComputeResourcePolicyGroupPlacementPolicy(v interface{}, d tpgresourc
 		transformed["collocation"] = transformedCollocation
 	}
 
+	transformedGpuTopology, err := expandComputeResourcePolicyGroupPlacementPolicyGpuTopology(original["gpu_topology"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedGpuTopology); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["gpuTopology"] = transformedGpuTopology
+	}
+
 	return transformed, nil
 }
 
@@ -1440,7 +1702,14 @@ func expandComputeResourcePolicyGroupPlacementPolicyCollocation(v interface{}, d
 	return v, nil
 }
 
+func expandComputeResourcePolicyGroupPlacementPolicyGpuTopology(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandComputeResourcePolicyInstanceSchedulePolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1488,6 +1757,9 @@ func expandComputeResourcePolicyInstanceSchedulePolicy(v interface{}, d tpgresou
 }
 
 func expandComputeResourcePolicyInstanceSchedulePolicyVmStartSchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1511,6 +1783,9 @@ func expandComputeResourcePolicyInstanceSchedulePolicyVmStartScheduleSchedule(v 
 }
 
 func expandComputeResourcePolicyInstanceSchedulePolicyVmStopSchedule(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1560,6 +1835,54 @@ func expandComputeResourcePolicyDiskConsistencyGroupPolicy(v interface{}, d tpgr
 	}
 	transformed := make(map[string]interface{})
 	return transformed, nil
+}
+
+func expandComputeResourcePolicyWorkloadPolicy(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedType, err := expandComputeResourcePolicyWorkloadPolicyType(original["type"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedType); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["type"] = transformedType
+	}
+
+	transformedMaxTopologyDistance, err := expandComputeResourcePolicyWorkloadPolicyMaxTopologyDistance(original["max_topology_distance"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedMaxTopologyDistance); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["maxTopologyDistance"] = transformedMaxTopologyDistance
+	}
+
+	transformedAcceleratorTopology, err := expandComputeResourcePolicyWorkloadPolicyAcceleratorTopology(original["accelerator_topology"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAcceleratorTopology); val.IsValid() && !tpgresource.IsEmptyValue(val) {
+		transformed["acceleratorTopology"] = transformedAcceleratorTopology
+	}
+
+	return transformed, nil
+}
+
+func expandComputeResourcePolicyWorkloadPolicyType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeResourcePolicyWorkloadPolicyMaxTopologyDistance(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeResourcePolicyWorkloadPolicyAcceleratorTopology(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
 }
 
 func expandComputeResourcePolicyRegion(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {

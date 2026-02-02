@@ -19,8 +19,11 @@ package eventarc_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -29,6 +32,22 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccEventarcTrigger_eventarcTriggerWithCloudRunDestinationExample(t *testing.T) {
@@ -79,6 +98,9 @@ resource "google_eventarc_trigger" "primary" {
       topic = google_pubsub_topic.foo.id
     }
   }
+  retry_policy {
+    max_attempts = 1
+  }
 }
 
 resource "google_pubsub_topic" "foo" {
@@ -116,7 +138,7 @@ func TestAccEventarcTrigger_eventarcTriggerWithHttpDestinationExample(t *testing
 	context := map[string]interface{}{
 		"project_id":              envvar.GetTestProjectFromEnv(),
 		"service_account":         envvar.GetTestServiceAccountFromEnv(t),
-		"network_attachment_name": acctest.BootstrapNetworkAttachment(t, "tf-test-eventarc-trigger-na", acctest.BootstrapSubnet(t, "tf-test-eventarc-trigger-subnet", acctest.BootstrapSharedTestNetwork(t, "tf-test-eventarc-trigger-network"))),
+		"network_attachment_name": acctest.BootstrapNetworkAttachment(t, "tf-bootstrap-eventarc-trigger-na", acctest.BootstrapSubnet(t, "tf-bootstrap-eventarc-trigger-subnet", acctest.BootstrapSharedTestNetwork(t, "tf-bootstrap-eventarc-trigger-network"))),
 		"random_suffix":           acctest.RandString(t, 10),
 	}
 

@@ -105,9 +105,6 @@ The following arguments are supported:
   The user-assigned display name of the App.
 
 
-- - -
-
-
 * `api_key_id` -
   (Optional)
   The globally unique, Google-assigned identifier (UID) for the Firebase API key associated with the WebApp.
@@ -120,6 +117,7 @@ The following arguments are supported:
 * `deletion_policy` - (Optional) Set to `ABANDON` to allow the WebApp to be untracked from terraform state
 rather than deleted upon `terraform destroy`. This is useful becaue the WebApp may be
 serving traffic. Set to `DELETE` to delete the WebApp. Default to `DELETE`
+
 
 
 ## Attributes Reference
@@ -160,6 +158,17 @@ WebApp can be imported using any of these accepted formats:
 * `webApps/{{app_id}}`
 * `{{app_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WebApp using identity values. For example:
+
+```tf
+import {
+  identity = {
+    appId = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_web_app.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WebApp using one of the formats above. For example:
 

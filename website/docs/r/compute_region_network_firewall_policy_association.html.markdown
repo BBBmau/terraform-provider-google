@@ -71,15 +71,13 @@ The following arguments are supported:
   The firewall policy of the resource.
 
 
-- - -
-
-
 * `region` -
   (Optional)
   The location of this resource.
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -111,6 +109,19 @@ RegionNetworkFirewallPolicyAssociation can be imported using any of these accept
 * `{{project}}/{{firewall_policy}}/{{name}}`
 * `{{firewall_policy}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionNetworkFirewallPolicyAssociation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    firewallPolicy = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_network_firewall_policy_association.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionNetworkFirewallPolicyAssociation using one of the formats above. For example:
 

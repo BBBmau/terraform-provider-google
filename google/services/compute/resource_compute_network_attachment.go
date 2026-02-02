@@ -20,24 +20,77 @@
 package compute
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceComputeNetworkAttachment() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceComputeNetworkAttachmentCreate,
 		Read:   resourceComputeNetworkAttachmentRead,
+		Update: resourceComputeNetworkAttachmentUpdate,
 		Delete: resourceComputeNetworkAttachmentDelete,
 
 		Importer: &schema.ResourceImporter{
@@ -46,6 +99,7 @@ func ResourceComputeNetworkAttachment() *schema.Resource {
 
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
 			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
@@ -78,7 +132,6 @@ func ResourceComputeNetworkAttachment() *schema.Resource {
 			"subnetworks": {
 				Type:        schema.TypeList,
 				Required:    true,
-				ForceNew:    true,
 				Description: `An array of URLs where each entry is the URL of a subnet provided by the service consumer to use for endpoints in the producers that connect to this network attachment.`,
 				Elem: &schema.Schema{
 					Type:             schema.TypeString,
@@ -88,13 +141,11 @@ func ResourceComputeNetworkAttachment() *schema.Resource {
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				ForceNew:    true,
 				Description: `An optional description of this resource. Provide this property when you create the resource.`,
 			},
 			"producer_accept_lists": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				ForceNew:    true,
 				Description: `Projects that are allowed to connect to this network attachment. The project can be specified using its id or number.`,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -103,7 +154,6 @@ func ResourceComputeNetworkAttachment() *schema.Resource {
 			"producer_reject_lists": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				ForceNew:    true,
 				Description: `Projects that are not allowed to connect to this network attachment. The project can be specified using its id or number.`,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -393,6 +443,94 @@ func resourceComputeNetworkAttachmentRead(d *schema.ResourceData, meta interface
 	}
 
 	return nil
+}
+
+func resourceComputeNetworkAttachmentUpdate(d *schema.ResourceData, meta interface{}) error {
+	config := meta.(*transport_tpg.Config)
+	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
+	if err != nil {
+		return err
+	}
+
+	billingProject := ""
+
+	project, err := tpgresource.GetProject(d, config)
+	if err != nil {
+		return fmt.Errorf("Error fetching project for NetworkAttachment: %s", err)
+	}
+	billingProject = project
+
+	obj := make(map[string]interface{})
+	descriptionProp, err := expandComputeNetworkAttachmentDescription(d.Get("description"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("description"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, descriptionProp)) {
+		obj["description"] = descriptionProp
+	}
+	subnetworksProp, err := expandComputeNetworkAttachmentSubnetworks(d.Get("subnetworks"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("subnetworks"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, subnetworksProp)) {
+		obj["subnetworks"] = subnetworksProp
+	}
+	producerRejectListsProp, err := expandComputeNetworkAttachmentProducerRejectLists(d.Get("producer_reject_lists"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("producer_reject_lists"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, producerRejectListsProp)) {
+		obj["producerRejectLists"] = producerRejectListsProp
+	}
+	producerAcceptListsProp, err := expandComputeNetworkAttachmentProducerAcceptLists(d.Get("producer_accept_lists"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("producer_accept_lists"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, producerAcceptListsProp)) {
+		obj["producerAcceptLists"] = producerAcceptListsProp
+	}
+	fingerprintProp, err := expandComputeNetworkAttachmentFingerprint(d.Get("fingerprint"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("fingerprint"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, fingerprintProp)) {
+		obj["fingerprint"] = fingerprintProp
+	}
+
+	url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/regions/{{region}}/networkAttachments/{{name}}")
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[DEBUG] Updating NetworkAttachment %q: %#v", d.Id(), obj)
+	headers := make(http.Header)
+
+	// err == nil indicates that the billing_project value was found
+	if bp, err := tpgresource.GetBillingProject(d, config); err == nil {
+		billingProject = bp
+	}
+
+	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "PATCH",
+		Project:   billingProject,
+		RawURL:    url,
+		UserAgent: userAgent,
+		Body:      obj,
+		Timeout:   d.Timeout(schema.TimeoutUpdate),
+		Headers:   headers,
+	})
+
+	if err != nil {
+		return fmt.Errorf("Error updating NetworkAttachment %q: %s", d.Id(), err)
+	} else {
+		log.Printf("[DEBUG] Finished updating NetworkAttachment %q: %#v", d.Id(), res)
+	}
+
+	err = ComputeOperationWaitTime(
+		config, res, project, "Updating NetworkAttachment", userAgent,
+		d.Timeout(schema.TimeoutUpdate))
+
+	if err != nil {
+		return err
+	}
+
+	return resourceComputeNetworkAttachmentRead(d, meta)
 }
 
 func resourceComputeNetworkAttachmentDelete(d *schema.ResourceData, meta interface{}) error {

@@ -20,19 +20,38 @@
 package iambeta
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
 )
 
 const workloadIdentityPoolProviderIdRegexp = `^[0-9a-z-]+$`
@@ -63,6 +82,56 @@ func ValidateWorkloadIdentityPoolProviderId(v interface{}, k string) (ws []strin
 	return
 }
 
+func jwksJsonDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
+	if old == "" || new == "" {
+		return old == new
+	}
+
+	var oldJson, newJson interface{}
+
+	if err := json.Unmarshal([]byte(old), &oldJson); err != nil {
+		return false
+	}
+
+	if err := json.Unmarshal([]byte(new), &newJson); err != nil {
+		return false
+	}
+
+	return reflect.DeepEqual(oldJson, newJson)
+}
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
+)
+
 func ResourceIAMBetaWorkloadIdentityPoolProvider() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceIAMBetaWorkloadIdentityPoolProviderCreate,
@@ -83,6 +152,26 @@ func ResourceIAMBetaWorkloadIdentityPoolProvider() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"workload_identity_pool_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"workload_identity_pool_provider_id": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"workload_identity_pool_id": {
@@ -254,8 +343,9 @@ https://iam.googleapis.com/projects/<project-number>/locations/<location>/worklo
 							},
 						},
 						"jwks_json": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:             schema.TypeString,
+							Optional:         true,
+							DiffSuppressFunc: jwksJsonDiffSuppress,
 							Description: `OIDC JWKs in JSON String format. For details on definition of a
 JWK, see https:tools.ietf.org/html/rfc7517. If not set, then we
 use the 'jwks_uri' from the discovery document fetched from the
@@ -492,6 +582,27 @@ func resourceIAMBetaWorkloadIdentityPoolProviderCreate(d *schema.ResourceData, m
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if workloadIdentityPoolIdValue, ok := d.GetOk("workload_identity_pool_id"); ok && workloadIdentityPoolIdValue.(string) != "" {
+			if err = identity.Set("workload_identity_pool_id", workloadIdentityPoolIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting workload_identity_pool_id: %s", err)
+			}
+		}
+		if workloadIdentityPoolProviderIdValue, ok := d.GetOk("workload_identity_pool_provider_id"); ok && workloadIdentityPoolProviderIdValue.(string) != "" {
+			if err = identity.Set("workload_identity_pool_provider_id", workloadIdentityPoolProviderIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting workload_identity_pool_provider_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = IAMBetaOperationWaitTime(
 		config, res, project, "Creating WorkloadIdentityPoolProvider", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -595,6 +706,30 @@ func resourceIAMBetaWorkloadIdentityPoolProviderRead(d *schema.ResourceData, met
 		return fmt.Errorf("Error reading WorkloadIdentityPoolProvider: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("workload_identity_pool_id"); !ok && v == "" {
+			err = identity.Set("workload_identity_pool_id", d.Get("workload_identity_pool_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting workload_identity_pool_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("workload_identity_pool_provider_id"); !ok && v == "" {
+			err = identity.Set("workload_identity_pool_provider_id", d.Get("workload_identity_pool_provider_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting workload_identity_pool_provider_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -603,6 +738,26 @@ func resourceIAMBetaWorkloadIdentityPoolProviderUpdate(d *schema.ResourceData, m
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if workloadIdentityPoolIdValue, ok := d.GetOk("workload_identity_pool_id"); ok && workloadIdentityPoolIdValue.(string) != "" {
+			if err = identity.Set("workload_identity_pool_id", workloadIdentityPoolIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting workload_identity_pool_id: %s", err)
+			}
+		}
+		if workloadIdentityPoolProviderIdValue, ok := d.GetOk("workload_identity_pool_provider_id"); ok && workloadIdentityPoolProviderIdValue.(string) != "" {
+			if err = identity.Set("workload_identity_pool_provider_id", workloadIdentityPoolProviderIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting workload_identity_pool_provider_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1025,6 +1180,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderAttributeCondition(v interface{}, 
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderAws(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1048,6 +1206,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderAwsAccountId(v interface{}, d tpgr
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderOidc(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1093,6 +1254,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderOidcJwksJson(v interface{}, d tpgr
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderSaml(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1116,6 +1280,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderSamlIdpMetadataXml(v interface{}, 
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderX509(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1135,6 +1302,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderX509(v interface{}, d tpgresource.
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderX509TrustStore(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1161,6 +1331,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderX509TrustStore(v interface{}, d tp
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderX509TrustStoreTrustAnchors(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -1187,6 +1360,9 @@ func expandIAMBetaWorkloadIdentityPoolProviderX509TrustStoreTrustAnchorsPemCerti
 }
 
 func expandIAMBetaWorkloadIdentityPoolProviderX509TrustStoreIntermediateCas(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {

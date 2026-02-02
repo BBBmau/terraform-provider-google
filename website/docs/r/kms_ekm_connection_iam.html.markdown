@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Cloud Key Management Service EkmConnection
+
 Three different resources help you manage your IAM policy for Cloud Key Management Service EkmConnection. Each of these resources serves a different use case:
 
 * `google_kms_ekm_connection_iam_policy`: Authoritative. Sets the IAM policy for the ekmconnection and replaces any existing policy already attached.
@@ -149,12 +150,12 @@ resource "google_kms_ekm_connection_iam_member" "member" {
 
 The following arguments are supported:
 
-* `name` - (Required) Used to find the parent resource to bind the IAM policy to
 * `location` - (Optional) The location for the EkmConnection.
 A full list of valid locations can be found by running `gcloud kms locations list`.
  Used to find the parent resource to bind the IAM policy to. If not specified,
   the value will be parsed from the identifier of the parent resource. If no location is provided in the parent identifier and no
   location is specified, it is taken from the provider configuration.
+* `name` - (Required) Used to find the parent resource to bind the IAM policy to
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the project will be parsed from the identifier of the parent resource. If no project is provided in the parent identifier and no project is specified, the provider project is used.
@@ -170,6 +171,7 @@ A full list of valid locations can be found by running `gcloud kms locations lis
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_kms_ekm_connection_iam_binding` can be used per role. Note that custom roles must be of the format

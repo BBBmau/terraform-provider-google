@@ -75,8 +75,6 @@ resource "google_project_service" "firebase" {
   provider = google-beta
   project  = google_project.default.project_id
   service  = "firebase.googleapis.com"
-
-  disable_on_destroy = false
 }
 
 resource "google_firebase_project" "default" {
@@ -90,8 +88,6 @@ resource "google_project_service" "firebase_database" {
   provider = google-beta
   project  = google_firebase_project.default.project
   service  = "firebasedatabase.googleapis.com"
-
-  disable_on_destroy = false
 }
 
 resource "time_sleep" "wait_60_seconds" {
@@ -125,9 +121,6 @@ The following arguments are supported:
   Instance IDs cannot be reused after deletion.
 
 
-- - -
-
-
 * `type` -
   (Optional)
   The database type.
@@ -141,6 +134,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 * `desired_state` - (Optional) The intended database state. Possible values: ACTIVE, DISABLED.
+
 
 
 ## Attributes Reference
@@ -182,6 +176,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{instance_id}}`
 * `{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    region = "<-required value->"
+    instance_id = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_database_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

@@ -24,12 +24,10 @@ description: |-
 A container for `services`. Namespaces allow administrators to group services
 together and define permissions for a collection of services.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about Namespace, see:
 
-* [API documentation](https://cloud.google.com/service-directory/docs/reference/rest/v1beta1/projects.locations.namespaces)
+* [API documentation](https://cloud.google.com/service-directory/docs/reference/rest/v1/projects.locations.namespaces)
 * How-to Guides
     * [Configuring a namespace](https://cloud.google.com/service-directory/docs/configuring-service-directory#configuring_a_namespace)
 
@@ -43,7 +41,6 @@ To get more information about Namespace, see:
 
 ```hcl
 resource "google_service_directory_namespace" "example" {
-  provider     = google-beta
   namespace_id = "example-namespace"
   location     = "us-central1"
 
@@ -62,16 +59,11 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location for the Namespace.
-  A full list of valid locations can be found by running
-  `gcloud beta service-directory locations list`.
 
 * `namespace_id` -
   (Required)
   The Resource ID must be 1-63 characters long, including digits,
   lowercase letters or the hyphen character.
-
-
-- - -
 
 
 * `labels` -
@@ -85,6 +77,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -123,6 +116,18 @@ Namespace can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{namespace_id}}`
 * `{{location}}/{{namespace_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Namespace using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    namespaceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_service_directory_namespace.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Namespace using one of the formats above. For example:
 

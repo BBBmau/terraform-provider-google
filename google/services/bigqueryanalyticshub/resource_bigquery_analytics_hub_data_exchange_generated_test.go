@@ -19,15 +19,35 @@ package bigqueryanalyticshub_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubDataExchangeBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubDataExchangeBas
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_exchange_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_data_exchange.data_exchange",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -87,6 +113,12 @@ func TestAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubDataExchangeDcr
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"data_exchange_id", "location"},
 			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_data_exchange.data_exchange",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -101,6 +133,92 @@ resource "google_bigquery_analytics_hub_data_exchange" "data_exchange" {
   sharing_environment_config  {
     dcr_exchange_config {}
   }
+}
+`, context)
+}
+
+func TestAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubDataExchangeLogLinkedDatasetQueryUserExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBigqueryAnalyticsHubDataExchangeDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubDataExchangeLogLinkedDatasetQueryUserExample(context),
+			},
+			{
+				ResourceName:            "google_bigquery_analytics_hub_data_exchange.data_exchange",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_data_exchange.data_exchange",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubDataExchangeLogLinkedDatasetQueryUserExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_bigquery_analytics_hub_data_exchange" "data_exchange" {
+  location         = "US"
+  data_exchange_id = "tf_test_tf_test_log_email_data_exchange%{random_suffix}" 
+  display_name     = "tf_test_tf_test_log_email_data_exchange%{random_suffix}" 
+  description      = "Example for log email test for data exchange%{random_suffix}"
+  log_linked_dataset_query_user_email = true
+}
+`, context)
+}
+
+func TestAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubPublicDataExchangeExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckBigqueryAnalyticsHubDataExchangeDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubPublicDataExchangeExample(context),
+			},
+			{
+				ResourceName:            "google_bigquery_analytics_hub_data_exchange.data_exchange",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"data_exchange_id", "location"},
+			},
+			{
+				ResourceName:       "google_bigquery_analytics_hub_data_exchange.data_exchange",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccBigqueryAnalyticsHubDataExchange_bigqueryAnalyticshubPublicDataExchangeExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_bigquery_analytics_hub_data_exchange" "data_exchange" {
+  location         = "US"
+  data_exchange_id = "tf_test_public_data_exchange%{random_suffix}"
+  display_name     = "tf_test_public_data_exchange%{random_suffix}"
+  description      = "Example for public data exchange%{random_suffix}"
+  discovery_type   = "DISCOVERY_TYPE_PUBLIC"
 }
 `, context)
 }

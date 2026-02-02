@@ -72,9 +72,6 @@ The following arguments are supported:
   contain only English letters, numbers and underscores, and be at most 64 characters.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   A short name to identify the entry group, for example, "analytics data - jan 2011".
@@ -89,6 +86,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 ## Attributes Reference
@@ -117,6 +115,16 @@ EntryGroup can be imported using any of these accepted formats:
 
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import EntryGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+  }
+  to = google_data_catalog_entry_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import EntryGroup using one of the formats above. For example:
 

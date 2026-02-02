@@ -63,9 +63,6 @@ The following arguments are supported:
   The bucket of the resource
 
 
-- - -
-
-
 * `description` -
   (Optional)
   Describes this view.
@@ -81,6 +78,7 @@ The following arguments are supported:
 * `location` -
   (Optional)
   The location of the resource. The supported locations are: global, us-central1, us-east1, us-west1, asia-east1, europe-west1.
+
 
 
 ## Attributes Reference
@@ -112,6 +110,19 @@ LogView can be imported using any of these accepted formats:
 
 * `{{parent}}/locations/{{location}}/buckets/{{bucket}}/views/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import LogView using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    parent = "<-optional value->"
+    location = "<-optional value->"
+    bucket = "<-required value->"
+  }
+  to = google_logging_log_view.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import LogView using one of the formats above. For example:
 

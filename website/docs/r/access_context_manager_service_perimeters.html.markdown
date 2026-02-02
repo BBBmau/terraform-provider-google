@@ -95,13 +95,11 @@ The following arguments are supported:
   Format: accessPolicies/{policy_id}
 
 
-- - -
-
-
 * `service_perimeters` -
   (Optional)
   The desired Service Perimeters that should replace all existing Service Perimeters in the Access Policy.
   Structure is [documented below](#nested_service_perimeters).
+
 
 
 <a name="nested_service_perimeters"></a>The `service_perimeters` block supports:
@@ -153,7 +151,7 @@ The following arguments are supported:
   ServicePerimeter configuration. Specifies sets of resources,
   restricted services and access levels that determine
   perimeter content and boundaries.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status).
+  Structure is [documented below](#nested_service_perimeters_status).
 
 * `spec` -
   (Optional)
@@ -161,7 +159,7 @@ The following arguments are supported:
   This configuration allows to specify and test ServicePerimeter configuration
   without enforcing actual access restrictions. Only allowed to be set when
   the `useExplicitDryRunSpec` flag is set.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec).
+  Structure is [documented below](#nested_service_perimeters_spec).
 
 * `use_explicit_dry_run_spec` -
   (Optional)
@@ -176,7 +174,7 @@ The following arguments are supported:
   bet set to True if any of the fields in the spec are set to non-default values.
 
 
-<a name="nested_service_perimeters_service_perimeters_status"></a>The `status` block supports:
+<a name="nested_service_perimeters_status"></a>The `status` block supports:
 
 * `resources` -
   (Optional)
@@ -208,7 +206,7 @@ The following arguments are supported:
   (Optional)
   Specifies how APIs are allowed to communicate within the Service
   Perimeter.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_vpc_accessible_services).
+  Structure is [documented below](#nested_service_perimeters_status_vpc_accessible_services).
 
 * `ingress_policies` -
   (Optional)
@@ -216,7 +214,7 @@ The following arguments are supported:
   have multiple `IngressPolicies`, each of which is evaluated
   separately. Access is granted if any `Ingress Policy` grants it.
   Must be empty for a perimeter bridge.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_ingress_policies).
+  Structure is [documented below](#nested_service_perimeters_status_ingress_policies).
 
 * `egress_policies` -
   (Optional)
@@ -224,10 +222,10 @@ The following arguments are supported:
   have multiple EgressPolicies, each of which is evaluated separately.
   Access is granted if any EgressPolicy grants it. Must be empty for
   a perimeter bridge.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_egress_policies).
+  Structure is [documented below](#nested_service_perimeters_status_egress_policies).
 
 
-<a name="nested_service_perimeters_service_perimeters_status_vpc_accessible_services"></a>The `vpc_accessible_services` block supports:
+<a name="nested_service_perimeters_status_vpc_accessible_services"></a>The `vpc_accessible_services` block supports:
 
 * `enable_restriction` -
   (Optional)
@@ -239,26 +237,26 @@ The following arguments are supported:
   The list of APIs usable within the Service Perimeter.
   Must be empty unless `enableRestriction` is True.
 
-<a name="nested_service_perimeters_service_perimeters_status_ingress_policies"></a>The `ingress_policies` block supports:
+<a name="nested_service_perimeters_status_ingress_policies"></a>The `ingress_policies` block supports:
 
 * `ingress_from` -
   (Optional)
   Defines the conditions on the source of a request causing this `IngressPolicy`
   to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_from).
+  Structure is [documented below](#nested_service_perimeters_status_ingress_policies_ingress_from).
 
 * `ingress_to` -
   (Optional)
   Defines the conditions on the `ApiOperation` and request destination that cause
   this `IngressPolicy` to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_to).
+  Structure is [documented below](#nested_service_perimeters_status_ingress_policies_ingress_to).
 
 * `title` -
   (Optional)
   Human readable title. Must be unique within the perimeter. Does not affect behavior.
 
 
-<a name="nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_from"></a>The `ingress_from` block supports:
+<a name="nested_service_perimeters_status_ingress_policies_ingress_from"></a>The `ingress_from` block supports:
 
 * `identity_type` -
   (Optional)
@@ -276,10 +274,10 @@ The following arguments are supported:
 * `sources` -
   (Optional)
   Sources that this `IngressPolicy` authorizes access from.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_from_sources).
+  Structure is [documented below](#nested_service_perimeters_status_ingress_policies_ingress_from_sources).
 
 
-<a name="nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_from_sources"></a>The `sources` block supports:
+<a name="nested_service_perimeters_status_ingress_policies_ingress_from_sources"></a>The `sources` block supports:
 
 * `access_level` -
   (Optional)
@@ -301,7 +299,7 @@ The following arguments are supported:
   organization that the perimeter is defined in. `*` is not allowed, the case
   of allowing all Google Cloud resources only is not supported.
 
-<a name="nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_to"></a>The `ingress_to` block supports:
+<a name="nested_service_perimeters_status_ingress_policies_ingress_to"></a>The `ingress_to` block supports:
 
 * `resources` -
   (Optional)
@@ -324,10 +322,10 @@ The following arguments are supported:
   (Optional)
   A list of `ApiOperations` the sources specified in corresponding `IngressFrom`
   are allowed to perform in this `ServicePerimeter`.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_to_operations).
+  Structure is [documented below](#nested_service_perimeters_status_ingress_policies_ingress_to_operations).
 
 
-<a name="nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_to_operations"></a>The `operations` block supports:
+<a name="nested_service_perimeters_status_ingress_policies_ingress_to_operations"></a>The `operations` block supports:
 
 * `service_name` -
   (Optional)
@@ -341,10 +339,10 @@ The following arguments are supported:
   the service specified by serviceName field. A single `MethodSelector` entry
   with `*` specified for the method field will allow all methods AND
   permissions for the service specified in `serviceName`.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_to_operations_operations_method_selectors).
+  Structure is [documented below](#nested_service_perimeters_status_ingress_policies_ingress_to_operations_method_selectors).
 
 
-<a name="nested_service_perimeters_service_perimeters_status_ingress_policies_ingress_policies_ingress_to_operations_operations_method_selectors"></a>The `method_selectors` block supports:
+<a name="nested_service_perimeters_status_ingress_policies_ingress_to_operations_method_selectors"></a>The `method_selectors` block supports:
 
 * `method` -
   (Optional)
@@ -357,25 +355,25 @@ The following arguments are supported:
   Value for permission should be a valid Cloud IAM permission for the
   corresponding `serviceName` in `ApiOperation`.
 
-<a name="nested_service_perimeters_service_perimeters_status_egress_policies"></a>The `egress_policies` block supports:
+<a name="nested_service_perimeters_status_egress_policies"></a>The `egress_policies` block supports:
 
 * `egress_from` -
   (Optional)
   Defines conditions on the source of a request causing this `EgressPolicy` to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_from).
+  Structure is [documented below](#nested_service_perimeters_status_egress_policies_egress_from).
 
 * `egress_to` -
   (Optional)
   Defines the conditions on the `ApiOperation` and destination resources that
   cause this `EgressPolicy` to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_to).
+  Structure is [documented below](#nested_service_perimeters_status_egress_policies_egress_to).
 
 * `title` -
   (Optional)
   Human readable title. Must be unique within the perimeter. Does not affect behavior.
 
 
-<a name="nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_from"></a>The `egress_from` block supports:
+<a name="nested_service_perimeters_status_egress_policies_egress_from"></a>The `egress_from` block supports:
 
 * `identity_type` -
   (Optional)
@@ -393,7 +391,7 @@ The following arguments are supported:
 * `sources` -
   (Optional)
   Sources that this EgressPolicy authorizes access from.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_from_sources).
+  Structure is [documented below](#nested_service_perimeters_status_egress_policies_egress_from_sources).
 
 * `source_restriction` -
   (Optional)
@@ -401,7 +399,7 @@ The following arguments are supported:
   Possible values are: `SOURCE_RESTRICTION_UNSPECIFIED`, `SOURCE_RESTRICTION_ENABLED`, `SOURCE_RESTRICTION_DISABLED`.
 
 
-<a name="nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_from_sources"></a>The `sources` block supports:
+<a name="nested_service_perimeters_status_egress_policies_egress_from_sources"></a>The `sources` block supports:
 
 * `access_level` -
   (Optional)
@@ -416,7 +414,7 @@ The following arguments are supported:
   organization that the perimeter is defined in. `*` is not allowed, the
   case of allowing all Google Cloud resources only is not supported.
 
-<a name="nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_to"></a>The `egress_to` block supports:
+<a name="nested_service_perimeters_status_egress_policies_egress_to"></a>The `egress_to` block supports:
 
 * `resources` -
   (Optional)
@@ -442,10 +440,10 @@ The following arguments are supported:
   (Optional)
   A list of `ApiOperations` that this egress rule applies to. A request matches
   if it contains an operation/service in this list.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_to_operations).
+  Structure is [documented below](#nested_service_perimeters_status_egress_policies_egress_to_operations).
 
 
-<a name="nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_to_operations"></a>The `operations` block supports:
+<a name="nested_service_perimeters_status_egress_policies_egress_to_operations"></a>The `operations` block supports:
 
 * `service_name` -
   (Optional)
@@ -459,10 +457,10 @@ The following arguments are supported:
   to the service specified by `serviceName` field. A single MethodSelector
   entry with `*` specified for the `method` field will allow all methods
   AND permissions for the service specified in `serviceName`.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_to_operations_operations_method_selectors).
+  Structure is [documented below](#nested_service_perimeters_status_egress_policies_egress_to_operations_method_selectors).
 
 
-<a name="nested_service_perimeters_service_perimeters_status_egress_policies_egress_policies_egress_to_operations_operations_method_selectors"></a>The `method_selectors` block supports:
+<a name="nested_service_perimeters_status_egress_policies_egress_to_operations_method_selectors"></a>The `method_selectors` block supports:
 
 * `method` -
   (Optional)
@@ -475,7 +473,7 @@ The following arguments are supported:
   Value for permission should be a valid Cloud IAM permission for the
   corresponding `serviceName` in `ApiOperation`.
 
-<a name="nested_service_perimeters_service_perimeters_spec"></a>The `spec` block supports:
+<a name="nested_service_perimeters_spec"></a>The `spec` block supports:
 
 * `resources` -
   (Optional)
@@ -507,7 +505,7 @@ The following arguments are supported:
   (Optional)
   Specifies how APIs are allowed to communicate within the Service
   Perimeter.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_vpc_accessible_services).
+  Structure is [documented below](#nested_service_perimeters_spec_vpc_accessible_services).
 
 * `ingress_policies` -
   (Optional)
@@ -515,7 +513,7 @@ The following arguments are supported:
   have multiple `IngressPolicies`, each of which is evaluated
   separately. Access is granted if any `Ingress Policy` grants it.
   Must be empty for a perimeter bridge.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_ingress_policies).
+  Structure is [documented below](#nested_service_perimeters_spec_ingress_policies).
 
 * `egress_policies` -
   (Optional)
@@ -523,10 +521,10 @@ The following arguments are supported:
   have multiple EgressPolicies, each of which is evaluated separately.
   Access is granted if any EgressPolicy grants it. Must be empty for
   a perimeter bridge.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_egress_policies).
+  Structure is [documented below](#nested_service_perimeters_spec_egress_policies).
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_vpc_accessible_services"></a>The `vpc_accessible_services` block supports:
+<a name="nested_service_perimeters_spec_vpc_accessible_services"></a>The `vpc_accessible_services` block supports:
 
 * `enable_restriction` -
   (Optional)
@@ -538,26 +536,26 @@ The following arguments are supported:
   The list of APIs usable within the Service Perimeter.
   Must be empty unless `enableRestriction` is True.
 
-<a name="nested_service_perimeters_service_perimeters_spec_ingress_policies"></a>The `ingress_policies` block supports:
+<a name="nested_service_perimeters_spec_ingress_policies"></a>The `ingress_policies` block supports:
 
 * `ingress_from` -
   (Optional)
   Defines the conditions on the source of a request causing this `IngressPolicy`
   to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_from).
+  Structure is [documented below](#nested_service_perimeters_spec_ingress_policies_ingress_from).
 
 * `ingress_to` -
   (Optional)
   Defines the conditions on the `ApiOperation` and request destination that cause
   this `IngressPolicy` to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_to).
+  Structure is [documented below](#nested_service_perimeters_spec_ingress_policies_ingress_to).
 
 * `title` -
   (Optional)
   Human readable title. Must be unique within the perimeter. Does not affect behavior.
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_from"></a>The `ingress_from` block supports:
+<a name="nested_service_perimeters_spec_ingress_policies_ingress_from"></a>The `ingress_from` block supports:
 
 * `identity_type` -
   (Optional)
@@ -575,10 +573,10 @@ The following arguments are supported:
 * `sources` -
   (Optional)
   Sources that this `IngressPolicy` authorizes access from.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_from_sources).
+  Structure is [documented below](#nested_service_perimeters_spec_ingress_policies_ingress_from_sources).
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_from_sources"></a>The `sources` block supports:
+<a name="nested_service_perimeters_spec_ingress_policies_ingress_from_sources"></a>The `sources` block supports:
 
 * `access_level` -
   (Optional)
@@ -600,7 +598,7 @@ The following arguments are supported:
   organization that the perimeter is defined in. `*` is not allowed, the case
   of allowing all Google Cloud resources only is not supported.
 
-<a name="nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_to"></a>The `ingress_to` block supports:
+<a name="nested_service_perimeters_spec_ingress_policies_ingress_to"></a>The `ingress_to` block supports:
 
 * `resources` -
   (Optional)
@@ -623,10 +621,10 @@ The following arguments are supported:
   (Optional)
   A list of `ApiOperations` the sources specified in corresponding `IngressFrom`
   are allowed to perform in this `ServicePerimeter`.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_to_operations).
+  Structure is [documented below](#nested_service_perimeters_spec_ingress_policies_ingress_to_operations).
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_to_operations"></a>The `operations` block supports:
+<a name="nested_service_perimeters_spec_ingress_policies_ingress_to_operations"></a>The `operations` block supports:
 
 * `service_name` -
   (Optional)
@@ -640,10 +638,10 @@ The following arguments are supported:
   the service specified by serviceName field. A single `MethodSelector` entry
   with `*` specified for the method field will allow all methods AND
   permissions for the service specified in `serviceName`.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_to_operations_operations_method_selectors).
+  Structure is [documented below](#nested_service_perimeters_spec_ingress_policies_ingress_to_operations_method_selectors).
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_ingress_policies_ingress_policies_ingress_to_operations_operations_method_selectors"></a>The `method_selectors` block supports:
+<a name="nested_service_perimeters_spec_ingress_policies_ingress_to_operations_method_selectors"></a>The `method_selectors` block supports:
 
 * `method` -
   (Optional)
@@ -656,25 +654,25 @@ The following arguments are supported:
   Value for permission should be a valid Cloud IAM permission for the
   corresponding `serviceName` in `ApiOperation`.
 
-<a name="nested_service_perimeters_service_perimeters_spec_egress_policies"></a>The `egress_policies` block supports:
+<a name="nested_service_perimeters_spec_egress_policies"></a>The `egress_policies` block supports:
 
 * `egress_from` -
   (Optional)
   Defines conditions on the source of a request causing this `EgressPolicy` to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_from).
+  Structure is [documented below](#nested_service_perimeters_spec_egress_policies_egress_from).
 
 * `egress_to` -
   (Optional)
   Defines the conditions on the `ApiOperation` and destination resources that
   cause this `EgressPolicy` to apply.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_to).
+  Structure is [documented below](#nested_service_perimeters_spec_egress_policies_egress_to).
 
 * `title` -
   (Optional)
   Human readable title. Must be unique within the perimeter. Does not affect behavior.
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_from"></a>The `egress_from` block supports:
+<a name="nested_service_perimeters_spec_egress_policies_egress_from"></a>The `egress_from` block supports:
 
 * `identity_type` -
   (Optional)
@@ -694,7 +692,7 @@ The following arguments are supported:
 * `sources` -
   (Optional)
   Sources that this EgressPolicy authorizes access from.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_from_sources).
+  Structure is [documented below](#nested_service_perimeters_spec_egress_policies_egress_from_sources).
 
 * `source_restriction` -
   (Optional)
@@ -702,7 +700,7 @@ The following arguments are supported:
   Possible values are: `SOURCE_RESTRICTION_UNSPECIFIED`, `SOURCE_RESTRICTION_ENABLED`, `SOURCE_RESTRICTION_DISABLED`.
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_from_sources"></a>The `sources` block supports:
+<a name="nested_service_perimeters_spec_egress_policies_egress_from_sources"></a>The `sources` block supports:
 
 * `access_level` -
   (Optional)
@@ -717,7 +715,7 @@ The following arguments are supported:
   organization that the perimeter is defined in. `*` is not allowed, the
   case of allowing all Google Cloud resources only is not supported.
 
-<a name="nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_to"></a>The `egress_to` block supports:
+<a name="nested_service_perimeters_spec_egress_policies_egress_to"></a>The `egress_to` block supports:
 
 * `resources` -
   (Optional)
@@ -743,10 +741,10 @@ The following arguments are supported:
   (Optional)
   A list of `ApiOperations` that this egress rule applies to. A request matches
   if it contains an operation/service in this list.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_to_operations).
+  Structure is [documented below](#nested_service_perimeters_spec_egress_policies_egress_to_operations).
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_to_operations"></a>The `operations` block supports:
+<a name="nested_service_perimeters_spec_egress_policies_egress_to_operations"></a>The `operations` block supports:
 
 * `service_name` -
   (Optional)
@@ -760,10 +758,10 @@ The following arguments are supported:
   to the service specified by `serviceName` field. A single MethodSelector
   entry with `*` specified for the `method` field will allow all methods
   AND permissions for the service specified in `serviceName`.
-  Structure is [documented below](#nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_to_operations_operations_method_selectors).
+  Structure is [documented below](#nested_service_perimeters_spec_egress_policies_egress_to_operations_method_selectors).
 
 
-<a name="nested_service_perimeters_service_perimeters_spec_egress_policies_egress_policies_egress_to_operations_operations_method_selectors"></a>The `method_selectors` block supports:
+<a name="nested_service_perimeters_spec_egress_policies_egress_to_operations_method_selectors"></a>The `method_selectors` block supports:
 
 * `method` -
   (Optional)
@@ -800,6 +798,16 @@ ServicePerimeters can be imported using any of these accepted formats:
 * `{{parent}}/servicePerimeters`
 * `{{parent}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServicePerimeters using identity values. For example:
+
+```tf
+import {
+  identity = {
+    parent = "<-required value->"
+  }
+  to = google_access_context_manager_service_perimeters.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServicePerimeters using one of the formats above. For example:
 

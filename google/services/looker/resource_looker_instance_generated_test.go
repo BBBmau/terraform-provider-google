@@ -19,15 +19,35 @@ package looker_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccLookerInstance_lookerInstanceBasicExample(t *testing.T) {
@@ -50,6 +70,12 @@ func TestAccLookerInstance_lookerInstanceBasicExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "oauth_config", "region"},
+			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -91,6 +117,12 @@ func TestAccLookerInstance_lookerInstanceFullExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "oauth_config", "region"},
 			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -102,6 +134,7 @@ resource "google_looker_instance" "looker-instance" {
   platform_edition   = "LOOKER_CORE_STANDARD_ANNUAL"
   region             = "us-central1"
   public_ip_enabled  = true
+  gemini_enabled     = true
   admin_settings {
     allowed_email_domains = ["google.com"]
   }
@@ -161,6 +194,12 @@ func TestAccLookerInstance_lookerInstanceFipsExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "oauth_config", "region"},
 			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -204,6 +243,12 @@ func TestAccLookerInstance_lookerInstanceEnterpriseFullTestExample(t *testing.T)
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "oauth_config", "region"},
+			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -299,6 +344,12 @@ func TestAccLookerInstance_lookerInstanceCustomDomainExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "oauth_config", "region"},
 			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -343,6 +394,12 @@ func TestAccLookerInstance_lookerInstancePscExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"name", "oauth_config", "region"},
 			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -362,8 +419,24 @@ resource "google_looker_instance" "looker-instance" {
   }
   psc_config {
     allowed_vpcs = ["projects/test-project/global/networks/test"]
-    # update only
-    # service_attachments = [{local_fqdn: "www.local-fqdn.com" target_service_attachment_uri: "projects/my-project/regions/us-east1/serviceAttachments/sa"}]
+    
+    # First Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "www.example-one.com"
+    #   target_service_attachment_uri = "projects/my-project/regions/us-east1/serviceAttachments/sa-1"
+    # }
+
+    # Second Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "api.internal-partner.com"
+    #   target_service_attachment_uri = "projects/partner-project/regions/us-central1/serviceAttachments/sa-gateway"
+    # }
+
+    # Third Service Attachment
+    # service_attachments {
+    #   local_fqdn                    = "git.internal-repo.com"
+    #   target_service_attachment_uri = "projects/devops-project/regions/us-west1/serviceAttachments/gitlab-sa"
+    # }
   }
 }
 `, context)
@@ -389,6 +462,12 @@ func TestAccLookerInstance_lookerInstanceForceDeleteExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"deletion_policy", "name", "oauth_config", "region"},
+			},
+			{
+				ResourceName:       "google_looker_instance.looker-instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

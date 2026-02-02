@@ -43,9 +43,6 @@ resource "google_eventarc_pipeline" "primary" {
   pipeline_id = "some-pipeline"
   destinations {
     topic = google_pubsub_topic.topic.id
-    network_config {
-      network_attachment = "projects/my-project-name/regions/us-central1/networkAttachments/some-network-attachment"
-    }
   }
   labels = {
     test_label = "test-eventarc-label"
@@ -115,9 +112,6 @@ resource "google_eventarc_pipeline" "primary" {
   pipeline_id = "some-pipeline"
   destinations {
     workflow = google_workflows_workflow.workflow.id
-    network_config {
-      network_attachment = "projects/my-project-name/regions/us-central1/networkAttachments/some-network-attachment"
-    }
   }
 }
 ```
@@ -305,28 +299,87 @@ The following arguments are supported:
   format `^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`.
 
 
+* `annotations` -
+  (Optional)
+  User-defined annotations. See https://google.aip.dev/128#annotations.
+  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
+  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
+
+* `display_name` -
+  (Optional)
+  Display name of resource.
+
+* `crypto_key_name` -
+  (Optional)
+  Resource name of a KMS crypto key (managed by the user) used to
+  encrypt/decrypt the event data. If not set, an internal Google-owned key
+  will be used to encrypt messages. It must match the pattern
+  "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}".
+
+* `input_payload_format` -
+  (Optional)
+  Represents the format of message data.
+  Structure is [documented below](#nested_input_payload_format).
+
+* `retry_policy` -
+  (Optional)
+  The retry policy configuration for the Pipeline. The pipeline
+  exponentially backs off in case the destination is non responsive or
+  returns a retryable error code. The default semantics are as follows:
+  The backoff starts with a 5 second delay and doubles the
+  delay after each failed attempt (10 seconds, 20 seconds, 40 seconds, etc.).
+  The delay is capped at 60 seconds by default.
+  Please note that if you set the min_retry_delay and max_retry_delay fields
+  to the same value this will make the duration between retries constant.
+  Structure is [documented below](#nested_retry_policy).
+
+* `labels` -
+  (Optional)
+  User labels attached to the Pipeline that can be used to group
+  resources. An object containing a list of "key": value pairs. Example: {
+  "name": "wrench", "mass": "1.3kg", "count": "3" }.
+  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
+  Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `mediations` -
+  (Optional)
+  List of mediation operations to be performed on the message. Currently,
+  only one Transformation operation is allowed in each Pipeline.
+  Structure is [documented below](#nested_mediations).
+
+* `logging_config` -
+  (Optional)
+  The configuration for Platform Telemetry logging for Eventarc Advanced
+  resources.
+  Structure is [documented below](#nested_logging_config).
+
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_destinations"></a>The `destinations` block supports:
 
 * `authentication_config` -
   (Optional)
   Represents a config used to authenticate message requests.
-  Structure is [documented below](#nested_destinations_destinations_authentication_config).
+  Structure is [documented below](#nested_destinations_authentication_config).
 
 * `output_payload_format` -
   (Optional)
   Represents the format of message data.
-  Structure is [documented below](#nested_destinations_destinations_output_payload_format).
+  Structure is [documented below](#nested_destinations_output_payload_format).
 
 * `network_config` -
   (Optional)
   Represents a network config to be used for destination resolution and
   connectivity.
-  Structure is [documented below](#nested_destinations_destinations_network_config).
+  Structure is [documented below](#nested_destinations_network_config).
 
 * `http_endpoint` -
   (Optional)
   Represents a HTTP endpoint destination.
-  Structure is [documented below](#nested_destinations_destinations_http_endpoint).
+  Structure is [documented below](#nested_destinations_http_endpoint).
 
 * `workflow` -
   (Optional)
@@ -349,7 +402,7 @@ The following arguments are supported:
   `projects/{project}/locations/{location}/topics/{topic}`
 
 
-<a name="nested_destinations_destinations_authentication_config"></a>The `authentication_config` block supports:
+<a name="nested_destinations_authentication_config"></a>The `authentication_config` block supports:
 
 * `google_oidc` -
   (Optional)
@@ -357,7 +410,7 @@ The following arguments are supported:
   a GCP service account. Use this authentication method to invoke your
   Cloud Run and Cloud Functions destinations or HTTP endpoints that
   support Google OIDC.
-  Structure is [documented below](#nested_destinations_destinations_authentication_config_google_oidc).
+  Structure is [documented below](#nested_destinations_authentication_config_google_oidc).
 
 * `oauth_token` -
   (Optional)
@@ -365,10 +418,10 @@ The following arguments are supported:
   [OAuth token](https://developers.google.com/identity/protocols/OAuth2).
   This type of authorization should generally only be used when calling
   Google APIs hosted on *.googleapis.com.
-  Structure is [documented below](#nested_destinations_destinations_authentication_config_oauth_token).
+  Structure is [documented below](#nested_destinations_authentication_config_oauth_token).
 
 
-<a name="nested_destinations_destinations_authentication_config_google_oidc"></a>The `google_oidc` block supports:
+<a name="nested_destinations_authentication_config_google_oidc"></a>The `google_oidc` block supports:
 
 * `service_account` -
   (Required)
@@ -386,7 +439,7 @@ The following arguments are supported:
   identifies the recipient that the JWT is intended for. If
   unspecified, the destination URI will be used.
 
-<a name="nested_destinations_destinations_authentication_config_oauth_token"></a>The `oauth_token` block supports:
+<a name="nested_destinations_authentication_config_oauth_token"></a>The `oauth_token` block supports:
 
 * `service_account` -
   (Required)
@@ -405,44 +458,46 @@ The following arguments are supported:
   specified, "https://www.googleapis.com/auth/cloud-platform" will be
   used.
 
-<a name="nested_destinations_destinations_output_payload_format"></a>The `output_payload_format` block supports:
+<a name="nested_destinations_output_payload_format"></a>The `output_payload_format` block supports:
 
 * `protobuf` -
   (Optional)
   The format of a Protobuf message payload.
-  Structure is [documented below](#nested_destinations_destinations_output_payload_format_protobuf).
+  Structure is [documented below](#nested_destinations_output_payload_format_protobuf).
 
 * `avro` -
   (Optional)
   The format of an AVRO message payload.
-  Structure is [documented below](#nested_destinations_destinations_output_payload_format_avro).
+  Structure is [documented below](#nested_destinations_output_payload_format_avro).
 
 * `json` -
   (Optional)
   The format of a JSON message payload.
 
 
-<a name="nested_destinations_destinations_output_payload_format_protobuf"></a>The `protobuf` block supports:
+<a name="nested_destinations_output_payload_format_protobuf"></a>The `protobuf` block supports:
 
 * `schema_definition` -
   (Optional)
   The entire schema definition is stored in this field.
 
-<a name="nested_destinations_destinations_output_payload_format_avro"></a>The `avro` block supports:
+<a name="nested_destinations_output_payload_format_avro"></a>The `avro` block supports:
 
 * `schema_definition` -
   (Optional)
   The entire schema definition is stored in this field.
 
-<a name="nested_destinations_destinations_network_config"></a>The `network_config` block supports:
+<a name="nested_destinations_network_config"></a>The `network_config` block supports:
 
 * `network_attachment` -
-  (Required)
+  (Optional)
   Name of the NetworkAttachment that allows access to the consumer VPC.
   Format:
   `projects/{PROJECT_ID}/regions/{REGION}/networkAttachments/{NETWORK_ATTACHMENT_NAME}`
+  Required for HTTP endpoint destinations. Must not be specified for
+  Workflows, MessageBus, or Topic destinations.
 
-<a name="nested_destinations_destinations_http_endpoint"></a>The `http_endpoint` block supports:
+<a name="nested_destinations_http_endpoint"></a>The `http_endpoint` block supports:
 
 * `uri` -
   (Required)
@@ -612,67 +667,6 @@ The following arguments are supported:
   standard CloudEvent format. If it doesn't then the outgoing message
   request may fail with a persistent error.
 
-- - -
-
-
-* `annotations` -
-  (Optional)
-  User-defined annotations. See https://google.aip.dev/128#annotations.
-  **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
-  Please refer to the field `effective_annotations` for all of the annotations present on the resource.
-
-* `display_name` -
-  (Optional)
-  Display name of resource.
-
-* `crypto_key_name` -
-  (Optional)
-  Resource name of a KMS crypto key (managed by the user) used to
-  encrypt/decrypt the event data. If not set, an internal Google-owned key
-  will be used to encrypt messages. It must match the pattern
-  "projects/{project}/locations/{location}/keyRings/{keyring}/cryptoKeys/{key}".
-
-* `input_payload_format` -
-  (Optional)
-  Represents the format of message data.
-  Structure is [documented below](#nested_input_payload_format).
-
-* `retry_policy` -
-  (Optional)
-  The retry policy configuration for the Pipeline. The pipeline
-  exponentially backs off in case the destination is non responsive or
-  returns a retryable error code. The default semantics are as follows:
-  The backoff starts with a 5 second delay and doubles the
-  delay after each failed attempt (10 seconds, 20 seconds, 40 seconds, etc.).
-  The delay is capped at 60 seconds by default.
-  Please note that if you set the min_retry_delay and max_retry_delay fields
-  to the same value this will make the duration between retries constant.
-  Structure is [documented below](#nested_retry_policy).
-
-* `labels` -
-  (Optional)
-  User labels attached to the Pipeline that can be used to group
-  resources. An object containing a list of "key": value pairs. Example: {
-  "name": "wrench", "mass": "1.3kg", "count": "3" }.
-  **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
-  Please refer to the field `effective_labels` for all of the labels present on the resource.
-
-* `mediations` -
-  (Optional)
-  List of mediation operations to be performed on the message. Currently,
-  only one Transformation operation is allowed in each Pipeline.
-  Structure is [documented below](#nested_mediations).
-
-* `logging_config` -
-  (Optional)
-  The configuration for Platform Telemetry logging for Eventarc Advanced
-  resources.
-  Structure is [documented below](#nested_logging_config).
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
-
 <a name="nested_input_payload_format"></a>The `input_payload_format` block supports:
 
 * `protobuf` -
@@ -727,10 +721,10 @@ The following arguments are supported:
 * `transformation` -
   (Optional)
   Transformation defines the way to transform an incoming message.
-  Structure is [documented below](#nested_mediations_mediations_transformation).
+  Structure is [documented below](#nested_mediations_transformation).
 
 
-<a name="nested_mediations_mediations_transformation"></a>The `transformation` block supports:
+<a name="nested_mediations_transformation"></a>The `transformation` block supports:
 
 * `transformation_template` -
   (Optional)
@@ -881,6 +875,18 @@ Pipeline can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{pipeline_id}}`
 * `{{location}}/{{pipeline_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Pipeline using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    pipelineId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_eventarc_pipeline.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Pipeline using one of the formats above. For example:
 

@@ -122,27 +122,17 @@ The following arguments are supported:
   3 and 63 characters.
 
 
-<a name="nested_backend_metastores"></a>The `backend_metastores` block supports:
-
-* `rank` - (Required) The identifier for this object. Format specified above.
-
-* `name` -
-  (Required)
-  The relative resource name of the metastore that is being federated. The formats of the relative resource names for the currently supported metastores are listed below: Dataplex: projects/{projectId}/locations/{location}/lakes/{lake_id} BigQuery: projects/{projectId} Dataproc Metastore: projects/{projectId}/locations/{location}/services/{serviceId}
-
-* `metastore_type` -
-  (Required)
-  The type of the backend metastore.
-  Possible values are: `METASTORE_TYPE_UNSPECIFIED`, `DATAPROC_METASTORE`, `BIGQUERY`.
-
-- - -
-
-
 * `labels` -
   (Optional)
   User-defined labels for the metastore federation.
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `tags` -
+  (Optional)
+  A map of resource manager tags.
+  Resource manager tag keys and values have the same definition as resource manager tags.
+  Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/{tag_value_id}.
 
 * `location` -
   (Optional)
@@ -155,6 +145,20 @@ The following arguments are supported:
 When the field is set to true in Terraform state, a `terraform apply`
 or `terraform destroy` that would delete the federation will fail.
 
+
+
+<a name="nested_backend_metastores"></a>The `backend_metastores` block supports:
+
+* `rank` - (Required) The identifier for this object. Format specified above.
+
+* `name` -
+  (Required)
+  The relative resource name of the metastore that is being federated. The formats of the relative resource names for the currently supported metastores are listed below: Dataplex: projects/{projectId}/locations/{location}/lakes/{lake_id} BigQuery: projects/{projectId} Dataproc Metastore: projects/{projectId}/locations/{location}/services/{serviceId}
+
+* `metastore_type` -
+  (Required)
+  The type of the backend metastore.
+  Possible values are: `METASTORE_TYPE_UNSPECIFIED`, `DATAPROC_METASTORE`, `BIGQUERY`.
 
 ## Attributes Reference
 
@@ -209,6 +213,18 @@ Federation can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{federation_id}}`
 * `{{location}}/{{federation_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Federation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    federationId = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_dataproc_metastore_federation.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Federation using one of the formats above. For example:
 

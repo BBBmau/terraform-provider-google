@@ -19,22 +19,42 @@ package securesourcemanager_test
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
+	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = resource.TestMain
+	_ = terraform.NewState
+	_ = envvar.TestEnvVar
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = googleapi.Error{}
 )
 
 func TestAccSecureSourceManagerInstance_secureSourceManagerInstanceBasicExample(t *testing.T) {
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -50,7 +70,13 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstanceBasicExample(
 				ResourceName:            "google_secure_source_manager_instance.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "labels", "location", "terraform_labels", "update_time"},
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -66,9 +92,7 @@ resource "google_secure_source_manager_instance" "default" {
     }
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 `, context)
 }
@@ -77,8 +101,8 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstanceCmekExample(t
 	t.Parallel()
 
 	context := map[string]interface{}{
+		"deletion_policy": "DELETE",
 		"kms_key_name":    acctest.BootstrapKMSKeyWithPurposeInLocationAndName(t, "ENCRYPT_DECRYPT", "us-central1", "tf-bootstrap-secure-source-manager-key1").CryptoKey.Name,
-		"prevent_destroy": false,
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -94,7 +118,13 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstanceCmekExample(t
 				ResourceName:            "google_secure_source_manager_instance.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "labels", "location", "terraform_labels", "update_time"},
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -119,12 +149,55 @@ resource "google_secure_source_manager_instance" "default" {
     ]
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 
 data "google_project" "project" {}
+`, context)
+}
+
+func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivateTrustedCertExample(t *testing.T) {
+	t.Parallel()
+
+	context := map[string]interface{}{
+		"random_suffix": acctest.RandString(t, 10),
+	}
+
+	acctest.VcrTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AccTestPreCheck(t) },
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories(t),
+		CheckDestroy:             testAccCheckSecureSourceManagerInstanceDestroyProducer(t),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccSecureSourceManagerInstance_secureSourceManagerInstancePrivateTrustedCertExample(context),
+			},
+			{
+				ResourceName:            "google_secure_source_manager_instance.default",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func testAccSecureSourceManagerInstance_secureSourceManagerInstancePrivateTrustedCertExample(context map[string]interface{}) string {
+	return acctest.Nprintf(`
+resource "google_secure_source_manager_instance" "default" {
+  instance_id = "tf-test-my-instance%{random_suffix}"
+  location    = "us-central1"
+
+  private_config {
+    is_private = true
+  }
+  deletion_policy = "DELETE"
+}
 `, context)
 }
 
@@ -132,7 +205,7 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivateExampl
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -151,7 +224,13 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivateExampl
 				ResourceName:            "google_secure_source_manager_instance.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "labels", "location", "terraform_labels", "update_time"},
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -223,9 +302,7 @@ resource "google_secure_source_manager_instance" "default" {
   }
 
   # Prevent accidental deletions.
-  lifecycle {
-    prevent_destroy = "%{prevent_destroy}"
-  }
+  deletion_policy = "%{deletion_policy}"
 
   depends_on = [
     google_privateca_certificate_authority.root_ca,
@@ -248,7 +325,7 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivatePscBac
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -267,7 +344,13 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivatePscBac
 				ResourceName:            "google_secure_source_manager_instance.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "labels", "location", "terraform_labels", "update_time"},
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -342,9 +425,7 @@ resource "google_secure_source_manager_instance" "default" {
   }
 
   # Prevent accidental deletions.
-  lifecycle {
-    prevent_destroy = "%{prevent_destroy}"
-  }
+  deletion_policy = "%{deletion_policy}"
 
   depends_on = [
     google_privateca_certificate_authority.root_ca,
@@ -466,7 +547,7 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivatePscEnd
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -485,7 +566,13 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstancePrivatePscEnd
 				ResourceName:            "google_secure_source_manager_instance.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "labels", "location", "terraform_labels", "update_time"},
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -560,9 +647,7 @@ resource "google_secure_source_manager_instance" "default" {
   }
 
   # Prevent accidental deletions.
-  lifecycle {
-    prevent_destroy = "%{prevent_destroy}"
-  }
+  deletion_policy = "%{deletion_policy}"
 
   depends_on = [
     google_privateca_certificate_authority.root_ca,
@@ -651,7 +736,7 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstanceWorkforceIden
 	t.Parallel()
 
 	context := map[string]interface{}{
-		"prevent_destroy": false,
+		"deletion_policy": "DELETE",
 		"random_suffix":   acctest.RandString(t, 10),
 	}
 
@@ -667,7 +752,13 @@ func TestAccSecureSourceManagerInstance_secureSourceManagerInstanceWorkforceIden
 				ResourceName:            "google_secure_source_manager_instance.default",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"instance_id", "labels", "location", "terraform_labels", "update_time"},
+				ImportStateVerifyIgnore: []string{"deletion_policy", "instance_id", "labels", "location", "terraform_labels", "update_time"},
+			},
+			{
+				ResourceName:       "google_secure_source_manager_instance.default",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -684,9 +775,7 @@ resource "google_secure_source_manager_instance" "default" {
     }
 
     # Prevent accidental deletions.
-    lifecycle {
-      prevent_destroy = "%{prevent_destroy}"
-    }
+    deletion_policy = "%{deletion_policy}"
 }
 `, context)
 }

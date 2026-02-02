@@ -89,9 +89,6 @@ The following arguments are supported:
   the format `^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`.
 
 
-- - -
-
-
 * `labels` -
   (Optional)
   Resource labels.
@@ -123,6 +120,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_logging_config"></a>The `logging_config` block supports:
@@ -187,6 +185,18 @@ GoogleApiSource can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{google_api_source_id}}`
 * `{{location}}/{{google_api_source_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GoogleApiSource using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    googleApiSourceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_eventarc_google_api_source.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GoogleApiSource using one of the formats above. For example:
 

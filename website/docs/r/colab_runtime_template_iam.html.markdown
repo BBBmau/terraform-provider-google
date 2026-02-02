@@ -20,6 +20,7 @@ description: |-
 ---
 
 # IAM policy for Colab Enterprise RuntimeTemplate
+
 Three different resources help you manage your IAM policy for Colab Enterprise RuntimeTemplate. Each of these resources serves a different use case:
 
 * `google_colab_runtime_template_iam_policy`: Authoritative. Sets the IAM policy for the runtimetemplate and replaces any existing policy already attached.
@@ -87,10 +88,10 @@ resource "google_colab_runtime_template_iam_member" "member" {
 
 The following arguments are supported:
 
-* `runtime_template` - (Required) Used to find the parent resource to bind the IAM policy to
 * `location` - (Optional) The location for the resource: https://cloud.google.com/colab/docs/locations Used to find the parent resource to bind the IAM policy to. If not specified,
   the value will be parsed from the identifier of the parent resource. If no location is provided in the parent identifier and no
   location is specified, it is taken from the provider configuration.
+* `runtime_template` - (Required) Used to find the parent resource to bind the IAM policy to
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the project will be parsed from the identifier of the parent resource. If no project is provided in the parent identifier and no project is specified, the provider project is used.
@@ -106,6 +107,7 @@ The following arguments are supported:
   * **projectOwner:projectid**: Owners of the given project. For example, "projectOwner:my-example-project"
   * **projectEditor:projectid**: Editors of the given project. For example, "projectEditor:my-example-project"
   * **projectViewer:projectid**: Viewers of the given project. For example, "projectViewer:my-example-project"
+  * **Federated identities**: One or more federated identities in a workload or workforce identity pool, workload running on GKE, etc. Refer to the [Principal identifiers documentation](https://cloud.google.com/iam/docs/principal-identifiers#allow) for examples of targets and valid configuration. For example, "principal://iam.googleapis.com/locations/global/workforcePools/example-contractors/subject/joe@example.com"
 
 * `role` - (Required) The role that should be applied. Only one
     `google_colab_runtime_template_iam_binding` can be used per role. Note that custom roles must be of the format

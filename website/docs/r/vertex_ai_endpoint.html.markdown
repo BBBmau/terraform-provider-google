@@ -26,7 +26,7 @@ Models are deployed into it, and afterwards Endpoint is called to obtain predict
 
 To get more information about Endpoint, see:
 
-* [API documentation](https://cloud.google.com/vertex-ai/docs/reference/rest/v1beta1/projects.locations.endpoints)
+* [API documentation](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.endpoints)
 * How-to Guides
     * [Official Documentation](https://cloud.google.com/vertex-ai/docs)
 
@@ -106,6 +106,10 @@ data "google_project" "project" {}
 
 
 ```hcl
+resource "google_compute_network" "default" {
+  name = "psc-network-%{random_suffix}"
+}
+
 resource "google_vertex_ai_endpoint" "endpoint" {
   name         = "endpoint-name%{random_suffix}"
   display_name = "sample-endpoint"
@@ -120,7 +124,11 @@ resource "google_vertex_ai_endpoint" "endpoint" {
     project_allowlist = [
       "${data.google_project.project.project_id}"
     ]
-    enable_secure_private_service_connect = false
+
+    psc_automation_configs {
+      project_id = data.google_project.project.project_id
+      network    = google_compute_network.default.id
+    }
   }
 }
 
@@ -166,9 +174,6 @@ The following arguments are supported:
 * `location` -
   (Required)
   The location for the resource
-
-
-- - -
 
 
 * `description` -
@@ -221,6 +226,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
 <a name="nested_encryption_spec"></a>The `encryption_spec` block supports:
 
 * `kms_key_name` -
@@ -238,8 +244,40 @@ The following arguments are supported:
   A list of Projects from which the forwarding rule will target the service attachment.
 
 * `enable_secure_private_service_connect` -
-  (Optional)
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
   If set to true, enable secure private service connect with IAM authorization. Otherwise, private service connect will be done without authorization. Note latency will be slightly increased if authorization is enabled.
+
+* `psc_automation_configs` -
+  (Optional)
+  List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+  Structure is [documented below](#nested_private_service_connect_config_psc_automation_configs).
+
+
+<a name="nested_private_service_connect_config_psc_automation_configs"></a>The `psc_automation_configs` block supports:
+
+* `project_id` -
+  (Required)
+  Project id used to create forwarding rule.
+
+* `network` -
+  (Required)
+  The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+
+* `ip_address` -
+  (Output)
+  IP address rule created by the PSC service automation.
+
+* `forwarding_rule` -
+  (Output)
+  Forwarding rule created by the PSC service automation.
+
+* `state` -
+  (Output)
+  The state of the PSC service automation.
+
+* `error_message` -
+  (Output)
+  Error message if the PSC service automation failed.
 
 <a name="nested_predict_request_response_logging_config"></a>The `predict_request_response_logging_config` block supports:
 
@@ -301,12 +339,12 @@ In addition to the arguments listed above, the following computed attributes are
 * `dedicated_resources` -
   (Output)
   A description of resources that are dedicated to the DeployedModel, and that need a higher degree of manual configuration.
-  Structure is [documented below](#nested_deployed_models_deployed_models_dedicated_resources).
+  Structure is [documented below](#nested_deployed_models_dedicated_resources).
 
 * `automatic_resources` -
   (Output)
   A description of resources that to large degree are decided by Vertex AI, and require only a modest additional configuration.
-  Structure is [documented below](#nested_deployed_models_deployed_models_automatic_resources).
+  Structure is [documented below](#nested_deployed_models_automatic_resources).
 
 * `id` -
   (Output)
@@ -339,7 +377,7 @@ In addition to the arguments listed above, the following computed attributes are
 * `private_endpoints` -
   (Output)
   Output only. Provide paths for users to send predict/explain/health requests directly to the deployed model services running on Cloud via private services access. This field is populated if network is configured.
-  Structure is [documented below](#nested_deployed_models_deployed_models_private_endpoints).
+  Structure is [documented below](#nested_deployed_models_private_endpoints).
 
 * `shared_resources` -
   (Output)
@@ -350,12 +388,12 @@ In addition to the arguments listed above, the following computed attributes are
   If true, the container of the DeployedModel instances will send `stderr` and `stdout` streams to Stackdriver Logging. Only supported for custom-trained Models and AutoML Tabular Models.
 
 
-<a name="nested_deployed_models_deployed_models_dedicated_resources"></a>The `dedicated_resources` block contains:
+<a name="nested_deployed_models_dedicated_resources"></a>The `dedicated_resources` block contains:
 
 * `machine_spec` -
   (Output)
   The specification of a single machine used by the prediction.
-  Structure is [documented below](#nested_deployed_models_deployed_models_dedicated_resources_machine_spec).
+  Structure is [documented below](#nested_deployed_models_dedicated_resources_machine_spec).
 
 * `min_replica_count` -
   (Output)
@@ -368,14 +406,14 @@ In addition to the arguments listed above, the following computed attributes are
 * `autoscaling_metric_specs` -
   (Output)
   The metric specifications that overrides a resource utilization metric (CPU utilization, accelerator's duty cycle, and so on) target value (default to 60 if not set). At most one entry is allowed per metric. If machine_spec.accelerator_count is above 0, the autoscaling will be based on both CPU utilization and accelerator's duty cycle metrics and scale up when either metrics exceeds its target value while scale down if both metrics are under their target value. The default target value is 60 for both metrics. If machine_spec.accelerator_count is 0, the autoscaling will be based on CPU utilization metric only with default target value 60 if not explicitly set. For example, in the case of Online Prediction, if you want to override target CPU utilization to 80, you should set autoscaling_metric_specs.metric_name to `aiplatform.googleapis.com/prediction/online/cpu/utilization` and autoscaling_metric_specs.target to `80`.
-  Structure is [documented below](#nested_deployed_models_deployed_models_dedicated_resources_autoscaling_metric_specs).
+  Structure is [documented below](#nested_deployed_models_dedicated_resources_autoscaling_metric_specs).
 
 
-<a name="nested_deployed_models_deployed_models_dedicated_resources_machine_spec"></a>The `machine_spec` block contains:
+<a name="nested_deployed_models_dedicated_resources_machine_spec"></a>The `machine_spec` block contains:
 
 * `machine_type` -
   (Output)
-  The type of the machine. See the [list of machine types supported for prediction](https://cloud.google.com/vertex-ai/docs/predictions/configure-compute#machine-types) See the [list of machine types supported for custom training](https://cloud.google.com/vertex-ai/docs/training/configure-compute#machine-types). For DeployedModel this field is optional, and the default value is `n1-standard-2`. For BatchPredictionJob or as part of WorkerPoolSpec this field is required. TODO(rsurowka): Try to better unify the required vs optional.
+  The type of the machine. See the [list of machine types supported for prediction](https://cloud.google.com/vertex-ai/docs/predictions/configure-compute#machine-types) See the [list of machine types supported for custom training](https://cloud.google.com/vertex-ai/docs/training/configure-compute#machine-types). For DeployedModel this field is optional, and the default value is `n1-standard-2`. For BatchPredictionJob or as part of WorkerPoolSpec this field is required. TODO: Try to better unify the required vs optional.
 
 * `accelerator_type` -
   (Output)
@@ -385,7 +423,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The number of accelerators to attach to the machine.
 
-<a name="nested_deployed_models_deployed_models_dedicated_resources_autoscaling_metric_specs"></a>The `autoscaling_metric_specs` block contains:
+<a name="nested_deployed_models_dedicated_resources_autoscaling_metric_specs"></a>The `autoscaling_metric_specs` block contains:
 
 * `metric_name` -
   (Output)
@@ -395,7 +433,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The target resource utilization in percentage (1% - 100%) for the given metric; once the real usage deviates from the target by a certain percentage, the machine replicas change. The default value is 60 (representing 60%) if not provided.
 
-<a name="nested_deployed_models_deployed_models_automatic_resources"></a>The `automatic_resources` block contains:
+<a name="nested_deployed_models_automatic_resources"></a>The `automatic_resources` block contains:
 
 * `min_replica_count` -
   (Output)
@@ -405,7 +443,7 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The maximum number of replicas this DeployedModel may be deployed on when the traffic against it increases. If the requested value is too large, the deployment will error, but if deployment succeeds then the ability to scale the model to that many replicas is guaranteed (barring service outages). If traffic against the DeployedModel increases beyond what its replicas at maximum may handle, a portion of the traffic will be dropped. If this value is not provided, a no upper bound for scaling under heavy traffic will be assume, though Vertex AI may be unable to scale beyond certain replica number.
 
-<a name="nested_deployed_models_deployed_models_private_endpoints"></a>The `private_endpoints` block contains:
+<a name="nested_deployed_models_private_endpoints"></a>The `private_endpoints` block contains:
 
 * `predict_http_uri` -
   (Output)
@@ -441,6 +479,18 @@ Endpoint can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Endpoint using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_vertex_ai_endpoint.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Endpoint using one of the formats above. For example:
 

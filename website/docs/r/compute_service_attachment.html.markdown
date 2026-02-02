@@ -402,6 +402,185 @@ resource "google_compute_subnetwork" "psc_ilb_nat" {
   ip_cidr_range = "10.1.0.0/16"
 }
 ```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=service_attachment_tunneling_config&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Service Attachment Tunneling Config
+
+
+```hcl
+provider "google-beta" {
+}
+
+resource "google_compute_service_attachment" "psc_ilb_service_attachment" {
+  provider = google-beta
+  
+  name        = "my-psc-ilb"
+  region      = "us-west2"
+  description = "A service attachment configured with tunneling"
+
+  enable_proxy_protocol    = false
+  connection_preference    = "ACCEPT_AUTOMATIC"
+  nat_subnets              = [google_compute_subnetwork.psc_ilb_nat.id]
+  target_service           = google_compute_forwarding_rule.psc_ilb_target_service.id
+
+  tunneling_config {
+    routing_mode = "REGIONAL"
+    encapsulation_profile = "IPV4"
+  }
+}
+
+resource "google_compute_forwarding_rule" "psc_ilb_target_service" {
+  provider = google-beta
+  
+  name   = "producer-forwarding-rule"
+  region = "us-west2"
+
+  load_balancing_scheme = "INTERNAL"
+  backend_service       = google_compute_region_backend_service.producer_service_backend.id
+  all_ports             = true
+  network               = google_compute_network.psc_ilb_network.name
+  subnetwork            = google_compute_subnetwork.psc_ilb_producer_subnetwork.name
+}
+
+resource "google_compute_region_backend_service" "producer_service_backend" {
+  provider = google-beta
+  
+  name   = "producer-service"
+  region = "us-west2"
+
+  health_checks = [google_compute_health_check.producer_service_health_check.id]
+}
+
+resource "google_compute_health_check" "producer_service_health_check" {
+  provider = google-beta
+  
+  name = "producer-service-health-check"
+
+  check_interval_sec = 1
+  timeout_sec        = 1
+  tcp_health_check {
+    port = "80"
+  }
+}
+
+resource "google_compute_network" "psc_ilb_network" {
+  provider = google-beta
+  
+  name = "psc-ilb-network"
+  auto_create_subnetworks = false
+}
+
+resource "google_compute_subnetwork" "psc_ilb_producer_subnetwork" {
+  provider = google-beta
+  
+  name   = "psc-ilb-producer-subnetwork"
+  region = "us-west2"
+
+  network       = google_compute_network.psc_ilb_network.id
+  ip_cidr_range = "10.0.0.0/16"
+}
+
+resource "google_compute_subnetwork" "psc_ilb_nat" {
+  provider = google-beta
+  
+  name   = "psc-ilb-nat"
+  region = "us-west2"
+
+  network       = google_compute_network.psc_ilb_network.id
+  purpose       =  "PRIVATE_SERVICE_CONNECT"
+  ip_cidr_range = "10.1.0.0/16"
+} 
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=service_attachment_cross_region_ilb&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Service Attachment Cross Region Ilb
+
+
+```hcl
+resource "google_compute_service_attachment" "psc_ilb_service_attachment" {
+  name                  = "sa"
+  region                = "us-central1"
+  description           = "A service attachment configured with Terraform"
+  connection_preference = "ACCEPT_AUTOMATIC"
+  enable_proxy_protocol = false
+  nat_subnets           = [google_compute_subnetwork.subnetwork_psc.id]
+  target_service        = google_compute_global_forwarding_rule.forwarding_rule.id
+}
+
+resource "google_compute_global_forwarding_rule" "forwarding_rule" {
+  name                  = "sa"
+  target                = google_compute_target_http_proxy.http_proxy.id
+  network               = google_compute_network.network.id
+  subnetwork            = google_compute_subnetwork.subnetwork.id
+  port_range            = "80"
+  load_balancing_scheme = "INTERNAL_MANAGED"
+
+  depends_on = [google_compute_subnetwork.subnetwork_proxy]
+}
+
+resource "google_compute_target_http_proxy" "http_proxy" {
+  name        = "sa"
+  description = "a description"
+  url_map     = google_compute_url_map.url_map.id
+}
+
+resource "google_compute_url_map" "url_map" {
+  name            = "sa"
+  description     = "Url map."
+  default_service = google_compute_backend_service.backend_service.id
+}
+
+resource "google_compute_backend_service" "backend_service" {
+  name                  = "sa"
+  load_balancing_scheme = "INTERNAL_MANAGED"
+  health_checks         = [google_compute_health_check.health_check.id]
+}
+
+resource "google_compute_health_check" "health_check" {
+  name               = "sa"
+  check_interval_sec = 1
+  timeout_sec        = 1
+
+  tcp_health_check {
+    port = "80"
+  }
+}
+
+resource "google_compute_subnetwork" "subnetwork_psc" {
+  name          = "sa-psc"
+  region        = "us-central1"
+  network       = google_compute_network.network.id
+  purpose       =  "PRIVATE_SERVICE_CONNECT"
+  ip_cidr_range = "10.1.0.0/16"
+}
+
+resource "google_compute_subnetwork" "subnetwork_proxy" {
+  name          = "sa-proxy"
+  region        = "us-central1"
+  network       = google_compute_network.network.id
+  purpose       =  "GLOBAL_MANAGED_PROXY"
+  role          = "ACTIVE"
+  ip_cidr_range = "10.2.0.0/16"
+}
+
+resource "google_compute_subnetwork" "subnetwork" {
+  name          = "sa"
+  region        = "us-central1"
+  network       = google_compute_network.network.id
+  ip_cidr_range = "10.0.0.0/16"
+}
+
+resource "google_compute_network" "network" {
+  name                    = "sa"
+  auto_create_subnetworks = false
+}
+```
 
 ## Argument Reference
 
@@ -437,12 +616,13 @@ The following arguments are supported:
   destination servers.
 
 
-- - -
-
-
 * `description` -
   (Optional)
   An optional description of this resource.
+
+* `show_nat_ips` -
+  (Optional)
+  If true, show NAT IPs of all connected endpoints.
 
 * `domain_names` -
   (Optional)
@@ -450,6 +630,11 @@ The following arguments are supported:
   the PSC connected endpoints and the Cloud DNS. For example, this is a
   valid domain name: "p.mycompany.com.". Current max number of domain names
   supported is 1.
+
+* `tunneling_config` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Tunneling configuration for this service attachment.
+  Structure is [documented below](#nested_tunneling_config).
 
 * `consumer_reject_lists` -
   (Optional)
@@ -474,7 +659,7 @@ The following arguments are supported:
   This limit lets the service producer limit how many propagated Private Service Connect connections can be established to this service attachment from a single consumer.
   If the connection preference of the service attachment is ACCEPT_MANUAL, the limit applies to each project or network that is listed in the consumer accept list.
   If the connection preference of the service attachment is ACCEPT_AUTOMATIC, the limit applies to each project that contains a connected endpoint.
-  If unspecified, the default propagated connection limit is 250.
+  If unspecified, the default propagated connection limit is 250. To explicitly send a zero value, set `send_propagated_connection_limit_if_zero = true`.
 
 * `region` -
   (Optional)
@@ -483,6 +668,22 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+* `send_propagated_connection_limit_if_zero` - (Optional) Controls the behavior of propagated_connection_limit.
+When false, setting propagated_connection_limit to zero causes the provider to use to the API's default value.
+When true, the provider will set propagated_connection_limit to zero.
+Defaults to false.
+
+
+
+<a name="nested_tunneling_config"></a>The `tunneling_config` block supports:
+
+* `routing_mode` -
+  (Optional)
+  The routing mode for tunneling traffic.
+
+* `encapsulation_profile` -
+  (Optional)
+  The encapsulation profile for tunneling traffic.
 
 <a name="nested_consumer_accept_lists"></a>The `consumer_accept_lists` block supports:
 
@@ -511,12 +712,26 @@ In addition to the arguments listed above, the following computed attributes are
   Fingerprint of this resource. This field is used internally during
   updates of this resource.
 
+* `psc_service_attachment_id` -
+  An 128-bit global unique ID of the PSC service attachment.
+  Structure is [documented below](#nested_psc_service_attachment_id).
+
 * `connected_endpoints` -
   An array of the consumer forwarding rules connected to this service
   attachment.
   Structure is [documented below](#nested_connected_endpoints).
 * `self_link` - The URI of the created resource.
 
+
+<a name="nested_psc_service_attachment_id"></a>The `psc_service_attachment_id` block contains:
+
+* `high` -
+  (Output)
+  The high 64 bits of the PSC service attachment ID.
+
+* `low` -
+  (Output)
+  The low 64 bits of the PSC service attachment ID.
 
 <a name="nested_connected_endpoints"></a>The `connected_endpoints` block contains:
 
@@ -541,6 +756,10 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   The number of consumer Network Connectivity Center spokes that the connected Private Service Connect endpoint has propagated to.
 
+* `nat_ips` -
+  (Output)
+  The nat IPs of the connected endpoint.
+
 ## Timeouts
 
 This resource provides the following
@@ -560,6 +779,18 @@ ServiceAttachment can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServiceAttachment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_service_attachment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServiceAttachment using one of the formats above. For example:
 

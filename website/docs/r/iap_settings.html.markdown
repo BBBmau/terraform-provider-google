@@ -134,9 +134,6 @@ The following arguments are supported:
   * projects/{project_id}/iap_web/appengine-{app_id}/services/{service_id}/version/{version_id}
 
 
-- - -
-
-
 * `access_settings` -
   (Optional)
   Top level wrapper for all access related setting in IAP.
@@ -146,6 +143,7 @@ The following arguments are supported:
   (Optional)
   Top level wrapper for all application related settings in IAP.
   Structure is [documented below](#nested_application_settings).
+
 
 
 <a name="nested_access_settings"></a>The `access_settings` block supports:
@@ -390,6 +388,16 @@ Settings can be imported using any of these accepted formats:
 * `{{name}}/iapSettings`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Settings using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+  }
+  to = google_iap_settings.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Settings using one of the formats above. For example:
 

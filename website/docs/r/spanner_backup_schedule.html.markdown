@@ -167,9 +167,6 @@ The following arguments are supported:
   The database to create the backup schedule on.
 
 
-- - -
-
-
 * `name` -
   (Optional)
   A unique identifier for the backup schedule, which cannot be changed after
@@ -195,6 +192,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_spec"></a>The `spec` block supports:
@@ -236,6 +234,11 @@ The following arguments are supported:
   The resource name of the Cloud KMS key to use for encryption.
   Format: 'projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{cryptoKey}'
 
+* `kms_key_names` -
+  (Optional)
+  Fully qualified name of the KMS keys to use to encrypt this database. The keys must exist
+  in the same locations as the Spanner Database.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -261,6 +264,19 @@ BackupSchedule can be imported using any of these accepted formats:
 * `{{project}}/{{instance}}/{{database}}/{{name}}`
 * `{{instance}}/{{database}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import BackupSchedule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    instance = "<-required value->"
+    database = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_spanner_backup_schedule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import BackupSchedule using one of the formats above. For example:
 

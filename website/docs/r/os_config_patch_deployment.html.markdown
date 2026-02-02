@@ -320,42 +320,6 @@ The following arguments are supported:
   * Must be unique within the project.
 
 
-<a name="nested_instance_filter"></a>The `instance_filter` block supports:
-
-* `all` -
-  (Optional)
-  Target all VM instances in the project. If true, no other criteria is permitted.
-
-* `group_labels` -
-  (Optional)
-  Targets VM instances matching ANY of these GroupLabels. This allows targeting of disparate groups of VM instances.
-  Structure is [documented below](#nested_instance_filter_group_labels).
-
-* `zones` -
-  (Optional)
-  Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone.
-
-* `instances` -
-  (Optional)
-  Targets any of the VM instances specified. Instances are specified by their URI in the `form zones/{{zone}}/instances/{{instance_name}}`,
-  `projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}`, or
-  `https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}`
-
-* `instance_name_prefixes` -
-  (Optional)
-  Targets VMs whose name starts with one of these prefixes. Similar to labels, this is another way to group
-  VMs when targeting configs, for example prefix="prod-".
-
-
-<a name="nested_instance_filter_group_labels"></a>The `group_labels` block supports:
-
-* `labels` -
-  (Required)
-  Compute Engine instance labels that must be present for a VM instance to be targeted by this filter
-
-- - -
-
-
 * `description` -
   (Optional)
   Description of the patch deployment. Length of the description is limited to 1024 characters.
@@ -388,6 +352,40 @@ The following arguments are supported:
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
 
+
+
+<a name="nested_instance_filter"></a>The `instance_filter` block supports:
+
+* `all` -
+  (Optional)
+  Target all VM instances in the project. If true, no other criteria is permitted.
+
+* `group_labels` -
+  (Optional)
+  Targets VM instances matching ANY of these GroupLabels. This allows targeting of disparate groups of VM instances.
+  Structure is [documented below](#nested_instance_filter_group_labels).
+
+* `zones` -
+  (Optional)
+  Targets VM instances in ANY of these zones. Leave empty to target VM instances in any zone.
+
+* `instances` -
+  (Optional)
+  Targets any of the VM instances specified. Instances are specified by their URI in the `form zones/{{zone}}/instances/{{instance_name}}`,
+  `projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}`, or
+  `https://www.googleapis.com/compute/v1/projects/{{project_id}}/zones/{{zone}}/instances/{{instance_name}}`
+
+* `instance_name_prefixes` -
+  (Optional)
+  Targets VMs whose name starts with one of these prefixes. Similar to labels, this is another way to group
+  VMs when targeting configs, for example prefix="prod-".
+
+
+<a name="nested_instance_filter_group_labels"></a>The `group_labels` block supports:
+
+* `labels` -
+  (Required)
+  Compute Engine instance labels that must be present for a VM instance to be targeted by this filter
 
 <a name="nested_patch_config"></a>The `patch_config` block supports:
 
@@ -875,6 +873,17 @@ PatchDeployment can be imported using any of these accepted formats:
 * `{{project}} {{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PatchDeployment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_os_config_patch_deployment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PatchDeployment using one of the formats above. For example:
 

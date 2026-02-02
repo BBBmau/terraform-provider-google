@@ -350,9 +350,6 @@ The following arguments are supported:
   `gcp-` is reserved for use by Google, and may not be specified.
 
 
-- - -
-
-
 * `display_name` -
   (Optional)
   A display name for the provider. Cannot exceed 32 characters.
@@ -461,6 +458,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_aws"></a>The `aws` block supports:
@@ -602,6 +600,18 @@ WorkloadIdentityPoolProvider can be imported using any of these accepted formats
 * `{{project}}/{{workload_identity_pool_id}}/{{workload_identity_pool_provider_id}}`
 * `{{workload_identity_pool_id}}/{{workload_identity_pool_provider_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WorkloadIdentityPoolProvider using identity values. For example:
+
+```tf
+import {
+  identity = {
+    workloadIdentityPoolId = "<-required value->"
+    workloadIdentityPoolProviderId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_iam_workload_identity_pool_provider.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WorkloadIdentityPoolProvider using one of the formats above. For example:
 

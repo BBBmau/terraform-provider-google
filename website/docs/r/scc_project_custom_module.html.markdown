@@ -118,6 +118,11 @@ The following arguments are supported:
   Structure is [documented below](#nested_custom_config).
 
 
+* `project` - (Optional) The ID of the project in which the resource belongs.
+    If it is not provided, the provider project is used.
+
+
+
 <a name="nested_custom_config"></a>The `custom_config` block supports:
 
 * `predicate` -
@@ -194,10 +199,10 @@ The following arguments are supported:
   (Optional)
   The CEL expression for the custom output. A resource property can be specified
   to return the value of the property or a text string enclosed in quotation marks.
-  Structure is [documented below](#nested_custom_config_custom_output_properties_properties_value_expression).
+  Structure is [documented below](#nested_custom_config_custom_output_properties_value_expression).
 
 
-<a name="nested_custom_config_custom_output_properties_properties_value_expression"></a>The `value_expression` block supports:
+<a name="nested_custom_config_custom_output_properties_value_expression"></a>The `value_expression` block supports:
 
 * `expression` -
   (Required)
@@ -223,13 +228,6 @@ The following arguments are supported:
 * `resource_types` -
   (Required)
   The resource types to run the detector on.
-
-- - -
-
-
-* `project` - (Optional) The ID of the project in which the resource belongs.
-    If it is not provided, the provider project is used.
-
 
 ## Attributes Reference
 
@@ -273,6 +271,17 @@ ProjectCustomModule can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ProjectCustomModule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_scc_project_custom_module.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ProjectCustomModule using one of the formats above. For example:
 

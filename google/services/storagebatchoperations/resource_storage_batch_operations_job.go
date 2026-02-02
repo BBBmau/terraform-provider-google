@@ -20,19 +20,70 @@
 package storagebatchoperations
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/go-cty/cty"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	"github.com/hashicorp/terraform-provider-google/google/verify"
+
+	"google.golang.org/api/googleapi"
+)
+
+var (
+	_ = bytes.Clone
+	_ = context.WithCancel
+	_ = base64.NewDecoder
+	_ = json.Marshal
+	_ = fmt.Sprintf
+	_ = log.Print
+	_ = http.Get
+	_ = reflect.ValueOf
+	_ = regexp.Match
+	_ = slices.Min([]int{1})
+	_ = sort.IntSlice{}
+	_ = strconv.Atoi
+	_ = strings.Trim
+	_ = time.Now
+	_ = errwrap.Wrap
+	_ = cty.BoolVal
+	_ = diag.Diagnostic{}
+	_ = customdiff.All
+	_ = id.UniqueId
+	_ = logging.LogLevel
+	_ = retry.Retry
+	_ = schema.Noop
+	_ = validation.All
+	_ = structure.ExpandJsonFromString
+	_ = terraform.State{}
+	_ = tpgresource.SetLabels
+	_ = transport_tpg.Config{}
+	_ = verify.ValidateEnum
+	_ = googleapi.Error{}
 )
 
 func ResourceStorageBatchOperationsJob() *schema.Resource {
@@ -55,6 +106,22 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 		CustomizeDiff: customdiff.All(
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"job_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"bucket_list": {
@@ -96,7 +163,7 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 												},
 											},
 										},
-										ExactlyOneOf: []string{"bucket_list.0.buckets.0.prefix_list", "bucket_list.0.buckets.0.manifest"},
+										ExactlyOneOf: []string{"bucket_list.0.buckets.0.manifest", "bucket_list.0.buckets.0.prefix_list"},
 									},
 									"prefix_list": {
 										Type:        schema.TypeList,
@@ -118,7 +185,7 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 												},
 											},
 										},
-										ExactlyOneOf: []string{"bucket_list.0.buckets.0.prefix_list", "bucket_list.0.buckets.0.manifest"},
+										ExactlyOneOf: []string{"bucket_list.0.buckets.0.manifest", "bucket_list.0.buckets.0.prefix_list"},
 									},
 								},
 							},
@@ -142,7 +209,7 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"delete_object", "put_metadata", "rewrite_object", "put_object_hold"},
+				ExactlyOneOf: []string{"delete_object", "put_metadata", "put_object_hold", "rewrite_object"},
 			},
 			"job_id": {
 				Type:         schema.TypeString,
@@ -164,35 +231,35 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600`,
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 						"content_disposition": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Content-Disposition of the object data.`,
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 						"content_encoding": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Content Encoding of the object data.`,
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 						"content_language": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Content-Language of the object data.`,
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 						"content_type": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Content-Type of the object data.`,
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 						"custom_metadata": {
 							Type:         schema.TypeMap,
@@ -200,18 +267,18 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 							ForceNew:     true,
 							Description:  `User-provided metadata, in key/value pairs.`,
 							Elem:         &schema.Schema{Type: schema.TypeString},
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 						"custom_time": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
 							Description:  `Updates the objects fixed custom time metadata.`,
-							AtLeastOneOf: []string{"put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.cache_control", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
+							AtLeastOneOf: []string{"put_metadata.0.cache_control", "put_metadata.0.content_disposition", "put_metadata.0.content_encoding", "put_metadata.0.content_language", "put_metadata.0.content_type", "put_metadata.0.custom_metadata", "put_metadata.0.custom_time"},
 						},
 					},
 				},
-				ExactlyOneOf: []string{"delete_object", "put_metadata", "rewrite_object", "put_object_hold"},
+				ExactlyOneOf: []string{"delete_object", "put_metadata", "put_object_hold", "rewrite_object"},
 			},
 			"put_object_hold": {
 				Type:        schema.TypeList,
@@ -237,7 +304,7 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"delete_object", "put_metadata", "rewrite_object", "put_object_hold"},
+				ExactlyOneOf: []string{"delete_object", "put_metadata", "put_object_hold", "rewrite_object"},
 			},
 			"rewrite_object": {
 				Type:        schema.TypeList,
@@ -255,7 +322,7 @@ func ResourceStorageBatchOperationsJob() *schema.Resource {
 						},
 					},
 				},
-				ExactlyOneOf: []string{"delete_object", "put_metadata", "rewrite_object", "put_object_hold"},
+				ExactlyOneOf: []string{"delete_object", "put_metadata", "put_object_hold", "rewrite_object"},
 			},
 			"complete_time": {
 				Type:        schema.TypeString,
@@ -379,6 +446,22 @@ func resourceStorageBatchOperationsJobCreate(d *schema.ResourceData, meta interf
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if jobIdValue, ok := d.GetOk("job_id"); ok && jobIdValue.(string) != "" {
+			if err = identity.Set("job_id", jobIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting job_id: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = StorageBatchOperationsOperationWaitTime(
 		config, res, project, "Creating Job", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -471,6 +554,24 @@ func resourceStorageBatchOperationsJobRead(d *schema.ResourceData, meta interfac
 	}
 	if err := d.Set("put_object_hold", flattenStorageBatchOperationsJobPutObjectHold(res["putObjectHold"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Job: %s", err)
+	}
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("job_id"); !ok && v == "" {
+			err = identity.Set("job_id", d.Get("job_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting job_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
 	}
 
 	return nil
@@ -769,6 +870,9 @@ func flattenStorageBatchOperationsJobPutObjectHoldTemporaryHold(v interface{}, d
 }
 
 func expandStorageBatchOperationsJobBucketList(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -788,6 +892,9 @@ func expandStorageBatchOperationsJobBucketList(v interface{}, d tpgresource.Terr
 }
 
 func expandStorageBatchOperationsJobBucketListBuckets(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	req := make([]interface{}, 0, len(l))
 	for _, raw := range l {
@@ -828,6 +935,9 @@ func expandStorageBatchOperationsJobBucketListBucketsBucket(v interface{}, d tpg
 }
 
 func expandStorageBatchOperationsJobBucketListBucketsPrefixList(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -851,6 +961,9 @@ func expandStorageBatchOperationsJobBucketListBucketsPrefixListIncludedObjectPre
 }
 
 func expandStorageBatchOperationsJobBucketListBucketsManifest(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -874,6 +987,9 @@ func expandStorageBatchOperationsJobBucketListBucketsManifestManifestLocation(v 
 }
 
 func expandStorageBatchOperationsJobDeleteObject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -897,6 +1013,9 @@ func expandStorageBatchOperationsJobDeleteObjectPermanentObjectDeletionEnabled(v
 }
 
 func expandStorageBatchOperationsJobPutMetadata(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -993,6 +1112,9 @@ func expandStorageBatchOperationsJobPutMetadataCustomMetadata(v interface{}, d t
 }
 
 func expandStorageBatchOperationsJobRewriteObject(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil
@@ -1016,6 +1138,9 @@ func expandStorageBatchOperationsJobRewriteObjectKmsKey(v interface{}, d tpgreso
 }
 
 func expandStorageBatchOperationsJobPutObjectHold(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	l := v.([]interface{})
 	if len(l) == 0 || l[0] == nil {
 		return nil, nil

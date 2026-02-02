@@ -184,9 +184,6 @@ The following arguments are supported:
   Runtime version for the TPU.
 
 
-- - -
-
-
 * `accelerator_type` -
   (Optional)
   TPU accelerator type for the TPU. `accelerator_type` cannot be used at the same time as
@@ -263,6 +260,7 @@ The following arguments are supported:
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
+
 
 
 <a name="nested_network_config"></a>The `network_config` block supports:
@@ -426,10 +424,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `access_config` -
   (Output)
   The access config for the TPU worker.
-  Structure is [documented below](#nested_network_endpoints_network_endpoints_access_config).
+  Structure is [documented below](#nested_network_endpoints_access_config).
 
 
-<a name="nested_network_endpoints_network_endpoints_access_config"></a>The `access_config` block contains:
+<a name="nested_network_endpoints_access_config"></a>The `access_config` block contains:
 
 * `external_ip` -
   (Output)
@@ -472,6 +470,18 @@ Vm can be imported using any of these accepted formats:
 * `{{zone}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Vm using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    zone = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_tpu_v2_vm.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Vm using one of the formats above. For example:
 

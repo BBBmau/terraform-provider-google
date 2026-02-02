@@ -82,9 +82,6 @@ The following arguments are supported:
   The repo name may contain slashes. eg, `name/with/slash`
 
 
-- - -
-
-
 * `pubsub_configs` -
   (Optional)
   How this repository publishes a change in the repository through Cloud Pub/Sub.
@@ -95,6 +92,7 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 * `create_ignore_already_exists` - (Optional) If set to true, skip repository creation if a repository with the same name already exists.
+
 
 <a name="nested_pubsub_configs"></a>The `pubsub_configs` block supports:
 
@@ -144,6 +142,17 @@ Repository can be imported using any of these accepted formats:
 * `projects/{{project}}/repos/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Repository using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_sourcerepo_repository.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Repository using one of the formats above. For example:
 
