@@ -323,21 +323,21 @@ The following arguments are supported:
 * `ocr_parsing_config` -
   (Optional)
   Configurations applied to OCR parser. Currently it only applies to PDFs.
-  Structure is [documented below](#nested_document_processing_config_parsing_config_overrides_parsing_config_overrides_ocr_parsing_config).
+  Structure is [documented below](#nested_document_processing_config_parsing_config_overrides_ocr_parsing_config).
 
 * `layout_parsing_config` -
   (Optional)
   Configurations applied to layout parser.
-  Structure is [documented below](#nested_document_processing_config_parsing_config_overrides_parsing_config_overrides_layout_parsing_config).
+  Structure is [documented below](#nested_document_processing_config_parsing_config_overrides_layout_parsing_config).
 
 
-<a name="nested_document_processing_config_parsing_config_overrides_parsing_config_overrides_ocr_parsing_config"></a>The `ocr_parsing_config` block supports:
+<a name="nested_document_processing_config_parsing_config_overrides_ocr_parsing_config"></a>The `ocr_parsing_config` block supports:
 
 * `use_native_text` -
   (Optional)
   If true, will use native text instead of OCR text on pages containing native text.
 
-<a name="nested_document_processing_config_parsing_config_overrides_parsing_config_overrides_layout_parsing_config"></a>The `layout_parsing_config` block supports:
+<a name="nested_document_processing_config_parsing_config_overrides_layout_parsing_config"></a>The `layout_parsing_config` block supports:
 
 * `enable_table_annotation` -
   (Optional)
@@ -400,6 +400,18 @@ DataStore can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{data_store_id}}`
 * `{{location}}/{{data_store_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DataStore using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    dataStoreId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_discovery_engine_data_store.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DataStore using one of the formats above. For example:
 

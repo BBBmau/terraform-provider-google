@@ -58,7 +58,7 @@ resource "google_project_service_identity" "gcp_sa" {
 }
 resource "google_dialogflow_agent" "basic_agent" {
   display_name = "example_agent"
-  default_language_code = "en-us"
+  default_language_code = "en"
   time_zone = "America/New_York"
   project    = google_project.project.project_id
   depends_on = [time_sleep.wait_enable_service_api]
@@ -120,6 +120,17 @@ Version can be imported using any of these accepted formats:
 * `{{parent}}/versions/{{name}}`
 * `{{parent}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Version using identity values. For example:
+
+```tf
+import {
+  identity = {
+    parent = "<-optional value->"
+    name = "<-optional value->"
+  }
+  to = google_dialogflow_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Version using one of the formats above. For example:
 

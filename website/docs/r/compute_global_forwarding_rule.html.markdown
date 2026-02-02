@@ -1424,10 +1424,10 @@ The following arguments are supported:
   The list of label value pairs that must match labels in the
   provided metadata based on filterMatchCriteria
   This list must not be empty and can have at the most 64 entries.
-  Structure is [documented below](#nested_metadata_filters_metadata_filters_filter_labels).
+  Structure is [documented below](#nested_metadata_filters_filter_labels).
 
 
-<a name="nested_metadata_filters_metadata_filters_filter_labels"></a>The `filter_labels` block supports:
+<a name="nested_metadata_filters_filter_labels"></a>The `filter_labels` block supports:
 
 * `name` -
   (Required)
@@ -1501,6 +1501,17 @@ GlobalForwardingRule can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import GlobalForwardingRule using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_global_forwarding_rule.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import GlobalForwardingRule using one of the formats above. For example:
 

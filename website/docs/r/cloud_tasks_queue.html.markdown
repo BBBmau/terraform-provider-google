@@ -428,10 +428,10 @@ The following arguments are supported:
 * `header` -
   (Required)
   Header embodying a key and a value.
-  Structure is [documented below](#nested_http_target_header_overrides_header_overrides_header).
+  Structure is [documented below](#nested_http_target_header_overrides_header).
 
 
-<a name="nested_http_target_header_overrides_header_overrides_header"></a>The `header` block supports:
+<a name="nested_http_target_header_overrides_header"></a>The `header` block supports:
 
 * `key` -
   (Required)
@@ -494,6 +494,18 @@ Queue can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Queue using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloud_tasks_queue.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Queue using one of the formats above. For example:
 

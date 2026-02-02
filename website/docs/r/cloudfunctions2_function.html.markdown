@@ -1359,10 +1359,10 @@ The following arguments are supported:
 * `versions` -
   (Optional)
   List of secret versions to mount for this secret. If empty, the latest version of the secret will be made available in a file named after the secret under the mount point.'
-  Structure is [documented below](#nested_service_config_secret_volumes_secret_volumes_versions).
+  Structure is [documented below](#nested_service_config_secret_volumes_versions).
 
 
-<a name="nested_service_config_secret_volumes_secret_volumes_versions"></a>The `versions` block supports:
+<a name="nested_service_config_secret_volumes_versions"></a>The `versions` block supports:
 
 * `version` -
   (Required)
@@ -1477,6 +1477,18 @@ function can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import function using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_cloudfunctions2_function.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import function using one of the formats above. For example:
 

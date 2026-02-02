@@ -77,45 +77,24 @@ func ProjectIDDiffSuppress(_, old, new string, _ *schema.ResourceData) bool {
 	return suffix1 == suffix2
 }
 
-func suppressSquashModeDiff(k, old, new string, d *schema.ResourceData) bool {
-	// k: The key of the field, e.g., "export_policy.0.rules.1.squash_mode"
-	// old: The value in the state (what the API returned on last read)
-	// new: The value in the configuration (what the user set)
-	// d: The ResourceData for the entire resource
-
-	// 1. Only suppress if the user did NOT set squash_mode in the config.
-	// According to the requirements, a "classic rule" is identified by the ABSENCE of squash_mode.
-	if new == "ALL_SQUASH" {
-		// If 'new' is not an empty string, the user has explicitly provided a value
-		// for squash_mode in the Terraform configuration. In this scenario, any
-		// difference between the API's value ('old') and the configured value ('new')
-		// is a real change and should NOT be suppressed.
-		return false
-	}
-
-	if new == "" && old != "ALL_SQUASH" {
+func SuppressSquashModeDiff(k, old, new string, d *schema.ResourceData) bool {
+	if new == "" {
 		return true
 	}
-
-	// 2. The user did not specify squash_mode in the configuration ('new' is empty).
-	// Now, we suppress the diff if the API/state value ('old') is one of the
-	// specific values that should be treated as equivalent to an unset field.
-	// These values are "NO_ROOT_SQUASH", "ROOT_SQUASH".
-	switch old {
-	case "NO_ROOT_SQUASH", "ROOT_SQUASH", "":
-		// The API returned one of the values that we consider equivalent to the field
-		// being unconfigured by the user. Since the user also didn't configure it,
-		// we should suppress this diff.
-		return true
-	default:
-		// If 'old' is not one of the values to be suppressed (and 'new' is empty),
-		// we do not suppress the diff. This could happen if, for instance, the API
-		// returned an unexpected value or if 'old' is also empty.
+	if old != new {
 		return false
 	}
-	// Note: The previous logic involving parsing 'k' and checking 'has_root_access'
-	// has been removed because squash_mode is independent of has_root_access,
-	// and a "classic rule" is defined by the absence of squash_mode itself.
+	return false
+}
+
+func SuppressHasRootAccessDiff(k, old, new string, d *schema.ResourceData) bool {
+	if new == "" {
+		return true
+	}
+	if old != new {
+		return false
+	}
+	return false
 }
 
 var (
@@ -171,6 +150,26 @@ func ResourceNetappVolume() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"capacity_gib": {
@@ -405,11 +404,12 @@ the parent Volume's 'capacity_gib'.`,
 										Description: `An integer representing the anonymous user ID. Range is 0 to 4294967295. Required when 'squash_mode' is 'ALL_SQUASH'.`,
 									},
 									"has_root_access": {
-										Type:     schema.TypeString,
-										Computed: true,
-										Optional: true,
+										Type:             schema.TypeString,
+										Computed:         true,
+										Optional:         true,
+										DiffSuppressFunc: SuppressHasRootAccessDiff,
 										Description: `If enabled, the root user (UID = 0) of the specified clients doesn't get mapped to nobody (UID = 65534). This is also known as no_root_squash.
-It's overwritten by the squash_mode parameter. Use either squash_mode or has_root_access.`,
+Use either squash_mode or has_root_access, but never both at the same time. These parameters are mutually exclusive.`,
 									},
 									"kerberos5_read_only": {
 										Type:        schema.TypeBool,
@@ -455,9 +455,9 @@ It's overwritten by the squash_mode parameter. Use either squash_mode or has_roo
 										Type:             schema.TypeString,
 										Optional:         true,
 										ValidateFunc:     verify.ValidateEnum([]string{"SQUASH_MODE_UNSPECIFIED", "NO_ROOT_SQUASH", "ROOT_SQUASH", "ALL_SQUASH", ""}),
-										DiffSuppressFunc: suppressSquashModeDiff,
+										DiffSuppressFunc: SuppressSquashModeDiff,
 										Description: `SquashMode defines how remote user privileges are restricted when accessing an NFS export. It controls how the user identities (like root) are mapped to anonymous users to limit access and enforce security.
-It overwrites the has_root_access parameter. Use either squash_mode or has_root_access. For ALL_SQUASH, access_type needs to be set to READ_WRITE. Possible values: ["SQUASH_MODE_UNSPECIFIED", "NO_ROOT_SQUASH", "ROOT_SQUASH", "ALL_SQUASH"]`,
+Use either squash_mode or has_root_access, but never both at the same time. These parameters are mutually exclusive. Possible values: ["SQUASH_MODE_UNSPECIFIED", "NO_ROOT_SQUASH", "ROOT_SQUASH", "ALL_SQUASH"]`,
 									},
 								},
 							},
@@ -466,16 +466,19 @@ It overwrites the has_root_access parameter. Use either squash_mode or has_root_
 				},
 			},
 			"hybrid_replication_parameters": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: `The Hybrid Replication parameters for the volume.`,
-				MaxItems:    1,
+				Type:     schema.TypeList,
+				Optional: true,
+				Description: `[Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+[external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.`,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cluster_location": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Description: `Optional. Name of source cluster location associated with the Hybrid replication. This is a free-form field for the display purpose only.`,
+							Type:     schema.TypeString,
+							Optional: true,
+							Description: `Optional. Name of source cluster location associated with the replication. This is a free-form field
+for display purposes only.`,
 						},
 						"description": {
 							Type:        schema.TypeString,
@@ -486,7 +489,10 @@ It overwrites the has_root_access parameter. Use either squash_mode or has_root_
 							Type:         schema.TypeString,
 							Optional:     true,
 							ValidateFunc: verify.ValidateEnum([]string{"MIGRATION", "CONTINUOUS_REPLICATION", "ONPREM_REPLICATION", "REVERSE_ONPREM_REPLICATION", ""}),
-							Description:  `Optional. Type of the volume's hybrid replication. Possible values: ["MIGRATION", "CONTINUOUS_REPLICATION", "ONPREM_REPLICATION", "REVERSE_ONPREM_REPLICATION"]`,
+							Description: `Optional. Type of the hybrid replication. Use 'MIGRATION' to create a volume migration
+and 'ONPREM_REPLICATION' to create an external replication.
+Other values are read-only. 'REVERSE_ONPREM_REPLICATION' is used to represent an external
+replication which got reversed. Default is 'MIGRATION'. Possible values: ["MIGRATION", "CONTINUOUS_REPLICATION", "ONPREM_REPLICATION", "REVERSE_ONPREM_REPLICATION"]`,
 						},
 						"labels": {
 							Type:     schema.TypeMap,
@@ -498,17 +504,17 @@ An object containing a list of "key": value pairs. Example: { "name": "wrench", 
 						"large_volume_constituent_count": {
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Description: `Optional. Constituent volume count for large volume.`,
+							Description: `Optional. If the source is a FlexGroup volume, this field needs to match the number of constituents in the FlexGroup.`,
 						},
 						"peer_cluster_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: `Required. Name of the user's local source cluster to be peered with the destination cluster.`,
+							Description: `Required. Name of the ONTAP source cluster to be peered with NetApp Volumes.`,
 						},
 						"peer_ip_addresses": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `Required. List of node ip addresses to be peered with.`,
+							Description: `Required. List of all intercluster LIF IP addresses of the ONTAP source cluster.`,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
@@ -516,12 +522,12 @@ An object containing a list of "key": value pairs. Example: { "name": "wrench", 
 						"peer_svm_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: `Required. Name of the user's local source vserver svm to be peered with the destination vserver svm.`,
+							Description: `Required. Name of the ONTAP source vserver SVM to be peered with NetApp Volumes.`,
 						},
 						"peer_volume_name": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: `Required. Name of the user's local source volume to be peered with the destination volume.`,
+							Description: `Required. Name of the ONTAP source volume to be replicated to NetApp Volumes destination volume.`,
 						},
 						"replication": {
 							Type:        schema.TypeString,
@@ -1146,6 +1152,27 @@ func resourceNetappVolumeCreate(d *schema.ResourceData, meta interface{}) error 
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = NetappOperationWaitTime(
 		config, res, project, "Creating Volume", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -1333,6 +1360,30 @@ func resourceNetappVolumeRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error reading Volume: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1341,6 +1392,26 @@ func resourceNetappVolumeUpdate(d *schema.ResourceData, meta interface{}) error 
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1573,99 +1644,150 @@ func resourceNetappVolumeUpdate(d *schema.ResourceData, meta interface{}) error 
 		}
 	}
 
-	// detect export_policy presence in TF config of volume
+	// Get the old and new values for the entire export_policy block
+	oldPolicyList, newPolicyList := d.GetChange("export_policy")
 
-	if v, ok := d.GetOk("export_policy"); ok {
+	newExportPolicy := make([]interface{}, 0, 1)
 
-		l := v.([]interface{})
-		newExportPolicy := make([]interface{}, 0, len(l))
+	if newPolicyListVal, ok := newPolicyList.([]interface{}); ok && len(newPolicyListVal) > 0 {
 
-		for _, item := range v.([]interface{}) {
-			if item == nil {
-				continue
+		newPolicySet := newPolicyListVal[0].(map[string]interface{})
+		oldPolicySet := map[string]interface{}{} // Default empty map for old state
+
+		if oldPolicyListVal, ok := oldPolicyList.([]interface{}); ok && len(oldPolicyListVal) > 0 {
+			oldPolicySet = oldPolicyListVal[0].(map[string]interface{})
+		}
+
+		// Check if the rules block is present in the new config
+		if newRuleMapVal, ruleMapExists := newPolicySet["rules"]; ruleMapExists {
+
+			newRuleList := newRuleMapVal.([]interface{})
+			newRuleMap := make([]interface{}, 0, len(newRuleList))
+
+			// Get the old rules list (if it exists)
+			oldRuleList := make([]interface{}, 0)
+			if oldRuleMapVal, oldRuleMapExists := oldPolicySet["rules"]; oldRuleMapExists {
+				oldRuleList = oldRuleMapVal.([]interface{})
 			}
-			ruleSet := item.(map[string]interface{})
 
-			if ruleMap, ruleMapExists := ruleSet["rules"]; ruleMapExists {
+			// Iterate through the new rules
+			for i, ruleMapItem := range newRuleList {
+				if ruleMapItem == nil {
+					continue
+				}
+				newRule := ruleMapItem.(map[string]interface{})
+				newRuleMapItemSet := make(map[string]interface{})
 
-				l := ruleMap.([]interface{})
-				newRuleMap := make([]interface{}, 0, len(l))
-				for _, ruleMapItem := range ruleMap.([]interface{}) {
-					if ruleMapItem == nil {
-						continue
-					}
-					ruleMapItemSet := ruleMapItem.(map[string]interface{})
-					newRuleMapItemSet := make(map[string]interface{})
+				// Attempt to get the corresponding old rule based on index 'i'.
+				oldRule := map[string]interface{}{}
+				if i < len(oldRuleList) && oldRuleList[i] != nil {
+					oldRule = oldRuleList[i].(map[string]interface{})
+				}
 
-					if val, exists := ruleMapItemSet["access_type"]; exists {
-						newRuleMapItemSet["accessType"] = val
-					}
-					if val, exists := ruleMapItemSet["allowed_clients"]; exists {
-						newRuleMapItemSet["allowedClients"] = val
-					}
-					if val, exists := ruleMapItemSet["has_root_access"]; exists {
-						newRuleMapItemSet["hasRootAccess"] = val
-					}
-					if val, exists := ruleMapItemSet["nfsv3"]; exists {
-						newRuleMapItemSet["nfsv3"] = val
-					}
-					if val, exists := ruleMapItemSet["kerberos5_read_only"]; exists {
-						newRuleMapItemSet["kerberos5ReadOnly"] = val
-					}
-					if val, exists := ruleMapItemSet["kerberos5_read_write"]; exists {
-						newRuleMapItemSet["kerberos5ReadWrite"] = val
-					}
-					if val, exists := ruleMapItemSet["kerberos5i_read_only"]; exists {
-						newRuleMapItemSet["kerberos5iReadOnly"] = val
-					}
-					if val, exists := ruleMapItemSet["kerberos5i_read_write"]; exists {
-						newRuleMapItemSet["kerberos5iReadWrite"] = val
-					}
-					if val, exists := ruleMapItemSet["kerberos5p_read_only"]; exists {
-						newRuleMapItemSet["kerberos5pReadOnly"] = val
-					}
-					if val, exists := ruleMapItemSet["kerberos5p_read_write"]; exists {
-						newRuleMapItemSet["kerberos5pReadWrite"] = val
-					}
+				newHasRootAccessVal, newHasRootAccessExists := newRule["has_root_access"]
+				newSquashModeVal, newSquashModeExists := newRule["squash_mode"]
+				newAnonUidVal, newAnonUidExists := newRule["anon_uid"]
 
-					// Handle "squash_mode":
-					squashModeVal, squashModeExists := ruleMapItemSet["squash_mode"]
+				oldHasRootAccessVal := oldRule["has_root_access"]
+				oldSquashModeVal := oldRule["squash_mode"]
+				oldAnonUidVal := oldRule["anon_uid"] // This will be an interface{}, value is typically int64 or nil
 
-					// Only send if the user explicitly added it.
-					// If not added, send as null.
-					if squashModeExists && squashModeVal == "ALL_SQUASH" {
-						// User provided the field, send their value
-						newRuleMapItemSet["squashMode"] = squashModeVal
+				// Simple check for change: if the new value (or absence) is different from the old state value.
+				// Note: This relies on Go's deep equality for interface{} holding primitive types.
+
+				isHasRootAccessChanging := newHasRootAccessVal != "" && newHasRootAccessVal != oldHasRootAccessVal
+				isSquashModeChanging := newSquashModeVal != "" && newSquashModeVal != "SQUASH_MODE_UNSPECIFIED" && newSquashModeVal != oldSquashModeVal
+				isAnonUidChanging := newAnonUidVal != 0 && newAnonUidVal != oldAnonUidVal
+				/*
+				   // Mutually Exclusive Field Validation (has_root_access/squash_mode)
+				   if isHasRootAccessChanging && isSquashModeChanging {
+				       return fmt.Errorf("Invalid export policy rule specified. 'has_root_access' is not supported when 'squash_mode' is specified on volume %s.", d.Get("name").(string))
+				   }
+
+				   // Check if anonUid is changing AND the new squash mode is NOT ALL_SQUASH
+				   isNewSquashModeAllSquash := newSquashModeExists && newSquashModeVal == "ALL_SQUASH"
+
+				   if isAnonUidChanging && !isNewSquashModeAllSquash {
+				       return fmt.Errorf("Invalid export policy rule specified, anon_uid is not supported for ROOT_SQUASH/NO_ROOT_SQUASH/SQUASH_MODE_UNSPECIFIED squash mode on volume %s.", d.Get("name").(string))
+				   }
+				*/
+
+				newRuleMapItemSet["hasRootAccess"] = nil
+				newRuleMapItemSet["squashMode"] = nil
+				// Logic for has_root_access and squash_mode
+				if isHasRootAccessChanging {
+					newRuleMapItemSet["hasRootAccess"] = newHasRootAccessVal
+				}
+				if isSquashModeChanging {
+					newRuleMapItemSet["squashMode"] = newSquashModeVal
+				}
+				if !isHasRootAccessChanging && !isSquashModeChanging {
+					// Not changing, so pass through the new config values (one will be set, the other nil, or both nil)
+					if newAnonUidExists && newAnonUidVal == 0 && oldAnonUidVal != 0 {
+						// this is an udpate from "ALL_SQUASH" to "ROOT_SQUASH" (has_root_access: false)
+						newRuleMapItemSet["hasRootAccess"] = newHasRootAccessVal
+						newRuleMapItemSet["squashMode"] = nil
+					} else if newSquashModeExists && newSquashModeVal != "" && newSquashModeVal != "SQUASH_MODE_UNSPECIFIED" {
+						newRuleMapItemSet["squashMode"] = newSquashModeVal
+						newRuleMapItemSet["hasRootAccess"] = nil
+					} else if newHasRootAccessExists {
+						newRuleMapItemSet["hasRootAccess"] = newHasRootAccessVal
+						newRuleMapItemSet["squashMode"] = nil
 					} else {
-						// User did NOT provide the field, or provided an empty value.
-						// Explicitly send null to the API.
+						newRuleMapItemSet["hasRootAccess"] = nil
 						newRuleMapItemSet["squashMode"] = nil
 					}
-
-					// Handle "anon_uid"
-					anonUidVal, anonUidExists := ruleMapItemSet["anon_uid"]
-
-					// Only send if the user explicitly added it.
-					// If not added, send as null.
-					if anonUidExists && anonUidVal != nil && anonUidVal != 0 {
-						// User provided the field, send their value
-						newRuleMapItemSet["anonUid"] = anonUidVal
-					} else {
-						// User did NOT provide the field, or provided an empty value.
-						// Explicitly send null to the API.
-						newRuleMapItemSet["anonUid"] = nil
-					}
-
-					newRuleMap = append(newRuleMap, newRuleMapItemSet)
-
 				}
-				ruleSet["rules"] = newRuleMap
-				newExportPolicy = append(newExportPolicy, ruleSet)
+
+				// If anonUid is present in the new config and is not 0
+				if isAnonUidChanging || (newAnonUidExists && newAnonUidVal != 0) {
+					newRuleMapItemSet["anonUid"] = newAnonUidVal
+				} else {
+					newRuleMapItemSet["anonUid"] = nil
+				}
+
+				if val, exists := newRule["access_type"]; exists {
+					newRuleMapItemSet["accessType"] = val
+				}
+				if val, exists := newRule["allowed_clients"]; exists {
+					newRuleMapItemSet["allowedClients"] = val
+				}
+				if val, exists := newRule["nfsv3"]; exists {
+					newRuleMapItemSet["nfsv3"] = val
+				}
+				if val, exists := newRule["nfsv4"]; exists {
+					newRuleMapItemSet["nfsv4"] = val
+				}
+				if val, exists := newRule["kerberos5_read_only"]; exists {
+					newRuleMapItemSet["kerberos5ReadOnly"] = val
+				}
+				if val, exists := newRule["kerberos5_read_write"]; exists {
+					newRuleMapItemSet["kerberos5ReadWrite"] = val
+				}
+				if val, exists := newRule["kerberos5i_read_only"]; exists {
+					newRuleMapItemSet["kerberos5iReadOnly"] = val
+				}
+				if val, exists := newRule["kerberos5i_read_write"]; exists {
+					newRuleMapItemSet["kerberos5iReadWrite"] = val
+				}
+				if val, exists := newRule["kerberos5p_read_only"]; exists {
+					newRuleMapItemSet["kerberos5pReadOnly"] = val
+				}
+				if val, exists := newRule["kerberos5p_read_write"]; exists {
+					newRuleMapItemSet["kerberos5pReadWrite"] = val
+				}
+
+				newRuleMap = append(newRuleMap, newRuleMapItemSet)
 			}
+
+			// Final construction of the payload for the API
+			newPolicySet["rules"] = newRuleMap
+			newExportPolicy = append(newExportPolicy, newPolicySet)
 		}
-		if len(newExportPolicy) > 0 {
-			obj["exportPolicy"] = newExportPolicy[0]
-		}
+	}
+	// Set the final object
+	if len(newExportPolicy) > 0 {
+		obj["exportPolicy"] = newExportPolicy[0]
 	}
 
 	// err == nil indicates that the billing_project value was found

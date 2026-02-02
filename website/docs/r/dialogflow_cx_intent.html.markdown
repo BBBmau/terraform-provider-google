@@ -171,14 +171,14 @@ The Default Negative Intent cannot be deleted; deleting the `google_dialogflow_c
   If you want to annotate the training phrase, you must create multiple parts, where the fields of each part are populated in one of two ways:
   Part.text is set to a part of the phrase that has no parameters.
   Part.text is set to a part of the phrase that you want to annotate, and the parameterId field is set.
-  Structure is [documented below](#nested_training_phrases_training_phrases_parts).
+  Structure is [documented below](#nested_training_phrases_parts).
 
 * `repeat_count` -
   (Optional)
   Indicates how many times this example was added to the intent.
 
 
-<a name="nested_training_phrases_training_phrases_parts"></a>The `parts` block supports:
+<a name="nested_training_phrases_parts"></a>The `parts` block supports:
 
 * `text` -
   (Required)
@@ -243,6 +243,17 @@ Intent can be imported using any of these accepted formats:
 * `{{parent}}/intents/{{name}}`
 * `{{parent}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Intent using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    parent = "<-optional value->"
+  }
+  to = google_dialogflow_cx_intent.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Intent using one of the formats above. For example:
 

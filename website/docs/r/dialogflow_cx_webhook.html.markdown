@@ -228,6 +228,73 @@ resource "google_dialogflow_cx_webhook" "flexible_webhook" {
   }
 }
 ```
+## Example Usage - Dialogflowcx Webhook With Service Account Auth
+
+
+```hcl
+resource "google_dialogflow_cx_agent" "agent" {
+  display_name = "dialogflowcx-agent"
+  location = "global"
+  default_language_code = "en"
+  supported_language_codes = ["it","de","es"]
+  time_zone = "America/New_York"
+  description = "Example description."
+  avatar_uri = "https://cloud.google.com/_static/images/cloud/icons/favicons/onecloud/super_cloud.png"
+  enable_stackdriver_logging = true
+  enable_spell_correction    = true
+  speech_to_text_settings {
+    enable_speech_adaptation = true
+  }
+}
+
+
+resource "google_dialogflow_cx_webhook" "webhook_use_service_account" {
+  parent       = google_dialogflow_cx_agent.agent.id
+  display_name = "MyWebhook"
+  generic_web_service {
+		uri = "https://example.googleapis.com"
+    webhook_type = "STANDARD"
+    service_account_auth_config {
+      service_account = "my@service-account.com"
+    }
+	}
+}
+```
+## Example Usage - Dialogflowcx Webhook Service Directory With Service Account Auth
+
+
+```hcl
+resource "google_dialogflow_cx_agent" "agent" {
+  display_name = "dialogflowcx-agent"
+  location = "us-central1"
+  default_language_code = "en"
+  supported_language_codes = ["it","de","es"]
+  time_zone = "America/New_York"
+  description = "Example description."
+  avatar_uri = "https://cloud.google.com/_static/images/cloud/icons/favicons/onecloud/super_cloud.png"
+  enable_stackdriver_logging = true
+  enable_spell_correction    = true
+  speech_to_text_settings {
+    enable_speech_adaptation = true
+  }
+}
+
+
+resource "google_dialogflow_cx_webhook" "webhook_use_service_account" {
+  parent       = google_dialogflow_cx_agent.agent.id
+  display_name = "MyWebhook"
+  service_directory {
+    service = "projects/example-proj/locations/us-central1/namespaces/example-namespace/services/example-service"
+    generic_web_service {
+      uri = "https://example.googleapis.com"
+      webhook_type = "STANDARD"
+      service_account_auth_config {
+        service_account = "my@service-account.com"
+      }
+    }
+  }
+}
+```
 
 ## Argument Reference
 
@@ -341,6 +408,11 @@ The following arguments are supported:
   The generated token is sent in the Authorization header.
   Possible values are: `NONE`, `ID_TOKEN`, `ACCESS_TOKEN`.
 
+* `service_account_auth_config` -
+  (Optional)
+  Configuration for authentication using a service account.
+  Structure is [documented below](#nested_generic_web_service_service_account_auth_config).
+
 * `uri` -
   (Required)
   The webhook URI for receiving POST requests. It must use https protocol.
@@ -387,6 +459,17 @@ The following arguments are supported:
   (Required)
   The SecretManager secret version resource storing the header value.
   Format: `projects/{project}/secrets/{secret}/versions/{version}`
+
+<a name="nested_generic_web_service_service_account_auth_config"></a>The `service_account_auth_config` block supports:
+
+* `service_account` -
+  (Required)
+  The email address of the service account used to authenticate the webhook call.
+  Dialogflow uses this service account to exchange an access token and the access
+  token is then sent in the **Authorization** header of the webhook request.
+  The service account must have the **roles/iam.serviceAccountTokenCreator** role
+  granted to the
+  [Dialogflow service agent](https://cloud.google.com/iam/docs/service-agents?_gl=1*1jsujvh*_ga*NjYxMzU3OTg2LjE3Njc3MzQ4NjM.*_ga_WH2QY8WWF5*czE3Njc3MzQ2MjgkbzIkZzEkdDE3Njc3MzQ3NzQkajYwJGwwJGgw#dialogflow-service-agent).
 
 <a name="nested_service_directory"></a>The `service_directory` block supports:
 
@@ -465,6 +548,11 @@ The following arguments are supported:
   The generated token is sent in the Authorization header.
   Possible values are: `NONE`, `ID_TOKEN`, `ACCESS_TOKEN`.
 
+* `service_account_auth_config` -
+  (Optional)
+  Configuration for authentication using a service account.
+  Structure is [documented below](#nested_service_directory_generic_web_service_service_account_auth_config).
+
 * `uri` -
   (Required)
   The webhook URI for receiving POST requests. It must use https protocol.
@@ -512,6 +600,17 @@ The following arguments are supported:
   The SecretManager secret version resource storing the header value.
   Format: `projects/{project}/secrets/{secret}/versions/{version}`
 
+<a name="nested_service_directory_generic_web_service_service_account_auth_config"></a>The `service_account_auth_config` block supports:
+
+* `service_account` -
+  (Required)
+  The email address of the service account used to authenticate the webhook call.
+  Dialogflow uses this service account to exchange an access token and the access
+  token is then sent in the **Authorization** header of the webhook request.
+  The service account must have the **roles/iam.serviceAccountTokenCreator** role
+  granted to the
+  [Dialogflow service agent](https://cloud.google.com/iam/docs/service-agents?_gl=1*1jsujvh*_ga*NjYxMzU3OTg2LjE3Njc3MzQ4NjM.*_ga_WH2QY8WWF5*czE3Njc3MzQ2MjgkbzIkZzEkdDE3Njc3MzQ3NzQkajYwJGwwJGgw#dialogflow-service-agent).
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -543,6 +642,17 @@ Webhook can be imported using any of these accepted formats:
 * `{{parent}}/webhooks/{{name}}`
 * `{{parent}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Webhook using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    parent = "<-optional value->"
+  }
+  to = google_dialogflow_cx_webhook.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Webhook using one of the formats above. For example:
 

@@ -126,7 +126,6 @@ resource "google_compute_interconnect_attachment" "custom-ranges-interconnect-at
   candidate_customer_router_ip_address   = "192.169.0.2/29"
   candidate_cloud_router_ipv6_address    = "748d:2f23:6651:9455:828b:ca81:6fe0:fed1/125"
   candidate_customer_router_ipv6_address = "748d:2f23:6651:9455:828b:ca81:6fe0:fed2/125"
-  provider                               = google-beta
 }
 
 resource "google_compute_router" "foobar" {
@@ -135,13 +134,11 @@ resource "google_compute_router" "foobar" {
   bgp {
     asn = 16550
   }
-  provider = google-beta
 }
 
 resource "google_compute_network" "foobar" {
   name                    = "test-network"
   auto_create_subnetworks = false
-  provider                = google-beta
 }
 ```
 
@@ -149,13 +146,6 @@ resource "google_compute_network" "foobar" {
 
 The following arguments are supported:
 
-
-* `router` -
-  (Required)
-  URL of the cloud router to be used for dynamic routing. This router must be in
-  the same region as this InterconnectAttachment. The InterconnectAttachment will
-  automatically connect the Interconnect to the network & region within which the
-  Cloud Router is configured.
 
 * `name` -
   (Required)
@@ -194,7 +184,7 @@ The following arguments are supported:
   For attachments of type PARTNER, the Google Partner that is operating the interconnect must set the bandwidth.
   Output only for PARTNER type, mutable for PARTNER_PROVIDER and DEDICATED,
   Defaults to BPS_10G
-  Possible values are: `BPS_50M`, `BPS_100M`, `BPS_200M`, `BPS_300M`, `BPS_400M`, `BPS_500M`, `BPS_1G`, `BPS_2G`, `BPS_5G`, `BPS_10G`, `BPS_20G`, `BPS_50G`, `BPS_100G`.
+  Possible values are: `BPS_50M`, `BPS_100M`, `BPS_200M`, `BPS_300M`, `BPS_400M`, `BPS_500M`, `BPS_1G`, `BPS_2G`, `BPS_5G`, `BPS_10G`, `BPS_20G`, `BPS_50G`, `BPS_100G`, `BPS_400G`.
 
 * `edge_availability_domain` -
   (Optional)
@@ -209,7 +199,14 @@ The following arguments are supported:
   (Optional)
   The type of InterconnectAttachment you wish to create. Defaults to
   DEDICATED.
-  Possible values are: `DEDICATED`, `PARTNER`, `PARTNER_PROVIDER`.
+  Possible values are: `DEDICATED`, `PARTNER`, `PARTNER_PROVIDER`, `L2_DEDICATED`.
+
+* `router` -
+  (Optional)
+  URL of the cloud router to be used for dynamic routing. This router must be in
+  the same region as this InterconnectAttachment. The InterconnectAttachment will
+  automatically connect the Interconnect to the network & region within which the
+  Cloud Router is configured.
 
 * `candidate_subnets` -
   (Optional)
@@ -286,24 +283,29 @@ The following arguments are supported:
   Please refer to the field `effective_labels` for all of the labels present on the resource.
 
 * `candidate_cloud_router_ip_address` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Single IPv4 address + prefix length to be configured on the cloud router interface for this
   interconnect attachment. Example: 203.0.113.1/29
 
 * `candidate_customer_router_ip_address` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Single IPv4 address + prefix length to be configured on the customer router interface for this
   interconnect attachment. Example: 203.0.113.2/29
 
 * `candidate_cloud_router_ipv6_address` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Single IPv6 address + prefix length to be configured on the cloud router interface for this
   interconnect attachment. Example: 2001:db8::1/125
 
 * `candidate_customer_router_ipv6_address` -
-  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  (Optional)
   Single IPv6 address + prefix length to be configured on the customer router interface for this
   interconnect attachment. Example: 2001:db8::2/125
+
+* `l2_forwarding` -
+  (Optional)
+  L2 Interconnect Attachment related configuration.
+  Structure is [documented below](#nested_l2_forwarding).
 
 * `region` -
   (Optional)
@@ -313,6 +315,66 @@ The following arguments are supported:
     If it is not provided, the provider project is used.
 
 
+
+<a name="nested_l2_forwarding"></a>The `l2_forwarding` block supports:
+
+* `network` -
+  (Optional)
+  URL of the network to which this attachment belongs.
+
+* `tunnel_endpoint_ip_address` -
+  (Optional)
+  The tunnel endpoint IP address.
+
+* `default_appliance_ip_address` -
+  (Optional)
+  The default appliance IP address.
+
+* `geneve_header` -
+  (Optional)
+  GeneveHeader related configurations.
+  Structure is [documented below](#nested_l2_forwarding_geneve_header).
+
+* `appliance_mappings` -
+  (Optional)
+  A map of VLAN tags to appliances and optional inner mapping rules.
+  Structure is [documented below](#nested_l2_forwarding_appliance_mappings).
+
+
+<a name="nested_l2_forwarding_geneve_header"></a>The `geneve_header` block supports:
+
+* `vni` -
+  (Optional)
+  VNI is a 24-bit unique virtual network identifier.
+
+<a name="nested_l2_forwarding_appliance_mappings"></a>The `appliance_mappings` block supports:
+
+* `vlan_id` -
+  (Optional)
+  The VLAN tag.
+
+* `name` -
+  (Optional)
+  The name of this appliance mapping rule.
+
+* `appliance_ip_address` -
+  (Optional)
+  The appliance IP address.
+
+* `inner_vlan_to_appliance_mappings` -
+  (Optional)
+  Structure is [documented below](#nested_l2_forwarding_appliance_mappings_inner_vlan_to_appliance_mappings).
+
+
+<a name="nested_l2_forwarding_appliance_mappings_inner_vlan_to_appliance_mappings"></a>The `inner_vlan_to_appliance_mappings` block supports:
+
+* `inner_vlan_tags` -
+  (Optional)
+  List of inner VLAN tags.
+
+* `inner_appliance_ip_address` -
+  (Optional)
+  The inner appliance IP address.
 
 ## Attributes Reference
 
@@ -406,6 +468,18 @@ InterconnectAttachment can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import InterconnectAttachment using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_interconnect_attachment.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import InterconnectAttachment using one of the formats above. For example:
 

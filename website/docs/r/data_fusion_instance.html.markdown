@@ -164,7 +164,7 @@ resource "google_data_fusion_instance" "cmek" {
     key_reference = google_kms_crypto_key.crypto_key.id
   }
 
-  depends_on = [google_kms_crypto_key_iam_member.crypto_key_member_cdf_sa, google_kms_crypto_key_iam_member.crypto_key_member_gcs_sa]
+  depends_on = [google_kms_crypto_key_iam_member.crypto_key_member_gcs_sa]
 }
 
 resource "google_kms_crypto_key" "crypto_key" {
@@ -189,6 +189,8 @@ resource "google_kms_crypto_key_iam_member" "crypto_key_member_gcs_sa" {
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
 
   member = "serviceAccount:service-${data.google_project.project.number}@gs-project-accounts.iam.gserviceaccount.com"
+
+  depends_on = [google_kms_crypto_key_iam_member.crypto_key_member_cdf_sa]
 }
 
 data "google_project" "project" {}
@@ -510,6 +512,18 @@ Instance can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_data_fusion_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

@@ -104,14 +104,14 @@ The following arguments are supported:
 * `server_certificates` -
   (Required)
   Required. A list of leaf server certificates used to authenticate HTTPS connections to the EKM replica. Currently, a maximum of 10 Certificate is supported.
-  Structure is [documented below](#nested_service_resolvers_service_resolvers_server_certificates).
+  Structure is [documented below](#nested_service_resolvers_server_certificates).
 
 * `endpoint_filter` -
   (Optional)
   Optional. The filter applied to the endpoints of the resolved service. If no filter is specified, all endpoints will be considered. An endpoint will be chosen arbitrarily from the filtered list for each request. For endpoint filter syntax and examples, see https://cloud.google.com/service-directory/docs/reference/rpc/google.cloud.servicedirectory.v1#resolveservicerequest.
 
 
-<a name="nested_service_resolvers_service_resolvers_server_certificates"></a>The `server_certificates` block supports:
+<a name="nested_service_resolvers_server_certificates"></a>The `server_certificates` block supports:
 
 * `raw_der` -
   (Required)
@@ -180,6 +180,18 @@ EkmConnection can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import EkmConnection using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_kms_ekm_connection.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import EkmConnection using one of the formats above. For example:
 

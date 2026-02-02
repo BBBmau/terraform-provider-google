@@ -223,10 +223,10 @@ State will be removed on the next instance recreation or update.
 * `ip_address` -
   (Optional)
   Ip address representation
-  Structure is [documented below](#nested_preserved_state_internal_ip_internal_ip_ip_address).
+  Structure is [documented below](#nested_preserved_state_internal_ip_ip_address).
 
 
-<a name="nested_preserved_state_internal_ip_internal_ip_ip_address"></a>The `ip_address` block supports:
+<a name="nested_preserved_state_internal_ip_ip_address"></a>The `ip_address` block supports:
 
 * `address` -
   (Optional)
@@ -245,10 +245,10 @@ State will be removed on the next instance recreation or update.
 * `ip_address` -
   (Optional)
   Ip address representation
-  Structure is [documented below](#nested_preserved_state_external_ip_external_ip_ip_address).
+  Structure is [documented below](#nested_preserved_state_external_ip_ip_address).
 
 
-<a name="nested_preserved_state_external_ip_external_ip_ip_address"></a>The `ip_address` block supports:
+<a name="nested_preserved_state_external_ip_ip_address"></a>The `ip_address` block supports:
 
 * `address` -
   (Optional)
@@ -280,6 +280,19 @@ RegionPerInstanceConfig can be imported using any of these accepted formats:
 * `{{region}}/{{region_instance_group_manager}}/{{name}}`
 * `{{region_instance_group_manager}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionPerInstanceConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    regionInstanceGroupManager = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_per_instance_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionPerInstanceConfig using one of the formats above. For example:
 

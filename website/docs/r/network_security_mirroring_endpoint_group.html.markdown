@@ -242,10 +242,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `locations` -
   (Output)
   The list of locations where the deployment group is present.
-  Structure is [documented below](#nested_connected_deployment_groups_connected_deployment_groups_locations).
+  Structure is [documented below](#nested_connected_deployment_groups_locations).
 
 
-<a name="nested_connected_deployment_groups_connected_deployment_groups_locations"></a>The `locations` block contains:
+<a name="nested_connected_deployment_groups_locations"></a>The `locations` block contains:
 
 * `location` -
   (Output)
@@ -277,6 +277,18 @@ MirroringEndpointGroup can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{mirroring_endpoint_group_id}}`
 * `{{location}}/{{mirroring_endpoint_group_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MirroringEndpointGroup using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    mirroringEndpointGroupId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_mirroring_endpoint_group.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MirroringEndpointGroup using one of the formats above. For example:
 

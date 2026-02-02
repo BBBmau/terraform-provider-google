@@ -204,6 +204,12 @@ func TestAccBigQueryJob_bigqueryJobLoadExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "status.0.state", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_bigquery_job.job",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -271,6 +277,12 @@ func TestAccBigQueryJob_bigqueryJobLoadGeojsonExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "status.0.state", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_bigquery_job.job",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -359,6 +371,12 @@ func TestAccBigQueryJob_bigqueryJobLoadParquetExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "status.0.state", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_bigquery_job.job",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -441,6 +459,12 @@ func TestAccBigQueryJob_bigqueryJobLoadTableReferenceExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"etag", "labels", "load.0.destination_table.0.table_id", "status.0.state", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_bigquery_job.job",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

@@ -23,12 +23,10 @@ description: |-
 
 An association for the OrganizationSecurityPolicy.
 
-~> **Warning:** This resource is in beta, and should be used with the terraform-provider-google-beta provider.
-See [Provider Versions](https://terraform.io/docs/providers/google/guides/provider_versions.html) for more details on beta resources.
 
 To get more information about OrganizationSecurityPolicyAssociation, see:
 
-* [API documentation](https://cloud.google.com/compute/docs/reference/rest/beta/organizationSecurityPolicies/addAssociation)
+* [API documentation](https://cloud.google.com/compute/docs/reference/rest/v1/organizationSecurityPolicies/addAssociation)
 * How-to Guides
     * [Associating a policy with the organization or folder](https://cloud.google.com/vpc/docs/using-firewall-policies#associate)
 
@@ -37,21 +35,18 @@ To get more information about OrganizationSecurityPolicyAssociation, see:
 
 ```hcl
 resource "google_folder" "security_policy_target" {
-  provider     = google-beta
   display_name = "tf-test-secpol-%{random_suffix}"
   parent       = "organizations/123456789"
   deletion_protection = false
 }
 
 resource "google_compute_organization_security_policy" "policy" {
-  provider     = google-beta
-  display_name = "tf-test%{random_suffix}"
+  short_name   = "tf-test%{random_suffix}"
   parent       = google_folder.security_policy_target.name
-  type         = "FIREWALL"
+  type         = "CLOUD_ARMOR"
 }
 
 resource "google_compute_organization_security_policy_association" "policy" {
-  provider = google-beta
   name          = "tf-test%{random_suffix}"
   attachment_id = google_compute_organization_security_policy.policy.parent
   policy_id     = google_compute_organization_security_policy.policy.id
@@ -103,6 +98,17 @@ OrganizationSecurityPolicyAssociation can be imported using any of these accepte
 
 * `{{policy_id}}/association/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import OrganizationSecurityPolicyAssociation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    policyId = "<-required value->"
+  }
+  to = google_compute_organization_security_policy_association.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import OrganizationSecurityPolicyAssociation using one of the formats above. For example:
 

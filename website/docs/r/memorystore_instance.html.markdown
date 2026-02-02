@@ -636,10 +636,10 @@ The following arguments are supported:
 * `start_time` -
   (Required)
   Start time of the window in UTC time.
-  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time).
+  Structure is [documented below](#nested_maintenance_policy_weekly_maintenance_window_start_time).
 
 
-<a name="nested_maintenance_policy_weekly_maintenance_window_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
+<a name="nested_maintenance_policy_weekly_maintenance_window_start_time"></a>The `start_time` block supports:
 
 * `hours` -
   (Optional)
@@ -928,18 +928,18 @@ In addition to the arguments listed above, the following computed attributes are
 * `connections` -
   (Optional)
   A group of PSC connections. They are created in the same VPC network, one for each service attachment in the cluster.
-  Structure is [documented below](#nested_endpoints_endpoints_connections).
+  Structure is [documented below](#nested_endpoints_connections).
 
 
-<a name="nested_endpoints_endpoints_connections"></a>The `connections` block supports:
+<a name="nested_endpoints_connections"></a>The `connections` block supports:
 
 * `psc_auto_connection` -
   (Optional)
   Detailed information of a PSC connection that is created through service connectivity automation.
-  Structure is [documented below](#nested_endpoints_endpoints_connections_connections_psc_auto_connection).
+  Structure is [documented below](#nested_endpoints_connections_psc_auto_connection).
 
 
-<a name="nested_endpoints_endpoints_connections_connections_psc_auto_connection"></a>The `psc_auto_connection` block supports:
+<a name="nested_endpoints_connections_psc_auto_connection"></a>The `psc_auto_connection` block supports:
 
 * `psc_connection_id` -
   (Output)
@@ -1072,6 +1072,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{instance_id}}`
 * `{{location}}/{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    instanceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_memorystore_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

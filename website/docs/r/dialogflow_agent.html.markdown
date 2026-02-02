@@ -33,16 +33,35 @@ To get more information about Agent, see:
 * How-to Guides
     * [Official Documentation](https://cloud.google.com/dialogflow/docs/)
 
-<div class = "oics-button" style="float: right; margin: 0 0 -15px">
-  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=dialogflow_agent_full&open_in_editor=main.tf" target="_blank">
-    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
-  </a>
-</div>
 ## Example Usage - Dialogflow Agent Full
 
 
 ```hcl
+resource "google_project" "agent_project" {
+  project_id = "my-project"
+  name = "my-project"
+  org_id = "123456789"
+  deletion_policy = "DELETE"
+}
+
+resource "google_project_service" "agent_project" {
+  project = google_project.agent_project.project_id
+  service = "dialogflow.googleapis.com"
+  disable_dependent_services = false
+}
+
+resource "google_service_account" "dialogflow_service_account" {
+  account_id = "my-account"
+}
+
+resource "google_project_iam_member" "agent_create" {
+  project = google_project_service.agent_project.project
+  role    = "roles/dialogflow.admin"
+  member  = "serviceAccount:${google_service_account.dialogflow_service_account.email}"
+}
+
 resource "google_dialogflow_agent" "full_agent" {
+  project = google_project.agent_project.project_id
   display_name = "dialogflow-agent"
   default_language_code = "en"
   supported_language_codes = ["fr","de","es"]
@@ -164,6 +183,16 @@ Agent can be imported using any of these accepted formats:
 
 * `{{project}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Agent using identity values. For example:
+
+```tf
+import {
+  identity = {
+    project = "<-optional value->"
+  }
+  to = google_dialogflow_agent.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Agent using one of the formats above. For example:
 

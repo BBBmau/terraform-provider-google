@@ -290,30 +290,20 @@ The following arguments are supported:
 * `cpu_thresholds` -
   (Optional)
   Utilization thresholds pertaining to CPU utilization.
-  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_cpu_thresholds).
+  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_cpu_thresholds).
 
 * `consumed_memory_thresholds` -
   (Optional)
   Utilization thresholds pertaining to amount of consumed memory.
-  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_consumed_memory_thresholds).
+  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_consumed_memory_thresholds).
 
 * `storage_thresholds` -
   (Optional)
   Utilization thresholds pertaining to amount of consumed storage.
-  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_storage_thresholds).
+  Structure is [documented below](#nested_management_cluster_autoscaling_settings_autoscaling_policies_storage_thresholds).
 
 
-<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_cpu_thresholds"></a>The `cpu_thresholds` block supports:
-
-* `scale_out` -
-  (Required)
-  The utilization triggering the scale-out operation in percent.
-
-* `scale_in` -
-  (Required)
-  The utilization triggering the scale-in operation in percent.
-
-<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_consumed_memory_thresholds"></a>The `consumed_memory_thresholds` block supports:
+<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_cpu_thresholds"></a>The `cpu_thresholds` block supports:
 
 * `scale_out` -
   (Required)
@@ -323,7 +313,17 @@ The following arguments are supported:
   (Required)
   The utilization triggering the scale-in operation in percent.
 
-<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_autoscaling_policy_storage_thresholds"></a>The `storage_thresholds` block supports:
+<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_consumed_memory_thresholds"></a>The `consumed_memory_thresholds` block supports:
+
+* `scale_out` -
+  (Required)
+  The utilization triggering the scale-out operation in percent.
+
+* `scale_in` -
+  (Required)
+  The utilization triggering the scale-in operation in percent.
+
+<a name="nested_management_cluster_autoscaling_settings_autoscaling_policies_storage_thresholds"></a>The `storage_thresholds` block supports:
 
 * `scale_out` -
   (Required)
@@ -453,6 +453,18 @@ PrivateCloud can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PrivateCloud using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_vmwareengine_private_cloud.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PrivateCloud using one of the formats above. For example:
 

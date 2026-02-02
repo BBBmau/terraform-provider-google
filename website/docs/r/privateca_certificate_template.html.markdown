@@ -412,7 +412,7 @@ The following arguments are supported:
 * `object_id` -
   (Required)
   Required. The OID for this X.509 extension.
-  Structure is [documented below](#nested_predefined_values_additional_extensions_additional_extensions_object_id).
+  Structure is [documented below](#nested_predefined_values_additional_extensions_object_id).
 
 * `critical` -
   (Optional)
@@ -423,7 +423,7 @@ The following arguments are supported:
   Required. The value of this X.509 extension.
 
 
-<a name="nested_predefined_values_additional_extensions_additional_extensions_object_id"></a>The `object_id` block supports:
+<a name="nested_predefined_values_additional_extensions_object_id"></a>The `object_id` block supports:
 
 * `object_id_path` -
   (Required)
@@ -581,6 +581,18 @@ CertificateTemplate can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CertificateTemplate using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_privateca_certificate_template.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CertificateTemplate using one of the formats above. For example:
 

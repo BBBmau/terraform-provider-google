@@ -398,10 +398,10 @@ The following arguments are supported:
 * `ips` -
   (Required)
   The node's network configurations used by the VMware Admin Cluster.
-  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks_ip_blocks_ips).
+  Structure is [documented below](#nested_network_config_static_ip_config_ip_blocks_ips).
 
 
-<a name="nested_network_config_static_ip_config_ip_blocks_ip_blocks_ips"></a>The `ips` block supports:
+<a name="nested_network_config_static_ip_config_ip_blocks_ips"></a>The `ips` block supports:
 
 * `ip` -
   (Required)
@@ -677,10 +677,10 @@ The following arguments are supported:
 * `status` -
   (Output)
   ResourceStatus representing detailed cluster state.
-  Structure is [documented below](#nested_platform_config_bundles_bundles_status).
+  Structure is [documented below](#nested_platform_config_bundles_status).
 
 
-<a name="nested_platform_config_bundles_bundles_status"></a>The `status` block contains:
+<a name="nested_platform_config_bundles_status"></a>The `status` block contains:
 
 * `error_message` -
   (Output)
@@ -693,10 +693,10 @@ The following arguments are supported:
 * `conditions` -
   (Output)
   ResourceConditions provide a standard mechanism for higher-level status reporting from admin cluster controller.
-  Structure is [documented below](#nested_platform_config_bundles_bundles_status_conditions).
+  Structure is [documented below](#nested_platform_config_bundles_status_conditions).
 
 
-<a name="nested_platform_config_bundles_bundles_status_conditions"></a>The `conditions` block contains:
+<a name="nested_platform_config_bundles_status_conditions"></a>The `conditions` block contains:
 
 * `type` -
   (Output)
@@ -899,6 +899,18 @@ VmwareAdminCluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import VmwareAdminCluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_gkeonprem_vmware_admin_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import VmwareAdminCluster using one of the formats above. For example:
 

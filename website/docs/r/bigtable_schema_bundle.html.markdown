@@ -118,6 +118,12 @@ In addition to the arguments listed above, the following computed attributes are
 * `name` -
   The unique name of the requested schema bundle. Values are of the form `projects/<project>/instances/<instance>/tables/<table>/schemaBundles/<schemaBundleId>`.
 
+* `etag` -
+  etag is used for optimistic concurrency control as a way to help prevent simultaneous
+  updates of a schema bundle from overwriting each other. This may be sent on update and delete
+  requests to ensure the client has an update-to-date value before proceeding. The server returns
+  an ABORTED error on a mismatched etag.
+
 
 ## Timeouts
 
@@ -137,6 +143,19 @@ SchemaBundle can be imported using any of these accepted formats:
 * `{{project}}/{{instance}}/{{table}}/{{schema_bundle_id}}`
 * `{{instance}}/{{table}}/{{schema_bundle_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SchemaBundle using identity values. For example:
+
+```tf
+import {
+  identity = {
+    schemaBundleId = "<-required value->"
+    instance = "<-optional value->"
+    table = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_bigtable_schema_bundle.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SchemaBundle using one of the formats above. For example:
 

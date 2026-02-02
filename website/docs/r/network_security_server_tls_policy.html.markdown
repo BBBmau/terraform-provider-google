@@ -254,22 +254,22 @@ The following arguments are supported:
 * `grpc_endpoint` -
   (Optional)
   gRPC specific configuration to access the gRPC server to obtain the cert and private key.
-  Structure is [documented below](#nested_mtls_policy_client_validation_ca_client_validation_ca_grpc_endpoint).
+  Structure is [documented below](#nested_mtls_policy_client_validation_ca_grpc_endpoint).
 
 * `certificate_provider_instance` -
   (Optional)
   Optional if policy is to be used with Traffic Director. For external HTTPS load balancer must be empty.
   Defines a mechanism to provision server identity (public and private keys). Cannot be combined with allowOpen as a permissive mode that allows both plain text and TLS is not supported.
-  Structure is [documented below](#nested_mtls_policy_client_validation_ca_client_validation_ca_certificate_provider_instance).
+  Structure is [documented below](#nested_mtls_policy_client_validation_ca_certificate_provider_instance).
 
 
-<a name="nested_mtls_policy_client_validation_ca_client_validation_ca_grpc_endpoint"></a>The `grpc_endpoint` block supports:
+<a name="nested_mtls_policy_client_validation_ca_grpc_endpoint"></a>The `grpc_endpoint` block supports:
 
 * `target_uri` -
   (Required)
   The target URI of the gRPC endpoint. Only UDS path is supported, and should start with "unix:".
 
-<a name="nested_mtls_policy_client_validation_ca_client_validation_ca_certificate_provider_instance"></a>The `certificate_provider_instance` block supports:
+<a name="nested_mtls_policy_client_validation_ca_certificate_provider_instance"></a>The `certificate_provider_instance` block supports:
 
 * `plugin_instance` -
   (Required)
@@ -313,6 +313,18 @@ ServerTlsPolicy can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ServerTlsPolicy using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_network_security_server_tls_policy.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ServerTlsPolicy using one of the formats above. For example:
 

@@ -71,6 +71,12 @@ func TestAccHealthcarePipelineJob_healthcarePipelineJobReconciliationExample(t *
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"dataset", "labels", "location", "self_link", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_healthcare_pipeline_job.example-pipeline",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -132,6 +138,7 @@ resource "google_storage_bucket_iam_member" "hsa" {
 }
 
 func TestAccHealthcarePipelineJob_healthcarePipelineJobBackfillExample(t *testing.T) {
+	acctest.SkipIfVcr(t)
 	t.Parallel()
 
 	context := map[string]interface{}{
@@ -151,6 +158,12 @@ func TestAccHealthcarePipelineJob_healthcarePipelineJobBackfillExample(t *testin
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"dataset", "labels", "location", "self_link", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_healthcare_pipeline_job.example-pipeline",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -194,6 +207,12 @@ func TestAccHealthcarePipelineJob_healthcarePipelineJobWhistleMappingExample(t *
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"dataset", "labels", "location", "self_link", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_healthcare_pipeline_job.example-mapping-pipeline",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -289,6 +308,12 @@ func TestAccHealthcarePipelineJob_healthcarePipelineJobMappingReconDestExample(t
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"dataset", "labels", "location", "self_link", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_healthcare_pipeline_job.example-mapping-pipeline",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

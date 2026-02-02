@@ -483,10 +483,10 @@ In addition to the arguments listed above, the following computed attributes are
 * `value` -
   (Output)
   The value of the extended metadata.
-  Structure is [documented below](#nested_service_properties_extended_metadata_extended_metadata_value).
+  Structure is [documented below](#nested_service_properties_extended_metadata_value).
 
 
-<a name="nested_service_properties_extended_metadata_extended_metadata_value"></a>The `value` block contains:
+<a name="nested_service_properties_extended_metadata_value"></a>The `value` block contains:
 
 * `metadata_struct` -
   (Output)
@@ -520,6 +520,19 @@ Service can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{application_id}}/{{service_id}}`
 * `{{location}}/{{application_id}}/{{service_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Service using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    applicationId = "<-required value->"
+    serviceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_apphub_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Service using one of the formats above. For example:
 

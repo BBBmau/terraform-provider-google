@@ -556,10 +556,10 @@ Possible values: ENABLED, DISABLED, STAGED.
 * `object_id` -
   (Required)
   Describes values that are relevant in a CA certificate.
-  Structure is [documented below](#nested_config_x509_config_additional_extensions_additional_extensions_object_id).
+  Structure is [documented below](#nested_config_x509_config_additional_extensions_object_id).
 
 
-<a name="nested_config_x509_config_additional_extensions_additional_extensions_object_id"></a>The `object_id` block supports:
+<a name="nested_config_x509_config_additional_extensions_object_id"></a>The `object_id` block supports:
 
 * `object_id_path` -
   (Required)
@@ -925,6 +925,19 @@ CertificateAuthority can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{pool}}/{{certificate_authority_id}}`
 * `{{location}}/{{pool}}/{{certificate_authority_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import CertificateAuthority using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    certificateAuthorityId = "<-required value->"
+    pool = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_privateca_certificate_authority.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import CertificateAuthority using one of the formats above. For example:
 

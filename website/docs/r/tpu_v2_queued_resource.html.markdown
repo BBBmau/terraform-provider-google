@@ -150,10 +150,10 @@ The following arguments are supported:
 * `node` -
   (Required)
   The node.
-  Structure is [documented below](#nested_tpu_node_spec_node_spec_node).
+  Structure is [documented below](#nested_tpu_node_spec_node).
 
 
-<a name="nested_tpu_node_spec_node_spec_node"></a>The `node` block supports:
+<a name="nested_tpu_node_spec_node"></a>The `node` block supports:
 
 * `runtime_version` -
   (Required)
@@ -170,10 +170,10 @@ The following arguments are supported:
 * `network_config` -
   (Optional)
   Network configurations for the TPU node.
-  Structure is [documented below](#nested_tpu_node_spec_node_spec_node_network_config).
+  Structure is [documented below](#nested_tpu_node_spec_node_network_config).
 
 
-<a name="nested_tpu_node_spec_node_spec_node_network_config"></a>The `network_config` block supports:
+<a name="nested_tpu_node_spec_node_network_config"></a>The `network_config` block supports:
 
 * `network` -
   (Optional)
@@ -224,6 +224,18 @@ QueuedResource can be imported using any of these accepted formats:
 * `{{zone}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import QueuedResource using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    zone = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_tpu_v2_queued_resource.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import QueuedResource using one of the formats above. For example:
 

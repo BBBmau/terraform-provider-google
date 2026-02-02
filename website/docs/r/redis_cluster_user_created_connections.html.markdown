@@ -340,19 +340,19 @@ The following arguments are supported:
 
 * `connections` -
   (Optional)
-  Structure is [documented below](#nested_cluster_endpoints_cluster_endpoints_connections).
+  Structure is [documented below](#nested_cluster_endpoints_connections).
 
 
-<a name="nested_cluster_endpoints_cluster_endpoints_connections"></a>The `connections` block supports:
+<a name="nested_cluster_endpoints_connections"></a>The `connections` block supports:
 
 * `psc_connection` -
   (Optional)
   Detailed information of a PSC connection that is created by the customer
   who owns the cluster.
-  Structure is [documented below](#nested_cluster_endpoints_cluster_endpoints_connections_connections_psc_connection).
+  Structure is [documented below](#nested_cluster_endpoints_connections_psc_connection).
 
 
-<a name="nested_cluster_endpoints_cluster_endpoints_connections_connections_psc_connection"></a>The `psc_connection` block supports:
+<a name="nested_cluster_endpoints_connections_psc_connection"></a>The `psc_connection` block supports:
 
 * `psc_connection_id` -
   (Required)
@@ -423,6 +423,18 @@ ClusterUserCreatedConnections can be imported using any of these accepted format
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ClusterUserCreatedConnections using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_redis_cluster_user_created_connections.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ClusterUserCreatedConnections using one of the formats above. For example:
 

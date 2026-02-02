@@ -189,10 +189,10 @@ The following arguments are supported:
 * `bigquery_destination` -
   (Required)
   BigQueryDestination to include a fully qualified BigQuery table URI where DICOM instance metadata will be streamed.
-  Structure is [documented below](#nested_stream_configs_stream_configs_bigquery_destination).
+  Structure is [documented below](#nested_stream_configs_bigquery_destination).
 
 
-<a name="nested_stream_configs_stream_configs_bigquery_destination"></a>The `bigquery_destination` block supports:
+<a name="nested_stream_configs_bigquery_destination"></a>The `bigquery_destination` block supports:
 
 * `table_uri` -
   (Required)
@@ -232,6 +232,17 @@ DicomStore can be imported using any of these accepted formats:
 * `{{dataset}}/dicomStores/{{name}}`
 * `{{dataset}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DicomStore using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    dataset = "<-required value->"
+  }
+  to = google_healthcare_dicom_store.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DicomStore using one of the formats above. For example:
 

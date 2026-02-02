@@ -343,10 +343,10 @@ In addition to the arguments listed above, the following computed attributes are
   (Output)
   A managed Cloud Run
   [`service`](https://cloud.google.com/run/docs/reference/rest/v2/projects.locations.services#resource:-service).
-  Structure is [documented below](#nested_managed_resources_managed_resources_run_service).
+  Structure is [documented below](#nested_managed_resources_run_service).
 
 
-<a name="nested_managed_resources_managed_resources_run_service"></a>The `run_service` block contains:
+<a name="nested_managed_resources_run_service"></a>The `run_service` block contains:
 
 * `service` -
   (Output)
@@ -373,6 +373,18 @@ Backend can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{backend_id}}`
 * `{{location}}/{{backend_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Backend using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    backendId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_firebase_app_hosting_backend.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Backend using one of the formats above. For example:
 

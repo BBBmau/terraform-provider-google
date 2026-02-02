@@ -209,6 +209,10 @@ In addition to the arguments listed above, the following computed attributes are
     be used privately within Google Cloud. All children PDPs will have
     access type as INTERNAL.
 
+* `enable_enhanced_ipv4_allocation` -
+  Whether this PublicDelegatedPrefix supports enhanced IPv4 allocations.
+  Applicable for IPv4 PDPs only.
+
 * `public_delegated_sub_prefixs` -
   List of sub public delegated fixes for BYO IP functionality.
   Each item in this array represents a sub prefix that can be
@@ -263,6 +267,11 @@ In addition to the arguments listed above, the following computed attributes are
     be used privately within Google Cloud. All children PDPs will have
     access type as INTERNAL.
 
+* `enable_enhanced_ipv4_allocation` -
+  (Output)
+  Whether this PublicDelegatedSubPrefix supports enhanced IPv4 allocations.
+  Applicable for IPv4 sub-PDPs only.
+
 * `delegatee_project` -
   (Optional)
   Name of the project scoping this PublicDelegatedSubPrefix.
@@ -285,6 +294,18 @@ PublicDelegatedPrefix can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import PublicDelegatedPrefix using identity values. For example:
+
+```tf
+import {
+  identity = {
+    region = "<-required value->"
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_public_delegated_prefix.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import PublicDelegatedPrefix using one of the formats above. For example:
 

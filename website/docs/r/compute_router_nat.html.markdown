@@ -471,10 +471,10 @@ The following arguments are supported:
 * `action` -
   (Optional)
   The action to be enforced for traffic that matches this rule.
-  Structure is [documented below](#nested_rules_rules_action).
+  Structure is [documented below](#nested_rules_action).
 
 
-<a name="nested_rules_rules_action"></a>The `action` block supports:
+<a name="nested_rules_action"></a>The `action` block supports:
 
 * `source_nat_active_ips` -
   (Optional)
@@ -527,6 +527,19 @@ RouterNat can be imported using any of these accepted formats:
 * `{{region}}/{{router}}/{{name}}`
 * `{{router}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RouterNat using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    router = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_router_nat.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RouterNat using one of the formats above. For example:
 

@@ -112,6 +112,22 @@ func ResourceComputeInterconnect() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"interconnect_type": {
 				Type:             schema.TypeString,
@@ -297,23 +313,26 @@ of Google's network that the interconnect is connected to.`,
 				Type:     schema.TypeList,
 				Optional: true,
 				ForceNew: true,
-				Description: `interconnects.list of features requested for this Interconnect connection. Options: IF_MACSEC (
-If specified then the connection is created on MACsec capable hardware ports. If not
-specified, the default value is false, which allocates non-MACsec capable ports first if
-available). Note that MACSEC is still technically allowed for compatibility reasons, but it
-does not work with the API, and will be removed in an upcoming major version. Possible values: ["MACSEC", "CROSS_SITE_NETWORK", "IF_MACSEC"]`,
+				Description: `List of features to request for this Interconnect connection. This field is only applicable during Interconnect creation and cannot be modified later.
+Possible values include:
+- 'IF_MACSEC': Provisions the connection on hardware ports that support MACsec (Media Access Control Security). If not specified, the system may allocate non-MACsec capable ports if available.
+- 'IF_L2_FORWARDING': Provisions the connection for Layer 2 (L2) traffic forwarding. If not specified, the connection defaults to Layer 3 (L3) traffic forwarding.
+- 'IF_CROSS_SITE_NETWORK': Provisions the connection exclusively for Cross-Site Networking.
+Note: 'MACSEC' is a legacy value for compatibility reasons and has the same effect as 'IF_MACSEC'. 'IF_MACSEC' is preferred. Possible values: ["MACSEC", "CROSS_SITE_NETWORK", "IF_MACSEC", "IF_L2_FORWARDING"]`,
 				Elem: &schema.Schema{
 					Type:         schema.TypeString,
-					ValidateFunc: verify.ValidateEnum([]string{"MACSEC", "CROSS_SITE_NETWORK", "IF_MACSEC"}),
+					ValidateFunc: verify.ValidateEnum([]string{"MACSEC", "CROSS_SITE_NETWORK", "IF_MACSEC", "IF_L2_FORWARDING"}),
 				},
 			},
 			"available_features": {
 				Type:     schema.TypeList,
 				Computed: true,
-				Description: `interconnects.list of features available for this Interconnect connection. Can take the value:
-MACSEC. If present then the Interconnect connection is provisioned on MACsec capable hardware
-ports. If not present then the Interconnect connection is provisioned on non-MACsec capable
-ports and MACsec isn't supported and enabling MACsec fails).`,
+				Description: `[Output Only] List of features that are available on this Interconnect connection based on the provisioned hardware and configuration.
+Possible values include:
+- 'IF_MACSEC': Indicates the Interconnect connection is provisioned on MACsec capable hardware ports. If this feature is not present, the connection does not support MACsec, and any attempt to enable it will fail.
+- 'IF_L2_FORWARDING': Indicates the Interconnect connection can be used for Layer 2 (L2) traffic forwarding. If not present, the connection cannot be used with L2 forwarding attachments.
+- 'IF_CROSS_SITE_NETWORK': Indicates the Interconnect connection is provisioned for Cross-Site Networking.
+Note: 'MACSEC' is a legacy value and has the same meaning as 'IF_MACSEC'.`,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -506,6 +525,14 @@ This can be used only for ping tests.`,
  and default labels configured on the provider.`,
 				Elem: &schema.Schema{Type: schema.TypeString},
 			},
+			"wire_groups": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: `A list of the URLs of all CrossSiteNetwork WireGroups configured to use this Interconnect. The Interconnect cannot be deleted if this list is non-empty.`,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"project": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -662,6 +689,22 @@ func resourceComputeInterconnectCreate(d *schema.ResourceData, meta interface{})
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating Interconnect", userAgent,
@@ -861,6 +904,9 @@ func resourceComputeInterconnectRead(d *schema.ResourceData, meta interface{}) e
 	if err := d.Set("available_features", flattenComputeInterconnectAvailableFeatures(res["availableFeatures"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Interconnect: %s", err)
 	}
+	if err := d.Set("wire_groups", flattenComputeInterconnectWireGroups(res["wireGroups"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Interconnect: %s", err)
+	}
 	if err := d.Set("interconnect_groups", flattenComputeInterconnectInterconnectGroups(res["interconnectGroups"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Interconnect: %s", err)
 	}
@@ -871,6 +917,24 @@ func resourceComputeInterconnectRead(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error reading Interconnect: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -879,6 +943,21 @@ func resourceComputeInterconnectUpdate(d *schema.ResourceData, meta interface{})
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1372,6 +1451,10 @@ func flattenComputeInterconnectRequestedFeatures(v interface{}, d *schema.Resour
 }
 
 func flattenComputeInterconnectAvailableFeatures(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeInterconnectWireGroups(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 

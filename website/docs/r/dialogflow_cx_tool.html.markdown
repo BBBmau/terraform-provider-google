@@ -617,10 +617,10 @@ The following arguments are supported:
 * `entity_operation` -
   (Optional)
   Entity operation configuration for the tool to use. This field is part of a required union field `action_spec`.
-  Structure is [documented below](#nested_connector_spec_actions_actions_entity_operation).
+  Structure is [documented below](#nested_connector_spec_actions_entity_operation).
 
 
-<a name="nested_connector_spec_actions_actions_entity_operation"></a>The `entity_operation` block supports:
+<a name="nested_connector_spec_actions_entity_operation"></a>The `entity_operation` block supports:
 
 * `entity_id` -
   (Required)
@@ -695,6 +695,17 @@ Tool can be imported using any of these accepted formats:
 * `{{parent}}/tools/{{name}}`
 * `{{parent}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Tool using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-optional value->"
+    parent = "<-optional value->"
+  }
+  to = google_dialogflow_cx_tool.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Tool using one of the formats above. For example:
 

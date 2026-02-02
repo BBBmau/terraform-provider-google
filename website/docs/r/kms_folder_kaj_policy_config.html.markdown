@@ -45,7 +45,7 @@ To get more information about FolderKajPolicyConfig, see:
 # Create Folder in GCP Organization.
 resource "google_folder" "kaj_folder" {
 	provider     = google-beta
-	display_name = "my-folder"
+	display_name = "folder-kajc"
 	parent       = "organizations/123456789"
 	deletion_protection = false
 }
@@ -144,6 +144,16 @@ FolderKajPolicyConfig can be imported using any of these accepted formats:
 * `folders/{{folder}}/kajPolicyConfig`
 * `{{folder}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import FolderKajPolicyConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    folder = "<-required value->"
+  }
+  to = google_kms_folder_kaj_policy_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import FolderKajPolicyConfig using one of the formats above. For example:
 

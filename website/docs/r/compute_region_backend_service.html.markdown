@@ -1118,10 +1118,10 @@ The following arguments are supported:
 * `custom_metrics` -
   (Optional)
   The set of custom metrics that are used for <code>CUSTOM_METRICS</code> BalancingMode.
-  Structure is [documented below](#nested_backend_backend_custom_metrics).
+  Structure is [documented below](#nested_backend_custom_metrics).
 
 
-<a name="nested_backend_backend_custom_metrics"></a>The `custom_metrics` block supports:
+<a name="nested_backend_custom_metrics"></a>The `custom_metrics` block supports:
 
 * `name` -
   (Required)
@@ -1797,6 +1797,18 @@ RegionBackendService can be imported using any of these accepted formats:
 * `{{region}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionBackendService using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    region = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_region_backend_service.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionBackendService using one of the formats above. For example:
 

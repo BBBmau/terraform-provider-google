@@ -891,10 +891,10 @@ The following arguments are supported:
 * `accelerators` -
   (Optional)
   An accelerator card attached to the boost instance.
-  Structure is [documented below](#nested_host_gce_instance_boost_configs_boost_configs_accelerators).
+  Structure is [documented below](#nested_host_gce_instance_boost_configs_accelerators).
 
 
-<a name="nested_host_gce_instance_boost_configs_boost_configs_accelerators"></a>The `accelerators` block supports:
+<a name="nested_host_gce_instance_boost_configs_accelerators"></a>The `accelerators` block supports:
 
 * `type` -
   (Required)
@@ -913,10 +913,10 @@ The following arguments are supported:
 * `gce_pd` -
   (Optional)
   A directory to persist across workstation sessions, backed by a Compute Engine regional persistent disk. Can only be updated if not empty during creation.
-  Structure is [documented below](#nested_persistent_directories_persistent_directories_gce_pd).
+  Structure is [documented below](#nested_persistent_directories_gce_pd).
 
 
-<a name="nested_persistent_directories_persistent_directories_gce_pd"></a>The `gce_pd` block supports:
+<a name="nested_persistent_directories_gce_pd"></a>The `gce_pd` block supports:
 
 * `fs_type` -
   (Optional)
@@ -949,10 +949,10 @@ The following arguments are supported:
 * `gce_pd` -
   (Optional)
   An EphemeralDirectory backed by a Compute Engine persistent disk.
-  Structure is [documented below](#nested_ephemeral_directories_ephemeral_directories_gce_pd).
+  Structure is [documented below](#nested_ephemeral_directories_gce_pd).
 
 
-<a name="nested_ephemeral_directories_ephemeral_directories_gce_pd"></a>The `gce_pd` block supports:
+<a name="nested_ephemeral_directories_gce_pd"></a>The `gce_pd` block supports:
 
 * `disk_type` -
   (Optional)
@@ -1101,6 +1101,19 @@ WorkstationConfig can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{workstation_cluster_id}}/{{workstation_config_id}}`
 * `{{location}}/{{workstation_cluster_id}}/{{workstation_config_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import WorkstationConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    workstationConfigId = "<-required value->"
+    workstationClusterId = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_workstations_workstation_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import WorkstationConfig using one of the formats above. For example:
 

@@ -54,10 +54,19 @@ import (
 	"google.golang.org/api/googleapi"
 )
 
+var metadataDefaults = map[string]string{
+	"enable-jupyterlab4": "true",
+}
+
 var WorkbenchInstanceSettableUnmodifiableDefaultMetadata = []string{
 	"install-monitoring-agent",
 	"serial-port-logging-enable",
 	"report-notebook-metrics",
+}
+
+var WorkbenchInstanceEUCSettableUnmodifiableDefaultMetadata = []string{
+	"post-startup-script",
+	"post-startup-script-behavior",
 }
 
 var WorkbenchInstanceEUCProvidedAdditionalMetadata = []string{
@@ -65,8 +74,6 @@ var WorkbenchInstanceEUCProvidedAdditionalMetadata = []string{
 	"disable-ssh",
 	"ssh-keys",
 	"block-project-ssh-keys",
-	"post-startup-script",
-	"post-startup-script-behavior",
 	"startup-script",
 	"startup-script-url",
 	"gce-container-declaration",
@@ -150,10 +157,22 @@ func WorkbenchInstanceMetadataDiffSuppress(k, old, new string, d *schema.Resourc
 				return true
 			}
 		}
+
+		for _, metadata := range WorkbenchInstanceEUCSettableUnmodifiableDefaultMetadata {
+			if key == metadata && new == "" {
+				return true
+			}
+		}
 	}
 
 	for _, metadata := range WorkbenchInstanceSettableUnmodifiableDefaultMetadata {
 		if strings.Contains(k, metadata) && new == "" {
+			return true
+		}
+	}
+
+	if defaultValue, exists := metadataDefaults[key]; exists {
+		if new == "" && old == defaultValue {
 			return true
 		}
 	}
@@ -332,7 +351,12 @@ func workbenchMetadataCustomizeDiff(_ context.Context, diff *schema.ResourceDiff
 		oldMetadata := o.(map[string]interface{})
 		newMetadata := n.(map[string]interface{})
 
-		for _, key := range WorkbenchInstanceSettableUnmodifiableDefaultMetadata {
+		unmodifiableKeys := append([]string{}, WorkbenchInstanceSettableUnmodifiableDefaultMetadata...)
+		if v, ok := diff.GetOk("enable_managed_euc"); ok && v.(bool) {
+			unmodifiableKeys = append(unmodifiableKeys, WorkbenchInstanceEUCSettableUnmodifiableDefaultMetadata...)
+		}
+
+		for _, key := range unmodifiableKeys {
 			oldValue, oldOk := oldMetadata[key]
 			newValue, newOk := newMetadata[key]
 
@@ -408,6 +432,26 @@ func ResourceWorkbenchInstance() *schema.Resource {
 			tpgresource.SetLabelsDiff,
 			tpgresource.DefaultProviderProject,
 		),
+
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"location": {
@@ -1083,6 +1127,27 @@ func resourceWorkbenchInstanceCreate(d *schema.ResourceData, meta interface{}) e
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = WorkbenchOperationWaitTime(
 		config, res, project, "Creating Instance", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -1207,6 +1272,30 @@ func resourceWorkbenchInstanceRead(d *schema.ResourceData, meta interface{}) err
 		return fmt.Errorf("Error reading Instance: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -1215,6 +1304,26 @@ func resourceWorkbenchInstanceUpdate(d *schema.ResourceData, meta interface{}) e
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1282,6 +1391,18 @@ func resourceWorkbenchInstanceUpdate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 	// Build custom mask since the notebooks API does not support gce_setup as a valid mask
+	restartRequiredKeys := []string{
+		"disable-mixer",
+		"notebook-disable-terminal",
+		"notebook-disable-downloads",
+		"notebook-disable-nbconvert",
+		"notebook-disable-root",
+		"enable-jupyterlab4-preview",
+		"enable-jupyterlab4",
+		"geminicli-disabled",
+		"geminicli-tc-accepted",
+	}
+
 	stopInstance := false
 	newUpdateMask := []string{}
 	if d.HasChange("gce_setup.0.machine_type") {
@@ -1306,6 +1427,17 @@ func resourceWorkbenchInstanceUpdate(d *schema.ResourceData, meta interface{}) e
 	}
 	if d.HasChange("gce_setup.0.metadata") {
 		newUpdateMask = append(newUpdateMask, "gceSetup.metadata")
+
+		oldMeta, newMeta := d.GetChange("gce_setup.0.metadata")
+		oldMap := oldMeta.(map[string]interface{})
+		newMap := newMeta.(map[string]interface{})
+
+		for _, key := range restartRequiredKeys {
+			if oldMap[key] != newMap[key] {
+				stopInstance = true
+				break
+			}
+		}
 	}
 	if d.HasChange("effective_labels") {
 		newUpdateMask = append(newUpdateMask, "labels")

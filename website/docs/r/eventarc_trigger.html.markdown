@@ -60,6 +60,9 @@ resource "google_eventarc_trigger" "primary" {
       topic = google_pubsub_topic.foo.id
     }
   }
+  retry_policy {
+    max_attempts = 1
+  }
 }
 
 resource "google_pubsub_topic" "foo" {
@@ -136,6 +139,12 @@ The following arguments are supported:
 * `event_data_content_type` -
   (Optional)
   Optional. EventDataContentType specifies the type of payload in MIME format that is expected from the CloudEvent data field. This is set to `application/json` if the value is not defined.
+
+* `retry_policy` -
+  (Optional)
+  The retry policy configuration for the Trigger.
+  Can only be set with Cloud Run destinations.
+  Structure is [documented below](#nested_retry_policy).
 
 * `project` - (Optional) The ID of the project in which the resource belongs.
     If it is not provided, the provider project is used.
@@ -253,6 +262,13 @@ The following arguments are supported:
   (Output)
   Output only. The name of the Pub/Sub subscription created and managed by Eventarc system as a transport for the event delivery. Format: `projects/{PROJECT_ID}/subscriptions/{SUBSCRIPTION_NAME}`.
 
+<a name="nested_retry_policy"></a>The `retry_policy` block supports:
+
+* `max_attempts` -
+  (Optional)
+  The maximum number of delivery attempts for any message. The only valid
+  value is 1.
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -300,6 +316,18 @@ Trigger can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Trigger using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_eventarc_trigger.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Trigger using one of the formats above. For example:
 

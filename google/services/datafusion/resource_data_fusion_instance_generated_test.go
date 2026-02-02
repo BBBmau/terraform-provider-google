@@ -72,6 +72,12 @@ func TestAccDataFusionInstance_dataFusionInstanceBasicExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_data_fusion_instance.basic_instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -108,6 +114,12 @@ func TestAccDataFusionInstance_dataFusionInstanceFullExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_data_fusion_instance.extended_instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -181,6 +193,12 @@ func TestAccDataFusionInstance_dataFusionInstancePscExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_data_fusion_instance.psc_instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -250,6 +268,12 @@ func TestAccDataFusionInstance_dataFusionInstanceCmekExample(t *testing.T) {
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
 			},
+			{
+				ResourceName:       "google_data_fusion_instance.cmek",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -265,7 +289,7 @@ resource "google_data_fusion_instance" "cmek" {
     key_reference = google_kms_crypto_key.crypto_key.id
   }
 
-  depends_on = [google_kms_crypto_key_iam_member.crypto_key_member_cdf_sa, google_kms_crypto_key_iam_member.crypto_key_member_gcs_sa]
+  depends_on = [google_kms_crypto_key_iam_member.crypto_key_member_gcs_sa]
 }
 
 resource "google_kms_crypto_key" "crypto_key" {
@@ -290,6 +314,8 @@ resource "google_kms_crypto_key_iam_member" "crypto_key_member_gcs_sa" {
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
 
   member = "serviceAccount:service-${data.google_project.project.number}@gs-project-accounts.iam.gserviceaccount.com"
+
+  depends_on = [google_kms_crypto_key_iam_member.crypto_key_member_cdf_sa]
 }
 
 data "google_project" "project" {}
@@ -317,6 +343,12 @@ func TestAccDataFusionInstance_dataFusionInstanceEnterpriseExample(t *testing.T)
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_data_fusion_instance.enterprise_instance",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -354,6 +386,12 @@ func TestAccDataFusionInstance_dataFusionInstanceEventExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_data_fusion_instance.event",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -398,6 +436,12 @@ func TestAccDataFusionInstance_dataFusionInstanceZoneExample(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"labels", "network_config.0.private_service_connect_config.0.unreachable_cidr_block", "region", "tags", "terraform_labels"},
+			},
+			{
+				ResourceName:       "google_data_fusion_instance.zone",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

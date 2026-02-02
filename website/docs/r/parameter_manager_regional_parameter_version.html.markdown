@@ -29,7 +29,7 @@ To get more information about RegionalParameterVersion, see:
 * [API documentation](https://cloud.google.com/secret-manager/parameter-manager/docs/reference/rest/v1/projects.locations.parameters.versions)
 
 ~> **Warning:** All arguments including the following potentially sensitive
-values will be stored in the raw state as plain text: `payload.parameter_data`.
+values will be stored in the raw state as plain text: `parameter_data`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -232,6 +232,18 @@ RegionalParameterVersion can be imported using any of these accepted formats:
 
 * `projects/{{project}}/locations/{{location}}/parameters/{{parameter_id}}/versions/{{parameter_version_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import RegionalParameterVersion using identity values. For example:
+
+```tf
+import {
+  identity = {
+    parameter_version_id = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_parameter_manager_regional_parameter_version.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import RegionalParameterVersion using one of the formats above. For example:
 

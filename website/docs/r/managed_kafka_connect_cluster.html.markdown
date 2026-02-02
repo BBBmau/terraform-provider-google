@@ -152,8 +152,10 @@ The following arguments are supported:
   VPC subnet to make available to the Kafka Connect cluster. Structured like: projects/{project}/regions/{region}/subnetworks/{subnet_id}. It is used to create a Private Service Connect (PSC) interface for the Kafka Connect workers. It must be located in the same region as the Kafka Connect cluster. The CIDR range of the subnet must be within the IPv4 address ranges for private networks, as specified in RFC 1918. The primary subnet CIDR range must have a minimum size of /22 (1024 addresses).
 
 * `additional_subnets` -
-  (Optional)
+  (Optional, Deprecated)
   Additional subnets may be specified. They may be in another region, but must be in the same VPC network. The Connect workers can communicate with network endpoints in either the primary or additional subnets.
+
+  ~> **Warning:** `additionalSubnets` is deprecated and will be removed in a future major release. Managed Kafka Connect clusters can now reach any endpoint accessible from the primary subnet without the need to define additional subnets. Please see https://cloud.google.com/managed-service-for-apache-kafka/docs/connect-cluster/create-connect-cluster#worker-subnet for more information.
 
 * `dns_domain_names` -
   (Optional)
@@ -203,6 +205,18 @@ ConnectCluster can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{connect_cluster_id}}`
 * `{{location}}/{{connect_cluster_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import ConnectCluster using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    connectClusterId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_managed_kafka_connect_cluster.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import ConnectCluster using one of the formats above. For example:
 

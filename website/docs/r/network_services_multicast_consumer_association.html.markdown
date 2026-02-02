@@ -24,6 +24,11 @@ description: |-
 Create a multicast consumer association in the specified location of the current project.
 
 
+To get more information about MulticastConsumerAssociation, see:
+
+* [API documentation](https://docs.cloud.google.com/vpc/docs/multicast/reference/rest/v1/projects.locations.multicastConsumerAssociations)
+* How-to Guides
+    * [Create Multicast Consumer Association](https://docs.cloud.google.com/vpc/docs/multicast/enable-consumer-network#add-consumer)
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=network_services_multicast_consumer_association_basic&open_in_editor=main.tf" target="_blank">
@@ -70,7 +75,7 @@ The following arguments are supported:
 * `multicast_domain_activation` -
   (Required)
   The resource name of the multicast domain activation that is in the
-  same zone as this multicast producer association.
+  same zone as this multicast consumer association.
   Use the following format:
   // `projects/*/locations/*/multicastDomainActivations/*`.
 
@@ -183,6 +188,18 @@ MulticastConsumerAssociation can be imported using any of these accepted formats
 * `{{project}}/{{location}}/{{multicast_consumer_association_id}}`
 * `{{location}}/{{multicast_consumer_association_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import MulticastConsumerAssociation using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    multicastConsumerAssociationId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_multicast_consumer_association.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import MulticastConsumerAssociation using one of the formats above. For example:
 

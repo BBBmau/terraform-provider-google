@@ -42,7 +42,7 @@ To get more information about KeyHandle, see:
 # Create Folder in GCP Organization
 resource "google_folder" "autokms_folder" {
   provider     = google-beta
-  display_name = "my-folder"
+  display_name = "folder-kh"
   parent       = "organizations/123456789"
   deletion_protection = false
 }
@@ -190,6 +190,18 @@ KeyHandle can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import KeyHandle using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_kms_key_handle.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import KeyHandle using one of the formats above. For example:
 

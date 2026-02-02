@@ -69,7 +69,13 @@ func TestAccComputeRegionNetworkEndpoint_regionNetworkEndpointInternetIpPortExam
 				ResourceName:            "google_compute_region_network_endpoint.region-internet-ip-port-endpoint",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"region", "region_network_endpoint_group"},
+				ImportStateVerifyIgnore: []string{"instance", "region", "region_network_endpoint_group"},
+			},
+			{
+				ResourceName:       "google_compute_region_network_endpoint.region-internet-ip-port-endpoint",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})
@@ -120,7 +126,13 @@ func TestAccComputeRegionNetworkEndpoint_regionNetworkEndpointInternetFqdnPortEx
 				ResourceName:            "google_compute_region_network_endpoint.region-internet-fqdn-port-endpoint",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"region", "region_network_endpoint_group"},
+				ImportStateVerifyIgnore: []string{"instance", "region", "region_network_endpoint_group"},
+			},
+			{
+				ResourceName:       "google_compute_region_network_endpoint.region-internet-fqdn-port-endpoint",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
 			},
 		},
 	})

@@ -71,6 +71,12 @@ func TestAccDiscoveryEngineAssistant_discoveryengineAssistantBasicExample(t *tes
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"assistant_id", "collection_id", "engine_id", "location"},
 			},
+			{
+				ResourceName:       "google_discovery_engine_assistant.basic",
+				RefreshState:       true,
+				ExpectNonEmptyPlan: true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+			},
 		},
 	})
 }
@@ -99,7 +105,7 @@ resource "google_discovery_engine_assistant" "basic" {
   location                      = "global"
   collection_id                 = "default_collection"
   engine_id                     = google_discovery_engine_search_engine.basic.engine_id
-  assistant_id                  = "tf-test-example-assistant-id%{random_suffix}"
+  assistant_id                  = "default_assistant"
   display_name                  = "updated-tf-test-Assistant"
   description                   = "Assistant Description"
   generation_config {

@@ -31,7 +31,7 @@ To get more information about EdgeCacheKeyset, see:
     * [Create keysets](https://cloud.google.com/media-cdn/docs/create-keyset)
 
 ~> **Warning:** All arguments including the following potentially sensitive
-values will be stored in the raw state as plain text: `public_key.public_key.value`.
+values will be stored in the raw state as plain text: `public_key.value`.
 [Read more about sensitive data in state](https://www.terraform.io/language/state/sensitive-data).
 
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
@@ -199,6 +199,17 @@ EdgeCacheKeyset can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import EdgeCacheKeyset using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_network_services_edge_cache_keyset.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import EdgeCacheKeyset using one of the formats above. For example:
 

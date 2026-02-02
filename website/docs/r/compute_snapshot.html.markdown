@@ -78,6 +78,81 @@ resource "google_compute_disk" "persistent" {
 }
 ```
 <div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=snapshot_basic_2&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Snapshot Basic2
+
+
+```hcl
+resource "google_compute_snapshot" "snapshot" {
+  provider    = google-beta
+  name        = "my-snapshot"
+  source_disk = google_compute_disk.persistent.id
+  zone        = "us-central1-a"
+  labels = {
+    my_label = "value"
+  }
+  storage_locations = ["us-central1"]
+  guest_flush = true
+}
+
+data "google_compute_image" "debian" {
+  provider = google-beta
+  family  = "debian-11"
+  project = "debian-cloud"
+}
+
+resource "google_compute_disk" "persistent" {
+  provider = google-beta
+  name  = "debian-disk"
+  image = data.google_compute_image.debian.self_link
+  size  = 10
+  type  = "pd-ssd"
+  zone  = "us-central1-a"
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
+  <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=snapshot_basic_source_instant_snapshot&open_in_editor=main.tf" target="_blank">
+    <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
+  </a>
+</div>
+## Example Usage - Snapshot Basic Source Instant Snapshot
+
+
+```hcl
+resource "google_compute_snapshot" "snapshot" {
+  name        = "my-snapshot"
+  zone        = "us-central1-a"
+  source_instant_snapshot = google_compute_instant_snapshot.instant_snapshot.id
+}
+
+resource "google_compute_instant_snapshot" "instant_snapshot" {
+  name        = "my-instant-snapshot"
+  source_disk = google_compute_disk.persistent.self_link
+  zone        = google_compute_disk.persistent.zone
+
+  description = "A test snapshot"
+  labels = {
+	foo = "bar"
+  }
+}
+
+data "google_compute_image" "debian" {
+  family  = "debian-11"
+  project = "debian-cloud"
+}
+
+resource "google_compute_disk" "persistent" {
+  name  = "debian-disk"
+  image = data.google_compute_image.debian.self_link
+  size  = 10
+  type  = "pd-ssd"
+  zone  = "us-central1-a"
+}
+```
+<div class = "oics-button" style="float: right; margin: 0 0 -15px">
   <a href="https://console.cloud.google.com/cloudshell/open?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2Fterraform-google-modules%2Fdocs-examples.git&cloudshell_image=gcr.io%2Fcloudshell-images%2Fcloudshell%3Alatest&cloudshell_print=.%2Fmotd&cloudshell_tutorial=.%2Ftutorial.md&cloudshell_working_dir=snapshot_chainname&open_in_editor=main.tf" target="_blank">
     <img alt="Open in Cloud Shell" src="//gstatic.com/cloudssh/images/open-btn.svg" style="max-height: 44px; margin: 32px auto; max-width: 100%;">
   </a>
@@ -126,10 +201,14 @@ The following arguments are supported:
   characters must be a dash, lowercase letter, or digit, except the last
   character, which cannot be a dash.
 
+
 * `source_disk` -
-  (Required)
+  (Optional)
   A reference to the disk used to create this snapshot.
 
+* `source_instant_snapshot` -
+  (Optional)
+  A reference to the instant snapshot used to create this snapshot.
 
 * `chain_name` -
   (Optional)
@@ -153,6 +232,10 @@ The following arguments are supported:
   Labels to apply to this Snapshot.
   **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
   Please refer to the field `effective_labels` for all of the labels present on the resource.
+
+* `guest_flush` -
+  (Optional, [Beta](https://terraform.io/docs/providers/google/guides/provider_versions.html))
+  Whether to attempt an application consistent snapshot by informing the OS to prepare for the snapshot process.
 
 * `snapshot_type` -
   (Optional)
@@ -297,6 +380,17 @@ Snapshot can be imported using any of these accepted formats:
 * `{{project}}/{{name}}`
 * `{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Snapshot using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_compute_snapshot.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Snapshot using one of the formats above. For example:
 

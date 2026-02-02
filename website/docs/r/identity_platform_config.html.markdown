@@ -392,10 +392,10 @@ The following arguments are supported:
 * `totp_provider_config` -
   (Optional)
   TOTP MFA provider config for this project.
-  Structure is [documented below](#nested_mfa_provider_configs_provider_configs_totp_provider_config).
+  Structure is [documented below](#nested_mfa_provider_configs_totp_provider_config).
 
 
-<a name="nested_mfa_provider_configs_provider_configs_totp_provider_config"></a>The `totp_provider_config` block supports:
+<a name="nested_mfa_provider_configs_totp_provider_config"></a>The `totp_provider_config` block supports:
 
 * `adjacent_intervals` -
   (Optional)
@@ -455,6 +455,16 @@ Config can be imported using any of these accepted formats:
 * `projects/{{project}}`
 * `{{project}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Config using identity values. For example:
+
+```tf
+import {
+  identity = {
+    project = "<-optional value->"
+  }
+  to = google_identity_platform_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Config using one of the formats above. For example:
 

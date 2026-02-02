@@ -107,6 +107,22 @@ func ResourceComputeInterconnectAttachmentGroup() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"intent": {
 				Type:     schema.TypeList,
@@ -310,6 +326,17 @@ present in.`,
 																Elem: &schema.Resource{
 																	Schema: map[string]*schema.Schema{
 																		"attachment": {
+																			Type:       schema.TypeList,
+																			Computed:   true,
+																			Deprecated: "`attachment` is deprecated and will be removed in a future major release. Use `attachments` instead.",
+																			Description: `URLs of Attachments in the given zone, to the given
+region, on Interconnects in the given facility and metro. Every
+Attachment in the AG has such an entry.`,
+																			Elem: &schema.Schema{
+																				Type: schema.TypeString,
+																			},
+																		},
+																		"attachments": {
 																			Type:     schema.TypeList,
 																			Computed: true,
 																			Description: `URLs of Attachments in the given zone, to the given
@@ -444,6 +471,22 @@ func resourceComputeInterconnectAttachmentGroupCreate(d *schema.ResourceData, me
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating InterconnectAttachmentGroup", userAgent,
 		d.Timeout(schema.TimeoutCreate))
@@ -526,6 +569,24 @@ func resourceComputeInterconnectAttachmentGroupRead(d *schema.ResourceData, meta
 		return fmt.Errorf("Error reading InterconnectAttachmentGroup: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -534,6 +595,21 @@ func resourceComputeInterconnectAttachmentGroupUpdate(d *schema.ResourceData, me
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -834,8 +910,9 @@ func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacil
 			continue
 		}
 		transformed = append(transformed, map[string]interface{}{
-			"zone":       flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesZone(original["zone"], d, config),
-			"attachment": flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachment(original["attachment"], d, config),
+			"zone":        flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesZone(original["zone"], d, config),
+			"attachment":  flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachment(original["attachment"], d, config),
+			"attachments": flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachments(original["attachments"], d, config),
 		})
 	}
 	return transformed
@@ -845,6 +922,10 @@ func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacil
 }
 
 func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachment(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
+func flattenComputeInterconnectAttachmentGroupLogicalStructureRegionsMetrosFacilitiesZonesAttachments(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
 

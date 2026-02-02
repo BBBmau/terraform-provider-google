@@ -279,6 +279,11 @@ The following arguments are supported:
   Instance level network configuration.
   Structure is [documented below](#nested_network_config).
 
+* `connection_pool_config` -
+  (Optional)
+  Configuration for Managed Connection Pool.
+  Structure is [documented below](#nested_connection_pool_config).
+
 
 
 <a name="nested_query_insights_config"></a>The `query_insights_config` block supports:
@@ -472,6 +477,28 @@ The following arguments are supported:
   (Optional)
   CIDR range for one authorized network of the instance.
 
+<a name="nested_connection_pool_config"></a>The `connection_pool_config` block supports:
+
+* `enabled` -
+  (Required)
+  Whether to enabled Managed Connection Pool.
+
+* `pooler_count` -
+  (Output)
+  The number of running poolers per instance.
+
+* `flags` -
+  (Optional)
+  Flags for configuring managed connection pooling when it is enabled.
+  These flags will only be set if `connection_pool_config.enabled` is
+  true.
+  Please see
+  https://cloud.google.com/alloydb/docs/configure-managed-connection-pooling#configuration-options
+  for a comprehensive list of flags that can be set. To specify the flags
+  in Terraform, please remove the "connection-pooling-" prefix and use
+  underscores instead of dashes in the name. For example,
+  "connection-pooling-pool-mode" would be "pool_mode".
+
 ## Attributes Reference
 
 In addition to the arguments listed above, the following computed attributes are exported:
@@ -538,6 +565,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{cluster}}/{{instance_id}}`
 * `{{location}}/{{cluster}}/{{instance_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    cluster = "<-required value->"
+    instanceId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_alloydb_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

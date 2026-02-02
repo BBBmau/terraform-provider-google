@@ -107,6 +107,26 @@ func ResourceBigqueryConnectionConnection() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"connection_id": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"location": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"aws": {
 				Type:        schema.TypeList,
@@ -415,7 +435,7 @@ func resourceBigqueryConnectionConnectionCreate(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	} else if v, ok := d.GetOkExists("connection_id"); !tpgresource.IsEmptyValue(reflect.ValueOf(connectionIdProp)) && (ok || !reflect.DeepEqual(v, connectionIdProp)) {
-		obj["connection_id"] = connectionIdProp
+		obj["connectionId"] = connectionIdProp
 	}
 	friendlyNameProp, err := expandBigqueryConnectionConnectionFriendlyName(d.Get("friendly_name"), d, config)
 	if err != nil {
@@ -524,6 +544,27 @@ func resourceBigqueryConnectionConnectionCreate(d *schema.ResourceData, meta int
 	}
 	d.SetId(id)
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if connectionIdValue, ok := d.GetOk("connection_id"); ok && connectionIdValue.(string) != "" {
+			if err = identity.Set("connection_id", connectionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting connection_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
+
 	log.Printf("[DEBUG] Finished creating Connection %q: %#v", d.Id(), res)
 
 	return resourceBigqueryConnectionConnectionRead(d, meta)
@@ -574,7 +615,7 @@ func resourceBigqueryConnectionConnectionRead(d *schema.ResourceData, meta inter
 	if err := d.Set("name", flattenBigqueryConnectionConnectionName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Connection: %s", err)
 	}
-	if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connection_id"], d, config)); err != nil {
+	if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connectionId"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Connection: %s", err)
 	}
 	if err := d.Set("friendly_name", flattenBigqueryConnectionConnectionFriendlyName(res["friendlyName"], d, config)); err != nil {
@@ -608,6 +649,30 @@ func resourceBigqueryConnectionConnectionRead(d *schema.ResourceData, meta inter
 		return fmt.Errorf("Error reading Connection: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("connection_id"); !ok && v == "" {
+			err = identity.Set("connection_id", d.Get("connection_id").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting connection_id: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("location"); !ok && v == "" {
+			err = identity.Set("location", d.Get("location").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -616,6 +681,26 @@ func resourceBigqueryConnectionConnectionUpdate(d *schema.ResourceData, meta int
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if connectionIdValue, ok := d.GetOk("connection_id"); ok && connectionIdValue.(string) != "" {
+			if err = identity.Set("connection_id", connectionIdValue.(string)); err != nil {
+				return fmt.Errorf("Error setting connection_id: %s", err)
+			}
+		}
+		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
+			if err = identity.Set("location", locationValue.(string)); err != nil {
+				return fmt.Errorf("Error setting location: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -1598,8 +1683,8 @@ func expandBigqueryConnectionConnectionSparkSparkHistoryServerConfigDataprocClus
 }
 
 func resourceBigqueryConnectionConnectionEncoder(d *schema.ResourceData, meta interface{}, obj map[string]interface{}) (map[string]interface{}, error) {
-	// connection_id is needed to qualify the URL but cannot be sent in the body
-	delete(obj, "connection_id")
+	// connectionId is needed to qualify the URL but cannot be sent in the body
+	delete(obj, "connectionId")
 	return obj, nil
 }
 
@@ -1611,7 +1696,7 @@ func resourceBigqueryConnectionConnectionPostCreateSetComputedFields(d *schema.R
 	}
 	// connection_id is set by API when unset
 	if tpgresource.IsEmptyValue(reflect.ValueOf(d.Get("connection_id"))) {
-		if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connection_id"], d, config)); err != nil {
+		if err := d.Set("connection_id", flattenBigqueryConnectionConnectionConnectionId(res["connectionId"], d, config)); err != nil {
 			return fmt.Errorf(`Error setting computed identity field "connection_id": %s`, err)
 		}
 	}

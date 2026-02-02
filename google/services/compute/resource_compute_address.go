@@ -54,6 +54,33 @@ import (
 	"google.golang.org/api/googleapi"
 )
 
+// Compare only the relative path from 'regions' of two IP collection links
+func AddressIpCollectionDiffSuppress(_, old, new string, d *schema.ResourceData) bool {
+	oldStripped, err := GetRelativePath(old)
+	if err != nil {
+		return false
+	}
+
+	newStripped, err := GetRelativePath(new)
+	if err != nil {
+		return false
+	}
+
+	if oldStripped == newStripped {
+		return true
+	}
+	return false
+}
+
+func GetRelativePath(resourceLink string) (string, error) {
+	stringParts := strings.SplitAfterN(resourceLink, "regions/", 2)
+	if len(stringParts) != 2 {
+		return "", fmt.Errorf("String is not a valid link: %s", resourceLink)
+	}
+
+	return "regions/" + stringParts[1], nil
+}
+
 var (
 	_ = bytes.Clone
 	_ = context.WithCancel
@@ -108,6 +135,26 @@ func ResourceComputeAddress() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+					"region": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:         schema.TypeString,
@@ -144,6 +191,20 @@ Note: if you set this argument's value as 'INTERNAL' you need to leave the 'netw
 				Optional:    true,
 				ForceNew:    true,
 				Description: `An optional description of this resource.`,
+			},
+			"ip_collection": {
+				Type:             schema.TypeString,
+				Optional:         true,
+				ForceNew:         true,
+				DiffSuppressFunc: AddressIpCollectionDiffSuppress,
+				Description: `Reference to the source of external IPv4 addresses, like a PublicDelegatedPrefix(PDP) for BYOIP.
+The PDP must support enhanced IPv4 allocations.
+Use one of the following formats to specify a PDP when reserving an external IPv4 address using BYOIP.
+Full resource URL, as in:
+  * 'https://www.googleapis.com/compute/v1/projects/{{projectId}}/regions/{{region}}/publicDelegatedPrefixes/{{pdp-name}}'
+Partial URL, as in:
+  * 'projects/{{projectId}}/regions/region/publicDelegatedPrefixes/{{pdp-name}}'
+  * 'regions/{{region}}/publicDelegatedPrefixes/{{pdp-name}}'`,
 			},
 			"ip_version": {
 				Type:             schema.TypeString,
@@ -370,6 +431,12 @@ func resourceComputeAddressCreate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("ipv6_endpoint_type"); !tpgresource.IsEmptyValue(reflect.ValueOf(ipv6EndpointTypeProp)) && (ok || !reflect.DeepEqual(v, ipv6EndpointTypeProp)) {
 		obj["ipv6EndpointType"] = ipv6EndpointTypeProp
 	}
+	ipCollectionProp, err := expandComputeAddressIpCollection(d.Get("ip_collection"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("ip_collection"); !tpgresource.IsEmptyValue(reflect.ValueOf(ipCollectionProp)) && (ok || !reflect.DeepEqual(v, ipCollectionProp)) {
+		obj["ipCollection"] = ipCollectionProp
+	}
 	effectiveLabelsProp, err := expandComputeAddressEffectiveLabels(d.Get("effective_labels"), d, config)
 	if err != nil {
 		return err
@@ -423,6 +490,27 @@ func resourceComputeAddressCreate(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error constructing id: %s", err)
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Create) identity not set: %s", err)
+	}
 
 	err = ComputeOperationWaitTime(
 		config, res, project, "Creating Address", userAgent,
@@ -586,6 +674,9 @@ func resourceComputeAddressRead(d *schema.ResourceData, meta interface{}) error 
 	if err := d.Set("ipv6_endpoint_type", flattenComputeAddressIpv6EndpointType(res["ipv6EndpointType"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Address: %s", err)
 	}
+	if err := d.Set("ip_collection", flattenComputeAddressIpCollection(res["ipCollection"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Address: %s", err)
+	}
 	if err := d.Set("terraform_labels", flattenComputeAddressTerraformLabels(res["labels"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Address: %s", err)
 	}
@@ -599,6 +690,30 @@ func resourceComputeAddressRead(d *schema.ResourceData, meta interface{}) error 
 		return fmt.Errorf("Error reading Address: %s", err)
 	}
 
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("region"); !ok && v == "" {
+			err = identity.Set("region", d.Get("region").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if v, ok := identity.GetOk("project"); !ok && v == "" {
+			err = identity.Set("project", d.Get("project").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Read) identity not set: %s", err)
+	}
+
 	return nil
 }
 
@@ -607,6 +722,26 @@ func resourceComputeAddressUpdate(d *schema.ResourceData, meta interface{}) erro
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
 		return err
+	}
+	identity, err := d.Identity()
+	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
+		if regionValue, ok := d.GetOk("region"); ok && regionValue.(string) != "" {
+			if err = identity.Set("region", regionValue.(string)); err != nil {
+				return fmt.Errorf("Error setting region: %s", err)
+			}
+		}
+		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
+			if err = identity.Set("project", projectValue.(string)); err != nil {
+				return fmt.Errorf("Error setting project: %s", err)
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] (Update) identity not set: %s", err)
 	}
 
 	billingProject := ""
@@ -847,6 +982,10 @@ func flattenComputeAddressIpv6EndpointType(v interface{}, d *schema.ResourceData
 	return v
 }
 
+func flattenComputeAddressIpCollection(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenComputeAddressTerraformLabels(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	if v == nil {
 		return v
@@ -926,6 +1065,10 @@ func expandComputeAddressIpVersion(v interface{}, d tpgresource.TerraformResourc
 }
 
 func expandComputeAddressIpv6EndpointType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandComputeAddressIpCollection(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 

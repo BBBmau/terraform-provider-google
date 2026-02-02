@@ -78,6 +78,7 @@ resource "google_storage_insights_dataset_config" "config_excludes" {
     location = "us-central1"
     dataset_config_id = "my_config_excludes"
     retention_period_days = 1
+    activity_data_retention_period_days = 2
     organization_scope = true
     identity {
         type = "IDENTITY_TYPE_PER_PROJECT"
@@ -127,6 +128,10 @@ The following arguments are supported:
 * `include_newly_created_buckets` -
   (Optional)
   If set to true, the request includes all the newly created buckets in the dataset that meet the inclusion and exclusion rules.
+
+* `activity_data_retention_period_days` -
+  (Optional)
+  Number of days of activity data that must be retained. If not specified, retentionPeriodDays will be used. Set to 0 to turn off the activity data.
 
 * `description` -
   (Optional)
@@ -308,6 +313,18 @@ DatasetConfig can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{dataset_config_id}}`
 * `{{location}}/{{dataset_config_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import DatasetConfig using identity values. For example:
+
+```tf
+import {
+  identity = {
+    location = "<-required value->"
+    datasetConfigId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_storage_insights_dataset_config.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import DatasetConfig using one of the formats above. For example:
 

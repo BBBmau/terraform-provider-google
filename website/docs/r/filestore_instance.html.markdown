@@ -281,10 +281,10 @@ The following arguments are supported:
 * `nfs_export_options` -
   (Optional)
   Nfs Export Options. There is a limit of 10 export options per file share.
-  Structure is [documented below](#nested_file_shares_file_shares_nfs_export_options).
+  Structure is [documented below](#nested_file_shares_nfs_export_options).
 
 
-<a name="nested_file_shares_file_shares_nfs_export_options"></a>The `nfs_export_options` block supports:
+<a name="nested_file_shares_nfs_export_options"></a>The `nfs_export_options` block supports:
 
 * `ip_ranges` -
   (Optional)
@@ -357,10 +357,10 @@ The following arguments are supported:
   (Optional)
   Private Service Connect configuration.
   Should only be set when connect_mode is PRIVATE_SERVICE_CONNECT.
-  Structure is [documented below](#nested_networks_networks_psc_config).
+  Structure is [documented below](#nested_networks_psc_config).
 
 
-<a name="nested_networks_networks_psc_config"></a>The `psc_config` block supports:
+<a name="nested_networks_psc_config"></a>The `psc_config` block supports:
 
 * `endpoint_project` -
   (Optional)
@@ -532,6 +532,18 @@ Instance can be imported using any of these accepted formats:
 * `{{project}}/{{location}}/{{name}}`
 * `{{location}}/{{name}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import Instance using identity values. For example:
+
+```tf
+import {
+  identity = {
+    name = "<-required value->"
+    location = "<-optional value->"
+    project = "<-optional value->"
+  }
+  to = google_filestore_instance.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Instance using one of the formats above. For example:
 

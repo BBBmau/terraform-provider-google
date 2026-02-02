@@ -235,46 +235,46 @@ The following arguments are supported:
 * `egress_policy` -
   (Optional)
   Optional. Routing policy information.
-  Structure is [documented below](#nested_upstreams_upstreams_egress_policy).
+  Structure is [documented below](#nested_upstreams_egress_policy).
 
 * `network` -
   (Optional)
   Network to forward traffic to.
-  Structure is [documented below](#nested_upstreams_upstreams_network).
+  Structure is [documented below](#nested_upstreams_network).
 
 * `external` -
   (Optional)
   List of the external endpoints to forward traffic to.
-  Structure is [documented below](#nested_upstreams_upstreams_external).
+  Structure is [documented below](#nested_upstreams_external).
 
 * `proxy_protocol` -
   (Optional)
   Shared proxy configuration for all apps.
-  Structure is [documented below](#nested_upstreams_upstreams_proxy_protocol).
+  Structure is [documented below](#nested_upstreams_proxy_protocol).
 
 
-<a name="nested_upstreams_upstreams_egress_policy"></a>The `egress_policy` block supports:
+<a name="nested_upstreams_egress_policy"></a>The `egress_policy` block supports:
 
 * `regions` -
   (Required)
   Required. List of regions where the application sends traffic to.
 
-<a name="nested_upstreams_upstreams_network"></a>The `network` block supports:
+<a name="nested_upstreams_network"></a>The `network` block supports:
 
 * `name` -
   (Required)
   Required. Network name is of the format:
   `projects/{project}/global/networks/{network}`
 
-<a name="nested_upstreams_upstreams_external"></a>The `external` block supports:
+<a name="nested_upstreams_external"></a>The `external` block supports:
 
 * `endpoints` -
   (Required)
   List of the endpoints to forward traffic to.
-  Structure is [documented below](#nested_upstreams_upstreams_external_endpoints).
+  Structure is [documented below](#nested_upstreams_external_endpoints).
 
 
-<a name="nested_upstreams_upstreams_external_endpoints"></a>The `endpoints` block supports:
+<a name="nested_upstreams_external_endpoints"></a>The `endpoints` block supports:
 
 * `hostname` -
   (Required)
@@ -284,7 +284,7 @@ The following arguments are supported:
   (Required)
   Port of the endpoint.
 
-<a name="nested_upstreams_upstreams_proxy_protocol"></a>The `proxy_protocol` block supports:
+<a name="nested_upstreams_proxy_protocol"></a>The `proxy_protocol` block supports:
 
 * `allowed_client_headers` -
   (Optional)
@@ -293,7 +293,7 @@ The following arguments are supported:
 * `contextual_headers` -
   (Optional)
   Configuration for the contextual headers.
-  Structure is [documented below](#nested_upstreams_upstreams_proxy_protocol_contextual_headers).
+  Structure is [documented below](#nested_upstreams_proxy_protocol_contextual_headers).
 
 * `metadata_headers` -
   (Optional)
@@ -313,22 +313,22 @@ The following arguments are supported:
   Client IP configuration. The client IP address is included if true.
 
 
-<a name="nested_upstreams_upstreams_proxy_protocol_contextual_headers"></a>The `contextual_headers` block supports:
+<a name="nested_upstreams_proxy_protocol_contextual_headers"></a>The `contextual_headers` block supports:
 
 * `user_info` -
   (Optional)
   User info configuration.
-  Structure is [documented below](#nested_upstreams_upstreams_proxy_protocol_contextual_headers_user_info).
+  Structure is [documented below](#nested_upstreams_proxy_protocol_contextual_headers_user_info).
 
 * `group_info` -
   (Optional)
   Group info configuration.
-  Structure is [documented below](#nested_upstreams_upstreams_proxy_protocol_contextual_headers_group_info).
+  Structure is [documented below](#nested_upstreams_proxy_protocol_contextual_headers_group_info).
 
 * `device_info` -
   (Optional)
   Device info configuration.
-  Structure is [documented below](#nested_upstreams_upstreams_proxy_protocol_contextual_headers_device_info).
+  Structure is [documented below](#nested_upstreams_proxy_protocol_contextual_headers_device_info).
 
 * `output_type` -
   (Optional)
@@ -336,21 +336,21 @@ The following arguments are supported:
   Possible values are: `PROTOBUF`, `JSON`, `NONE`.
 
 
-<a name="nested_upstreams_upstreams_proxy_protocol_contextual_headers_user_info"></a>The `user_info` block supports:
+<a name="nested_upstreams_proxy_protocol_contextual_headers_user_info"></a>The `user_info` block supports:
 
 * `output_type` -
   (Optional)
   The output type of the delegated user info.
   Possible values are: `PROTOBUF`, `JSON`, `NONE`.
 
-<a name="nested_upstreams_upstreams_proxy_protocol_contextual_headers_group_info"></a>The `group_info` block supports:
+<a name="nested_upstreams_proxy_protocol_contextual_headers_group_info"></a>The `group_info` block supports:
 
 * `output_type` -
   (Optional)
   The output type of the delegated group info.
   Possible values are: `PROTOBUF`, `JSON`, `NONE`.
 
-<a name="nested_upstreams_upstreams_proxy_protocol_contextual_headers_device_info"></a>The `device_info` block supports:
+<a name="nested_upstreams_proxy_protocol_contextual_headers_device_info"></a>The `device_info` block supports:
 
 * `output_type` -
   (Optional)
@@ -391,6 +391,18 @@ SecurityGatewayApplication can be imported using any of these accepted formats:
 * `{{project}}/{{security_gateway_id}}/{{application_id}}`
 * `{{security_gateway_id}}/{{application_id}}`
 
+In Terraform v1.12.0 and later, use an [`identity` block](https://developer.hashicorp.com/terraform/language/resources/identities) to import SecurityGatewayApplication using identity values. For example:
+
+```tf
+import {
+  identity = {
+    securityGatewayId = "<-required value->"
+    applicationId = "<-required value->"
+    project = "<-optional value->"
+  }
+  to = google_beyondcorp_security_gateway_application.default
+}
+```
 
 In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import SecurityGatewayApplication using one of the formats above. For example:
 
