@@ -109,6 +109,22 @@ func ResourceGoogleProjectService() *schema.Resource {
 			tpgresource.DefaultProviderProject,
 		),
 
+		Identity: &schema.ResourceIdentity{
+			Version: 1,
+			SchemaFunc: func() map[string]*schema.Schema {
+				return map[string]*schema.Schema{
+					"project": {
+						Type:              schema.TypeString,
+						OptionalForImport: true,
+					},
+					"service": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
+				}
+			},
+		},
+
 		Schema: map[string]*schema.Schema{
 			"service": {
 				Type:         schema.TypeString,
@@ -139,6 +155,19 @@ func ResourceGoogleProjectService() *schema.Resource {
 }
 
 func resourceGoogleProjectServiceImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	if d.Id() == "" {
+		identity, err := d.Identity()
+		if err != nil {
+			return nil, fmt.Errorf("Error getting identity: %s", err)
+		}
+		project := identity.Get("project")
+		service := identity.Get("service")
+		if project == "" || service == "" {
+			return nil, fmt.Errorf("Error getting identity: %s", err)
+		}
+		d.SetId(fmt.Sprintf("%s/%s", project, service))
+	}
+
 	parts := strings.Split(d.Id(), "/")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("Invalid google_project_service id format for import, expecting `{project}/{service}`, found %s", d.Id())
@@ -179,6 +208,19 @@ func resourceGoogleProjectServiceCreate(d *schema.ResourceData, meta interface{}
 		if err := d.Set("service", srv); err != nil {
 			return fmt.Errorf("Error setting service: %s", err)
 		}
+
+		identity, err := d.Identity()
+		if err != nil {
+			return fmt.Errorf("Error getting identity: %s", err)
+		}
+		err = identity.Set("project", project)
+		if err != nil {
+			return fmt.Errorf("Error setting project: %s", err)
+		}
+		err = identity.Set("service", srv)
+		if err != nil {
+			return fmt.Errorf("Error setting service: %s", err)
+		}
 		return nil
 	}
 
@@ -187,6 +229,19 @@ func resourceGoogleProjectServiceCreate(d *schema.ResourceData, meta interface{}
 		return err
 	}
 	d.SetId(id)
+
+	identity, err := d.Identity()
+	if err != nil {
+		return fmt.Errorf("Error getting identity: %s", err)
+	}
+	err = identity.Set("project", project)
+	if err != nil {
+		return fmt.Errorf("Error setting project: %s", err)
+	}
+	err = identity.Set("service", srv)
+	if err != nil {
+		return fmt.Errorf("Error setting service: %s", err)
+	}
 	return resourceGoogleProjectServiceRead(d, meta)
 }
 
@@ -246,6 +301,18 @@ func resourceGoogleProjectServiceRead(d *schema.ResourceData, meta interface{}) 
 
 	log.Printf("[DEBUG] service %s not in enabled services for project %s, removing from state", srv, project)
 	d.SetId("")
+	identity, err := d.Identity()
+	if err != nil {
+		return fmt.Errorf("Error getting identity: %s", err)
+	}
+	err = identity.Set("project", project)
+	if err != nil {
+		return fmt.Errorf("Error setting project: %s", err)
+	}
+	err = identity.Set("service", srv)
+	if err != nil {
+		return fmt.Errorf("Error setting service: %s", err)
+	}
 	return nil
 }
 
