@@ -73,112 +73,60 @@ func (r *ProjectServiceListResource) List(ctx context.Context, req list.ListRequ
 		// Use a temporary ResourceData for BatchRequestReadServices (needs it for user agent, billing project, timeout)
 		tempData := ResourceGoogleProjectService().Data(&terraform.InstanceState{})
 		if err := tempData.Set("project", project); err != nil {
-			diags.AddError("Config Error", fmt.Sprintf("Error setting project: %s", err))
-			result := req.NewListResult(ctx)
-			result.Diagnostics = diags
-			push(result)
-			stream.Results = list.ListResultsStreamDiagnostics(diags)
+			tpgresource.HandleListError(ctx, req, &diags, push, stream, "Config Error", fmt.Sprintf("Error setting project: %s", err))
 			return
 		}
 
-		servicesRaw, err := BatchRequestReadServices(project, tempData, r.Client)
+		servicesList, err := BatchRequestReadServices(project, tempData, r.Client)
 		if err != nil {
-			diags.AddError("API Error", err.Error())
-			result := req.NewListResult(ctx)
-			result.Diagnostics = diags
-			push(result)
-			stream.Results = list.ListResultsStreamDiagnostics(diags)
+			tpgresource.HandleListError(ctx, req, &diags, push, stream, "API Error", err.Error())
 			return
 		}
 
-		servicesList, ok := servicesRaw.(map[string]struct{})
-		if !ok {
-			diags.AddError("API Error", "unexpected type from ListCurrentlyEnabledServices")
-			result := req.NewListResult(ctx)
-			result.Diagnostics = diags
-			push(result)
-			stream.Results = list.ListResultsStreamDiagnostics(diags)
-			return
-		}
-
-		resourceData := ResourceGoogleProjectService().Data(&terraform.InstanceState{})
-
-		for serviceName := range servicesList {
-			if err := resourceData.Set("project", project); err != nil {
-				diags.AddError("Config Error", fmt.Sprintf("Error setting project: %s", err))
-				result := req.NewListResult(ctx)
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+		for serviceName := range servicesList.(map[string]struct{}) {
+			if err := tempData.Set("project", project); err != nil {
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Config Error", fmt.Sprintf("Error setting project: %s", err))
 				return
 			}
-			if err := resourceData.Set("service", serviceName); err != nil {
-				diags.AddError("Config Error", fmt.Sprintf("Error setting service: %s", err))
-				result := req.NewListResult(ctx)
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+			if err := tempData.Set("service", serviceName); err != nil {
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Config Error", fmt.Sprintf("Error setting service: %s", err))
 				return
 			}
 
-			resourceData.SetId(fmt.Sprintf("%s/%s", project, serviceName))
+			tempData.SetId(fmt.Sprintf("%s/%s", project, serviceName))
 
-			identity, err := resourceData.Identity()
+			identity, err := tempData.Identity()
 			if err != nil {
-				diags.AddError("Identity Error", fmt.Sprintf("Error getting identity: %s", err))
-				result := req.NewListResult(ctx)
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Identity Error", fmt.Sprintf("Error getting identity: %s", err))
 				return
 			}
 			if err := identity.Set("project", project); err != nil {
-				diags.AddError("Identity Error", fmt.Sprintf("Error setting project on identity: %s", err))
-				result := req.NewListResult(ctx)
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Identity Error", fmt.Sprintf("Error setting project on identity: %s", err))
 				return
 			}
 			if err := identity.Set("service", serviceName); err != nil {
-				diags.AddError("Identity Error", fmt.Sprintf("Error setting service on identity: %s", err))
-				result := req.NewListResult(ctx)
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Identity Error", fmt.Sprintf("Error setting service on identity: %s", err))
 				return
 			}
 
 			result := req.NewListResult(ctx)
-			tfTypeIdentity, err := resourceData.TfTypeIdentityState()
+			tfTypeIdentity, err := tempData.TfTypeIdentityState()
 			if err != nil {
-				diags.AddError("Schema Error", err.Error())
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Schema Error", err.Error())
 				return
 			}
 			if err := result.Identity.Set(ctx, *tfTypeIdentity); err != nil {
-				diags.AddError("Schema Error", "error setting identity")
-				result.Diagnostics = diags
-				push(result)
-				stream.Results = list.ListResultsStreamDiagnostics(diags)
+				tpgresource.HandleListError(ctx, req, &diags, push, stream, "Schema Error", "error setting identity")
 				return
 			}
 			if req.IncludeResource {
-				tfTypeResource, err := resourceData.TfTypeResourceState()
+				tfTypeResource, err := tempData.TfTypeResourceState()
 				if err != nil {
-					diags.AddError("Schema Error", err.Error())
-					result.Diagnostics = diags
-					push(result)
-					stream.Results = list.ListResultsStreamDiagnostics(diags)
+					tpgresource.HandleListError(ctx, req, &diags, push, stream, "Schema Error", err.Error())
 					return
 				}
 				if err := result.Resource.Set(ctx, *tfTypeResource); err != nil {
-					diags.AddError("Schema Error", "error setting resource")
-					result.Diagnostics = diags
-					push(result)
-					stream.Results = list.ListResultsStreamDiagnostics(diags)
+					tpgresource.HandleListError(ctx, req, &diags, push, stream, "Schema Error", "error setting resource")
 					return
 				}
 			}
