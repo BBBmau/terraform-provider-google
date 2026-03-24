@@ -19,6 +19,7 @@ package fwprovider
 import (
 	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-provider-google/google/services/compute"
+	"github.com/hashicorp/terraform-provider-google/google/services/resourcemanager"
 )
 
 // TODO: LOOK INTO HOW WE'D GENERATE THIS THE LIST OF LISTRESOURCES
@@ -27,4 +28,5 @@ var generatedListResources = map[string]list.ListResource{}
 
 var handwrittenListResources = map[string]list.ListResource{
 	"google_compute_instance": compute.NewComputeInstanceListResource(),
+	"google_service_account":  resourcemanager.NewGoogleServiceAccountListResource(),
 }
