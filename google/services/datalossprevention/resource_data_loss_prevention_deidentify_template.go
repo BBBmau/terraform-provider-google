@@ -4419,35 +4419,9 @@ func resourceDataLossPreventionDeidentifyTemplateRead(d *schema.ResourceData, me
 
 	log.Printf("[DEBUG] Finished reading DataLossPreventionDeidentifyTemplate %q: %#v", d.Id(), res)
 
-	res, err = resourceDataLossPreventionDeidentifyTemplateDecoder(d, meta, res)
+	err = ResourceDataLossPreventionDeidentifyTemplateFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing DataLossPreventionDeidentifyTemplate because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenDataLossPreventionDeidentifyTemplateName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
-	}
-	if err := d.Set("description", flattenDataLossPreventionDeidentifyTemplateDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
-	}
-	if err := d.Set("display_name", flattenDataLossPreventionDeidentifyTemplateDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
-	}
-	if err := d.Set("create_time", flattenDataLossPreventionDeidentifyTemplateCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
-	}
-	if err := d.Set("update_time", flattenDataLossPreventionDeidentifyTemplateUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
-	}
-	if err := d.Set("deidentify_config", flattenDataLossPreventionDeidentifyTemplateDeidentifyConfig(res["deidentifyConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -19226,5 +19200,42 @@ func resourceDataLossPreventionDeidentifyTemplatePostCreateSetComputedFields(d *
 	if err := d.Set("name", flattenDataLossPreventionDeidentifyTemplateName(res["name"], d, config)); err != nil {
 		return fmt.Errorf(`Error setting computed identity field "name": %s`, err)
 	}
+	return nil
+}
+
+func ResourceDataLossPreventionDeidentifyTemplateFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceDataLossPreventionDeidentifyTemplateDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing DataLossPreventionDeidentifyTemplate because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenDataLossPreventionDeidentifyTemplateName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
+	}
+	if err = d.Set("description", flattenDataLossPreventionDeidentifyTemplateDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
+	}
+	if err = d.Set("display_name", flattenDataLossPreventionDeidentifyTemplateDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
+	}
+	if err = d.Set("create_time", flattenDataLossPreventionDeidentifyTemplateCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
+	}
+	if err = d.Set("update_time", flattenDataLossPreventionDeidentifyTemplateUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
+	}
+	if err = d.Set("deidentify_config", flattenDataLossPreventionDeidentifyTemplateDeidentifyConfig(res["deidentifyConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeidentifyTemplate: %s", err)
+	}
+
 	return nil
 }

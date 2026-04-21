@@ -417,37 +417,13 @@ func resourceChronicleReferenceListRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading ChronicleReferenceList %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ReferenceList: %s", err)
 	}
 
-	if err := d.Set("name", flattenChronicleReferenceListName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("description", flattenChronicleReferenceListDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("entries", flattenChronicleReferenceListEntries(res["entries"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("scope_info", flattenChronicleReferenceListScopeInfo(res["scopeInfo"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("display_name", flattenChronicleReferenceListDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("revision_create_time", flattenChronicleReferenceListRevisionCreateTime(res["revisionCreateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("rules", flattenChronicleReferenceListRules(res["rules"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("syntax_type", flattenChronicleReferenceListSyntaxType(res["syntaxType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
-	}
-	if err := d.Set("rule_associations_count", flattenChronicleReferenceListRuleAssociationsCount(res["ruleAssociationsCount"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	err = ResourceChronicleReferenceListFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -814,4 +790,38 @@ func expandChronicleReferenceListScopeInfoReferenceListScopeScopeNames(v interfa
 
 func expandChronicleReferenceListSyntaxType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceChronicleReferenceListFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenChronicleReferenceListName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("description", flattenChronicleReferenceListDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("entries", flattenChronicleReferenceListEntries(res["entries"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("scope_info", flattenChronicleReferenceListScopeInfo(res["scopeInfo"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("display_name", flattenChronicleReferenceListDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("revision_create_time", flattenChronicleReferenceListRevisionCreateTime(res["revisionCreateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("rules", flattenChronicleReferenceListRules(res["rules"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("syntax_type", flattenChronicleReferenceListSyntaxType(res["syntaxType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+	if err = d.Set("rule_associations_count", flattenChronicleReferenceListRuleAssociationsCount(res["ruleAssociationsCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ReferenceList: %s", err)
+	}
+
+	return nil
 }

@@ -708,46 +708,13 @@ func resourceDataplexEntryRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	log.Printf("[DEBUG] Finished reading DataplexEntry %q: %#v", d.Id(), res)
-
-	res, err = resourceDataplexEntryDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing DataplexEntry because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Entry: %s", err)
 	}
 
-	if err := d.Set("name", flattenDataplexEntryName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("entry_type", flattenDataplexEntryEntryType(res["entryType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("create_time", flattenDataplexEntryCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("update_time", flattenDataplexEntryUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("aspects", flattenDataplexEntryAspects(res["aspects"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("parent_entry", flattenDataplexEntryParentEntry(res["parentEntry"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("fully_qualified_name", flattenDataplexEntryFullyQualifiedName(res["fullyQualifiedName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
-	}
-	if err := d.Set("entry_source", flattenDataplexEntryEntrySource(res["entrySource"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Entry: %s", err)
+	err = ResourceDataplexEntryFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1584,4 +1551,47 @@ func resourceDataplexEntryDecoder(d *schema.ResourceData, meta interface{}, res 
 	}
 
 	return res, nil
+}
+
+func ResourceDataplexEntryFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceDataplexEntryDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing DataplexEntry because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenDataplexEntryName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("entry_type", flattenDataplexEntryEntryType(res["entryType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("create_time", flattenDataplexEntryCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("update_time", flattenDataplexEntryUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("aspects", flattenDataplexEntryAspects(res["aspects"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("parent_entry", flattenDataplexEntryParentEntry(res["parentEntry"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("fully_qualified_name", flattenDataplexEntryFullyQualifiedName(res["fullyQualifiedName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+	if err = d.Set("entry_source", flattenDataplexEntryEntrySource(res["entrySource"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Entry: %s", err)
+	}
+
+	return nil
 }

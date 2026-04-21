@@ -633,18 +633,6 @@ func resourceSpannerDatabaseRead(d *schema.ResourceData, meta interface{}) error
 
 	log.Printf("[DEBUG] Finished reading SpannerDatabase %q: %#v", d.Id(), res)
 
-	res, err = resourceSpannerDatabaseDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing SpannerDatabase because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("deletion_protection"); !ok {
 		if err := d.Set("deletion_protection", true); err != nil {
@@ -655,26 +643,9 @@ func resourceSpannerDatabaseRead(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("Error reading Database: %s", err)
 	}
 
-	if err := d.Set("name", flattenSpannerDatabaseName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
-	}
-	if err := d.Set("version_retention_period", flattenSpannerDatabaseVersionRetentionPeriod(res["versionRetentionPeriod"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
-	}
-	if err := d.Set("state", flattenSpannerDatabaseState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
-	}
-	if err := d.Set("encryption_config", flattenSpannerDatabaseEncryptionConfig(res["encryptionConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
-	}
-	if err := d.Set("database_dialect", flattenSpannerDatabaseDatabaseDialect(res["databaseDialect"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
-	}
-	if err := d.Set("enable_drop_protection", flattenSpannerDatabaseEnableDropProtection(res["enableDropProtection"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
-	}
-	if err := d.Set("instance", flattenSpannerDatabaseInstance(res["instance"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Database: %s", err)
+	err = ResourceSpannerDatabaseFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1200,4 +1171,44 @@ func resourceSpannerDatabaseDecoder(d *schema.ResourceData, meta interface{}, re
 	}
 	d.SetId(id)
 	return res, nil
+}
+
+func ResourceSpannerDatabaseFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceSpannerDatabaseDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing SpannerDatabase because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenSpannerDatabaseName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+	if err = d.Set("version_retention_period", flattenSpannerDatabaseVersionRetentionPeriod(res["versionRetentionPeriod"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+	if err = d.Set("state", flattenSpannerDatabaseState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+	if err = d.Set("encryption_config", flattenSpannerDatabaseEncryptionConfig(res["encryptionConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+	if err = d.Set("database_dialect", flattenSpannerDatabaseDatabaseDialect(res["databaseDialect"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+	if err = d.Set("enable_drop_protection", flattenSpannerDatabaseEnableDropProtection(res["enableDropProtection"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+	if err = d.Set("instance", flattenSpannerDatabaseInstance(res["instance"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Database: %s", err)
+	}
+
+	return nil
 }

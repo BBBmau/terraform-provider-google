@@ -313,27 +313,10 @@ func resourceAccessContextManagerServicePerimeterDryRunResourceRead(d *schema.Re
 	}
 
 	log.Printf("[DEBUG] Finished reading AccessContextManagerServicePerimeterDryRunResource %q: %#v", d.Id(), res)
-	if err := d.Set("etag", res["etag"]); err != nil {
-		log.Printf("[ERROR] Unable to set etag: %s", err)
-	}
 
-	res, err = flattenNestedAccessContextManagerServicePerimeterDryRunResource(d, meta, res)
+	err = ResourceAccessContextManagerServicePerimeterDryRunResourceFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing AccessContextManagerServicePerimeterDryRunResource because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("resource", flattenNestedAccessContextManagerServicePerimeterDryRunResourceResource(res["resource"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ServicePerimeterDryRunResource: %s", err)
-	}
-	if err := d.Set("etag", flattenNestedAccessContextManagerServicePerimeterDryRunResourceEtag(res["etag"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ServicePerimeterDryRunResource: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -648,4 +631,31 @@ func resourceAccessContextManagerServicePerimeterDryRunResourceListForPatch(d *s
 		return ls, nil
 	}
 	return nil, nil
+}
+
+func ResourceAccessContextManagerServicePerimeterDryRunResourceFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	if err := d.Set("etag", res["etag"]); err != nil {
+		log.Printf("[ERROR] Unable to set etag: %s", err)
+	}
+	res, err = flattenNestedAccessContextManagerServicePerimeterDryRunResource(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing AccessContextManagerServicePerimeterDryRunResource because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("resource", flattenNestedAccessContextManagerServicePerimeterDryRunResourceResource(res["resource"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServicePerimeterDryRunResource: %s", err)
+	}
+	if err = d.Set("etag", flattenNestedAccessContextManagerServicePerimeterDryRunResourceEtag(res["etag"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServicePerimeterDryRunResource: %s", err)
+	}
+
+	return nil
 }

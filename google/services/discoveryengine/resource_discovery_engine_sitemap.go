@@ -314,54 +314,13 @@ func resourceDiscoveryEngineSitemapRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading DiscoveryEngineSitemap %q: %#v", d.Id(), res)
-	// Extract the resource name from the ID to match against the sitemap entries
-	resourceName := d.Get("name").(string)
-
-	// Find the specific sitemap entry from the response that matches our resource
-	var sitemapData map[string]interface{}
-	if sitemapsMetadata, ok := res["sitemapsMetadata"].([]interface{}); ok {
-		for _, metadata := range sitemapsMetadata {
-			metadataMap, ok := metadata.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			sitemap, ok := metadataMap["sitemap"].(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			name, ok := sitemap["name"].(string)
-			if !ok {
-				continue
-			}
-
-			if name == resourceName {
-				sitemapData = sitemap
-				break
-			}
-		}
-	}
-
-	// If we didn't find a matching sitemap, return a not found error
-	if sitemapData == nil {
-		return transport_tpg.HandleNotFoundError(fmt.Errorf("Sitemap %q not found", resourceName), d, fmt.Sprintf("DiscoveryEngineSitemap %q", d.Id()))
-	}
-
-	res = sitemapData
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Sitemap: %s", err)
 	}
 
-	if err := d.Set("name", flattenDiscoveryEngineSitemapName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Sitemap: %s", err)
-	}
-	if err := d.Set("uri", flattenDiscoveryEngineSitemapUri(res["uri"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Sitemap: %s", err)
-	}
-	if err := d.Set("create_time", flattenDiscoveryEngineSitemapCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Sitemap: %s", err)
+	err = ResourceDiscoveryEngineSitemapFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -476,4 +435,55 @@ func flattenDiscoveryEngineSitemapCreateTime(v interface{}, d *schema.ResourceDa
 
 func expandDiscoveryEngineSitemapUri(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceDiscoveryEngineSitemapFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	// Extract the resource name from the ID to match against the sitemap entries
+	resourceName := d.Get("name").(string)
+
+	// Find the specific sitemap entry from the response that matches our resource
+	var sitemapData map[string]interface{}
+	if sitemapsMetadata, ok := res["sitemapsMetadata"].([]interface{}); ok {
+		for _, metadata := range sitemapsMetadata {
+			metadataMap, ok := metadata.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			sitemap, ok := metadataMap["sitemap"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			name, ok := sitemap["name"].(string)
+			if !ok {
+				continue
+			}
+
+			if name == resourceName {
+				sitemapData = sitemap
+				break
+			}
+		}
+	}
+
+	// If we didn't find a matching sitemap, return a not found error
+	if sitemapData == nil {
+		return transport_tpg.HandleNotFoundError(fmt.Errorf("Sitemap %q not found", resourceName), d, fmt.Sprintf("DiscoveryEngineSitemap %q", d.Id()))
+	}
+
+	res = sitemapData
+
+	if err = d.Set("name", flattenDiscoveryEngineSitemapName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Sitemap: %s", err)
+	}
+	if err = d.Set("uri", flattenDiscoveryEngineSitemapUri(res["uri"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Sitemap: %s", err)
+	}
+	if err = d.Set("create_time", flattenDiscoveryEngineSitemapCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Sitemap: %s", err)
+	}
+
+	return nil
 }

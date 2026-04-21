@@ -986,50 +986,9 @@ func resourceComputeFirewallPolicyWithRulesRead(d *schema.ResourceData, meta int
 
 	log.Printf("[DEBUG] Finished reading ComputeFirewallPolicyWithRules %q: %#v", d.Id(), res)
 
-	res, err = resourceComputeFirewallPolicyWithRulesDecoder(d, meta, res)
+	err = ResourceComputeFirewallPolicyWithRulesFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeFirewallPolicyWithRules because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("creation_timestamp", flattenComputeFirewallPolicyWithRulesCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("short_name", flattenComputeFirewallPolicyWithRulesShortName(res["shortName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("policy_id", flattenComputeFirewallPolicyWithRulesPolicyId(res["id"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("description", flattenComputeFirewallPolicyWithRulesDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("rule", flattenComputeFirewallPolicyWithRulesRule(res["rules"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("predefined_rules", flattenComputeFirewallPolicyWithRulesPredefinedRules(res["predefinedRules"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("fingerprint", flattenComputeFirewallPolicyWithRulesFingerprint(res["fingerprint"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("self_link", flattenComputeFirewallPolicyWithRulesSelfLink(res["selfLink"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("self_link_with_id", flattenComputeFirewallPolicyWithRulesSelfLinkWithId(res["selfLinkWithId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("rule_tuple_count", flattenComputeFirewallPolicyWithRulesRuleTupleCount(res["ruleTupleCount"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
-	}
-	if err := d.Set("parent", flattenComputeFirewallPolicyWithRulesParent(res["parent"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -2237,5 +2196,57 @@ func resourceComputeFirewallPolicyWithRulesPostCreateSetComputedFields(d *schema
 	if err := d.Set("policy_id", flattenComputeFirewallPolicyWithRulesPolicyId(res["id"], d, config)); err != nil {
 		return fmt.Errorf(`Error setting computed identity field "policy_id": %s`, err)
 	}
+	return nil
+}
+
+func ResourceComputeFirewallPolicyWithRulesFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceComputeFirewallPolicyWithRulesDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeFirewallPolicyWithRules because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("creation_timestamp", flattenComputeFirewallPolicyWithRulesCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("short_name", flattenComputeFirewallPolicyWithRulesShortName(res["shortName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("policy_id", flattenComputeFirewallPolicyWithRulesPolicyId(res["id"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("description", flattenComputeFirewallPolicyWithRulesDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("rule", flattenComputeFirewallPolicyWithRulesRule(res["rules"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("predefined_rules", flattenComputeFirewallPolicyWithRulesPredefinedRules(res["predefinedRules"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("fingerprint", flattenComputeFirewallPolicyWithRulesFingerprint(res["fingerprint"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("self_link", flattenComputeFirewallPolicyWithRulesSelfLink(res["selfLink"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("self_link_with_id", flattenComputeFirewallPolicyWithRulesSelfLinkWithId(res["selfLinkWithId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("rule_tuple_count", flattenComputeFirewallPolicyWithRulesRuleTupleCount(res["ruleTupleCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+	if err = d.Set("parent", flattenComputeFirewallPolicyWithRulesParent(res["parent"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FirewallPolicyWithRules: %s", err)
+	}
+
 	return nil
 }

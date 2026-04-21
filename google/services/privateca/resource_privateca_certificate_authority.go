@@ -1179,18 +1179,6 @@ func resourcePrivatecaCertificateAuthorityRead(d *schema.ResourceData, meta inte
 
 	log.Printf("[DEBUG] Finished reading PrivatecaCertificateAuthority %q: %#v", d.Id(), res)
 
-	res, err = resourcePrivatecaCertificateAuthorityDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing PrivatecaCertificateAuthority because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("deletion_protection"); !ok {
 		if err := d.Set("deletion_protection", true); err != nil {
@@ -1201,53 +1189,9 @@ func resourcePrivatecaCertificateAuthorityRead(d *schema.ResourceData, meta inte
 		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
 	}
 
-	if err := d.Set("name", flattenPrivatecaCertificateAuthorityName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("type", flattenPrivatecaCertificateAuthorityType(res["type"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("config", flattenPrivatecaCertificateAuthorityConfig(res["config"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("lifetime", flattenPrivatecaCertificateAuthorityLifetime(res["lifetime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("key_spec", flattenPrivatecaCertificateAuthorityKeySpec(res["keySpec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("subordinate_config", flattenPrivatecaCertificateAuthoritySubordinateConfig(res["subordinateConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("state", flattenPrivatecaCertificateAuthorityState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("pem_ca_certificates", flattenPrivatecaCertificateAuthorityPemCaCertificates(res["pemCaCertificates"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("gcs_bucket", flattenPrivatecaCertificateAuthorityGcsBucket(res["gcsBucket"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("access_urls", flattenPrivatecaCertificateAuthorityAccessUrls(res["accessUrls"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("create_time", flattenPrivatecaCertificateAuthorityCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("update_time", flattenPrivatecaCertificateAuthorityUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("labels", flattenPrivatecaCertificateAuthorityLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("user_defined_access_urls", flattenPrivatecaCertificateAuthorityUserDefinedAccessUrls(res["userDefinedAccessUrls"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenPrivatecaCertificateAuthorityTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenPrivatecaCertificateAuthorityEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	err = ResourcePrivatecaCertificateAuthorityFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -2381,4 +2325,71 @@ func resourcePrivatecaCertificateAuthorityDecoder(d *schema.ResourceData, meta i
 	}
 
 	return res, nil
+}
+
+func ResourcePrivatecaCertificateAuthorityFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourcePrivatecaCertificateAuthorityDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing PrivatecaCertificateAuthority because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenPrivatecaCertificateAuthorityName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("type", flattenPrivatecaCertificateAuthorityType(res["type"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("config", flattenPrivatecaCertificateAuthorityConfig(res["config"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("lifetime", flattenPrivatecaCertificateAuthorityLifetime(res["lifetime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("key_spec", flattenPrivatecaCertificateAuthorityKeySpec(res["keySpec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("subordinate_config", flattenPrivatecaCertificateAuthoritySubordinateConfig(res["subordinateConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("state", flattenPrivatecaCertificateAuthorityState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("pem_ca_certificates", flattenPrivatecaCertificateAuthorityPemCaCertificates(res["pemCaCertificates"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("gcs_bucket", flattenPrivatecaCertificateAuthorityGcsBucket(res["gcsBucket"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("access_urls", flattenPrivatecaCertificateAuthorityAccessUrls(res["accessUrls"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("create_time", flattenPrivatecaCertificateAuthorityCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("update_time", flattenPrivatecaCertificateAuthorityUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("labels", flattenPrivatecaCertificateAuthorityLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("user_defined_access_urls", flattenPrivatecaCertificateAuthorityUserDefinedAccessUrls(res["userDefinedAccessUrls"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenPrivatecaCertificateAuthorityTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenPrivatecaCertificateAuthorityEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CertificateAuthority: %s", err)
+	}
+
+	return nil
 }

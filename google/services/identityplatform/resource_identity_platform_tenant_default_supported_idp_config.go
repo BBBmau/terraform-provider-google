@@ -337,22 +337,13 @@ func resourceIdentityPlatformTenantDefaultSupportedIdpConfigRead(d *schema.Resou
 	}
 
 	log.Printf("[DEBUG] Finished reading IdentityPlatformTenantDefaultSupportedIdpConfig %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
 	}
 
-	if err := d.Set("name", flattenIdentityPlatformTenantDefaultSupportedIdpConfigName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
-	}
-	if err := d.Set("client_id", flattenIdentityPlatformTenantDefaultSupportedIdpConfigClientId(res["clientId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
-	}
-	if err := d.Set("client_secret", flattenIdentityPlatformTenantDefaultSupportedIdpConfigClientSecret(res["clientSecret"], d, config)); err != nil {
-		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
-	}
-	if err := d.Set("enabled", flattenIdentityPlatformTenantDefaultSupportedIdpConfigEnabled(res["enabled"], d, config)); err != nil {
-		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
+	err = ResourceIdentityPlatformTenantDefaultSupportedIdpConfigFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -587,4 +578,23 @@ func expandIdentityPlatformTenantDefaultSupportedIdpConfigClientSecret(v interfa
 
 func expandIdentityPlatformTenantDefaultSupportedIdpConfigEnabled(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceIdentityPlatformTenantDefaultSupportedIdpConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenIdentityPlatformTenantDefaultSupportedIdpConfigName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
+	}
+	if err = d.Set("client_id", flattenIdentityPlatformTenantDefaultSupportedIdpConfigClientId(res["clientId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
+	}
+	if err = d.Set("client_secret", flattenIdentityPlatformTenantDefaultSupportedIdpConfigClientSecret(res["clientSecret"], d, config)); err != nil {
+		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
+	}
+	if err = d.Set("enabled", flattenIdentityPlatformTenantDefaultSupportedIdpConfigEnabled(res["enabled"], d, config)); err != nil {
+		return fmt.Errorf("Error reading TenantDefaultSupportedIdpConfig: %s", err)
+	}
+
+	return nil
 }

@@ -308,16 +308,13 @@ func resourceDiscoveryEngineAclConfigRead(d *schema.ResourceData, meta interface
 	}
 
 	log.Printf("[DEBUG] Finished reading DiscoveryEngineAclConfig %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading AclConfig: %s", err)
 	}
 
-	if err := d.Set("name", flattenDiscoveryEngineAclConfigName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading AclConfig: %s", err)
-	}
-	if err := d.Set("idp_config", flattenDiscoveryEngineAclConfigIdpConfig(res["idpConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading AclConfig: %s", err)
+	err = ResourceDiscoveryEngineAclConfigFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -538,4 +535,17 @@ func expandDiscoveryEngineAclConfigIdpConfigExternalIdpConfig(v interface{}, d t
 
 func expandDiscoveryEngineAclConfigIdpConfigExternalIdpConfigWorkforcePoolName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceDiscoveryEngineAclConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenDiscoveryEngineAclConfigName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AclConfig: %s", err)
+	}
+	if err = d.Set("idp_config", flattenDiscoveryEngineAclConfigIdpConfig(res["idpConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AclConfig: %s", err)
+	}
+
+	return nil
 }

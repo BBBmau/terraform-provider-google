@@ -333,31 +333,13 @@ func resourceHealthcareDatasetRead(d *schema.ResourceData, meta interface{}) err
 	}
 
 	log.Printf("[DEBUG] Finished reading HealthcareDataset %q: %#v", d.Id(), res)
-
-	res, err = resourceHealthcareDatasetDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing HealthcareDataset because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Dataset: %s", err)
 	}
 
-	if err := d.Set("name", flattenHealthcareDatasetName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Dataset: %s", err)
-	}
-	if err := d.Set("time_zone", flattenHealthcareDatasetTimeZone(res["timeZone"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Dataset: %s", err)
-	}
-	if err := d.Set("encryption_spec", flattenHealthcareDatasetEncryptionSpec(res["encryptionSpec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Dataset: %s", err)
+	err = ResourceHealthcareDatasetFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -618,4 +600,32 @@ func resourceHealthcareDatasetDecoder(d *schema.ResourceData, meta interface{}, 
 	}
 	res["name"] = d.Get("name").(string)
 	return res, nil
+}
+
+func ResourceHealthcareDatasetFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceHealthcareDatasetDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing HealthcareDataset because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenHealthcareDatasetName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Dataset: %s", err)
+	}
+	if err = d.Set("time_zone", flattenHealthcareDatasetTimeZone(res["timeZone"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Dataset: %s", err)
+	}
+	if err = d.Set("encryption_spec", flattenHealthcareDatasetEncryptionSpec(res["encryptionSpec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Dataset: %s", err)
+	}
+
+	return nil
 }

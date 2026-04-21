@@ -247,23 +247,9 @@ func resourceServiceDirectoryServiceRead(d *schema.ResourceData, meta interface{
 
 	log.Printf("[DEBUG] Finished reading ServiceDirectoryService %q: %#v", d.Id(), res)
 
-	res, err = resourceServiceDirectoryServiceDecoder(d, meta, res)
+	err = ResourceServiceDirectoryServiceFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ServiceDirectoryService because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenServiceDirectoryServiceName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Service: %s", err)
-	}
-	if err := d.Set("metadata", flattenServiceDirectoryServiceMetadata(res["metadata"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Service: %s", err)
 	}
 
 	return nil
@@ -487,5 +473,30 @@ func resourceServiceDirectoryServicePostCreateSetComputedFields(d *schema.Resour
 	if err := d.Set("name", flattenServiceDirectoryServiceName(res["name"], d, config)); err != nil {
 		return fmt.Errorf(`Error setting computed identity field "name": %s`, err)
 	}
+	return nil
+}
+
+func ResourceServiceDirectoryServiceFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceServiceDirectoryServiceDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ServiceDirectoryService because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenServiceDirectoryServiceName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Service: %s", err)
+	}
+	if err = d.Set("metadata", flattenServiceDirectoryServiceMetadata(res["metadata"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Service: %s", err)
+	}
+
 	return nil
 }

@@ -393,28 +393,13 @@ func resourceNetworkServicesEdgeCacheKeysetRead(d *schema.ResourceData, meta int
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkServicesEdgeCacheKeyset %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
 	}
 
-	if err := d.Set("description", flattenNetworkServicesEdgeCacheKeysetDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
-	}
-	if err := d.Set("labels", flattenNetworkServicesEdgeCacheKeysetLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
-	}
-	if err := d.Set("public_key", flattenNetworkServicesEdgeCacheKeysetPublicKey(res["publicKeys"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
-	}
-	if err := d.Set("validation_shared_keys", flattenNetworkServicesEdgeCacheKeysetValidationSharedKeys(res["validationSharedKeys"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenNetworkServicesEdgeCacheKeysetTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenNetworkServicesEdgeCacheKeysetEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	err = ResourceNetworkServicesEdgeCacheKeysetFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -824,4 +809,29 @@ func expandNetworkServicesEdgeCacheKeysetEffectiveLabels(v interface{}, d tpgres
 		m[k] = val.(string)
 	}
 	return m, nil
+}
+
+func ResourceNetworkServicesEdgeCacheKeysetFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("description", flattenNetworkServicesEdgeCacheKeysetDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	}
+	if err = d.Set("labels", flattenNetworkServicesEdgeCacheKeysetLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	}
+	if err = d.Set("public_key", flattenNetworkServicesEdgeCacheKeysetPublicKey(res["publicKeys"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	}
+	if err = d.Set("validation_shared_keys", flattenNetworkServicesEdgeCacheKeysetValidationSharedKeys(res["validationSharedKeys"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenNetworkServicesEdgeCacheKeysetTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenNetworkServicesEdgeCacheKeysetEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EdgeCacheKeyset: %s", err)
+	}
+
+	return nil
 }

@@ -366,34 +366,13 @@ func resourceComputePublicAdvertisedPrefixRead(d *schema.ResourceData, meta inte
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputePublicAdvertisedPrefix %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
 	}
 
-	if err := d.Set("description", flattenComputePublicAdvertisedPrefixDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("name", flattenComputePublicAdvertisedPrefixName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("dns_verification_ip", flattenComputePublicAdvertisedPrefixDnsVerificationIp(res["dnsVerificationIp"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("ip_cidr_range", flattenComputePublicAdvertisedPrefixIpCidrRange(res["ipCidrRange"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("pdp_scope", flattenComputePublicAdvertisedPrefixPdpScope(res["pdpScope"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("ipv6_access_type", flattenComputePublicAdvertisedPrefixIpv6AccessType(res["ipv6AccessType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("shared_secret", flattenComputePublicAdvertisedPrefixSharedSecret(res["sharedSecret"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
-	}
-	if err := d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
-		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	err = ResourceComputePublicAdvertisedPrefixFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -543,4 +522,34 @@ func expandComputePublicAdvertisedPrefixPdpScope(v interface{}, d tpgresource.Te
 
 func expandComputePublicAdvertisedPrefixIpv6AccessType(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceComputePublicAdvertisedPrefixFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("description", flattenComputePublicAdvertisedPrefixDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("name", flattenComputePublicAdvertisedPrefixName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("dns_verification_ip", flattenComputePublicAdvertisedPrefixDnsVerificationIp(res["dnsVerificationIp"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("ip_cidr_range", flattenComputePublicAdvertisedPrefixIpCidrRange(res["ipCidrRange"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("pdp_scope", flattenComputePublicAdvertisedPrefixPdpScope(res["pdpScope"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("ipv6_access_type", flattenComputePublicAdvertisedPrefixIpv6AccessType(res["ipv6AccessType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("shared_secret", flattenComputePublicAdvertisedPrefixSharedSecret(res["sharedSecret"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	if err = d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
+		return fmt.Errorf("Error reading PublicAdvertisedPrefix: %s", err)
+	}
+	return nil
 }

@@ -370,34 +370,13 @@ func resourceAppEngineDomainMappingRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading AppEngineDomainMapping %q: %#v", d.Id(), res)
-
-	res, err = resourceAppEngineDomainMappingDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing AppEngineDomainMapping because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DomainMapping: %s", err)
 	}
 
-	if err := d.Set("name", flattenAppEngineDomainMappingName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DomainMapping: %s", err)
-	}
-	if err := d.Set("ssl_settings", flattenAppEngineDomainMappingSslSettings(res["sslSettings"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DomainMapping: %s", err)
-	}
-	if err := d.Set("resource_records", flattenAppEngineDomainMappingResourceRecords(res["resourceRecords"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DomainMapping: %s", err)
-	}
-	if err := d.Set("domain_name", flattenAppEngineDomainMappingDomainName(res["id"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DomainMapping: %s", err)
+	err = ResourceAppEngineDomainMappingFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -745,4 +724,35 @@ func resourceAppEngineDomainMappingDecoder(d *schema.ResourceData, meta interfac
 	}
 
 	return res, nil
+}
+
+func ResourceAppEngineDomainMappingFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceAppEngineDomainMappingDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing AppEngineDomainMapping because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenAppEngineDomainMappingName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DomainMapping: %s", err)
+	}
+	if err = d.Set("ssl_settings", flattenAppEngineDomainMappingSslSettings(res["sslSettings"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DomainMapping: %s", err)
+	}
+	if err = d.Set("resource_records", flattenAppEngineDomainMappingResourceRecords(res["resourceRecords"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DomainMapping: %s", err)
+	}
+	if err = d.Set("domain_name", flattenAppEngineDomainMappingDomainName(res["id"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DomainMapping: %s", err)
+	}
+
+	return nil
 }

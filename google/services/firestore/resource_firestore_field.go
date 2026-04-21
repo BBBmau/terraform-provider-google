@@ -384,19 +384,13 @@ func resourceFirestoreFieldRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	log.Printf("[DEBUG] Finished reading FirestoreField %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Field: %s", err)
 	}
 
-	if err := d.Set("name", flattenFirestoreFieldName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Field: %s", err)
-	}
-	if err := d.Set("index_config", flattenFirestoreFieldIndexConfig(res["indexConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Field: %s", err)
-	}
-	if err := d.Set("ttl_config", flattenFirestoreFieldTtlConfig(res["ttlConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Field: %s", err)
+	err = ResourceFirestoreFieldFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -770,4 +764,20 @@ func resourceFirestoreFieldEncoder(d *schema.ResourceData, meta interface{}, obj
 	delete(obj, "collection")
 	delete(obj, "field")
 	return obj, nil
+}
+
+func ResourceFirestoreFieldFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenFirestoreFieldName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Field: %s", err)
+	}
+	if err = d.Set("index_config", flattenFirestoreFieldIndexConfig(res["indexConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Field: %s", err)
+	}
+	if err = d.Set("ttl_config", flattenFirestoreFieldTtlConfig(res["ttlConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Field: %s", err)
+	}
+
+	return nil
 }

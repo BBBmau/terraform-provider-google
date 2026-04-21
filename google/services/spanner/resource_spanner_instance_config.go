@@ -462,46 +462,13 @@ func resourceSpannerInstanceConfigRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading SpannerInstanceConfig %q: %#v", d.Id(), res)
-
-	res, err = resourceSpannerInstanceConfigDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing SpannerInstanceConfig because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading InstanceConfig: %s", err)
 	}
 
-	if err := d.Set("name", flattenSpannerInstanceConfigName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("display_name", flattenSpannerInstanceConfigDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("base_config", flattenSpannerInstanceConfigBaseConfig(res["baseConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("config_type", flattenSpannerInstanceConfigConfigType(res["configType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("replicas", flattenSpannerInstanceConfigReplicas(res["replicas"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("labels", flattenSpannerInstanceConfigLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenSpannerInstanceConfigTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenSpannerInstanceConfigEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	err = ResourceSpannerInstanceConfigFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -933,4 +900,47 @@ func resourceSpannerInstanceConfigDecoder(d *schema.ResourceData, meta interface
 	res["replicas"] = cR
 	d.SetId(id)
 	return res, nil
+}
+
+func ResourceSpannerInstanceConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceSpannerInstanceConfigDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing SpannerInstanceConfig because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenSpannerInstanceConfigName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("display_name", flattenSpannerInstanceConfigDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("base_config", flattenSpannerInstanceConfigBaseConfig(res["baseConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("config_type", flattenSpannerInstanceConfigConfigType(res["configType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("replicas", flattenSpannerInstanceConfigReplicas(res["replicas"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("labels", flattenSpannerInstanceConfigLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenSpannerInstanceConfigTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenSpannerInstanceConfigEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading InstanceConfig: %s", err)
+	}
+
+	return nil
 }

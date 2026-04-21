@@ -645,62 +645,9 @@ func resourceHealthcareFhirStoreRead(d *schema.ResourceData, meta interface{}) e
 
 	log.Printf("[DEBUG] Finished reading HealthcareFhirStore %q: %#v", d.Id(), res)
 
-	res, err = resourceHealthcareFhirStoreDecoder(d, meta, res)
+	err = ResourceHealthcareFhirStoreFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing HealthcareFhirStore because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenHealthcareFhirStoreName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("version", flattenHealthcareFhirStoreVersion(res["version"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("validation_config", flattenHealthcareFhirStoreValidationConfig(res["validationConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("complex_data_type_reference_parsing", flattenHealthcareFhirStoreComplexDataTypeReferenceParsing(res["complexDataTypeReferenceParsing"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("enable_update_create", flattenHealthcareFhirStoreEnableUpdateCreate(res["enableUpdateCreate"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("disable_referential_integrity", flattenHealthcareFhirStoreDisableReferentialIntegrity(res["disableReferentialIntegrity"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("disable_resource_versioning", flattenHealthcareFhirStoreDisableResourceVersioning(res["disableResourceVersioning"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("enable_history_import", flattenHealthcareFhirStoreEnableHistoryImport(res["enableHistoryImport"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("labels", flattenHealthcareFhirStoreLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("notification_config", flattenHealthcareFhirStoreNotificationConfig(res["notificationConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("stream_configs", flattenHealthcareFhirStoreStreamConfigs(res["streamConfigs"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("default_search_handling_strict", flattenHealthcareFhirStoreDefaultSearchHandlingStrict(res["defaultSearchHandlingStrict"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("notification_configs", flattenHealthcareFhirStoreNotificationConfigs(res["notificationConfigs"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenHealthcareFhirStoreTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenHealthcareFhirStoreEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading FhirStore: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -1545,4 +1492,68 @@ func resourceHealthcareFhirStoreDecoder(d *schema.ResourceData, meta interface{}
 	}
 	res["name"] = d.Get("name").(string)
 	return res, nil
+}
+
+func ResourceHealthcareFhirStoreFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceHealthcareFhirStoreDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing HealthcareFhirStore because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenHealthcareFhirStoreName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("version", flattenHealthcareFhirStoreVersion(res["version"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("validation_config", flattenHealthcareFhirStoreValidationConfig(res["validationConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("complex_data_type_reference_parsing", flattenHealthcareFhirStoreComplexDataTypeReferenceParsing(res["complexDataTypeReferenceParsing"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("enable_update_create", flattenHealthcareFhirStoreEnableUpdateCreate(res["enableUpdateCreate"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("disable_referential_integrity", flattenHealthcareFhirStoreDisableReferentialIntegrity(res["disableReferentialIntegrity"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("disable_resource_versioning", flattenHealthcareFhirStoreDisableResourceVersioning(res["disableResourceVersioning"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("enable_history_import", flattenHealthcareFhirStoreEnableHistoryImport(res["enableHistoryImport"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("labels", flattenHealthcareFhirStoreLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("notification_config", flattenHealthcareFhirStoreNotificationConfig(res["notificationConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("stream_configs", flattenHealthcareFhirStoreStreamConfigs(res["streamConfigs"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("default_search_handling_strict", flattenHealthcareFhirStoreDefaultSearchHandlingStrict(res["defaultSearchHandlingStrict"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("notification_configs", flattenHealthcareFhirStoreNotificationConfigs(res["notificationConfigs"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenHealthcareFhirStoreTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenHealthcareFhirStoreEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading FhirStore: %s", err)
+	}
+
+	return nil
 }

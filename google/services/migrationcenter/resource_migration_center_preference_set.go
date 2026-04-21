@@ -489,28 +489,13 @@ func resourceMigrationCenterPreferenceSetRead(d *schema.ResourceData, meta inter
 	}
 
 	log.Printf("[DEBUG] Finished reading MigrationCenterPreferenceSet %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading PreferenceSet: %s", err)
 	}
 
-	if err := d.Set("name", flattenMigrationCenterPreferenceSetName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PreferenceSet: %s", err)
-	}
-	if err := d.Set("create_time", flattenMigrationCenterPreferenceSetCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PreferenceSet: %s", err)
-	}
-	if err := d.Set("update_time", flattenMigrationCenterPreferenceSetUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PreferenceSet: %s", err)
-	}
-	if err := d.Set("display_name", flattenMigrationCenterPreferenceSetDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PreferenceSet: %s", err)
-	}
-	if err := d.Set("description", flattenMigrationCenterPreferenceSetDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PreferenceSet: %s", err)
-	}
-	if err := d.Set("virtual_machine_preferences", flattenMigrationCenterPreferenceSetVirtualMachinePreferences(res["virtualMachinePreferences"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	err = ResourceMigrationCenterPreferenceSetFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1302,4 +1287,29 @@ func expandMigrationCenterPreferenceSetVirtualMachinePreferencesSoleTenancyPrefe
 
 func expandMigrationCenterPreferenceSetVirtualMachinePreferencesSoleTenancyPreferencesNodeTypesNodeName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceMigrationCenterPreferenceSetFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenMigrationCenterPreferenceSetName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	}
+	if err = d.Set("create_time", flattenMigrationCenterPreferenceSetCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	}
+	if err = d.Set("update_time", flattenMigrationCenterPreferenceSetUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	}
+	if err = d.Set("display_name", flattenMigrationCenterPreferenceSetDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	}
+	if err = d.Set("description", flattenMigrationCenterPreferenceSetDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	}
+	if err = d.Set("virtual_machine_preferences", flattenMigrationCenterPreferenceSetVirtualMachinePreferences(res["virtualMachinePreferences"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PreferenceSet: %s", err)
+	}
+
+	return nil
 }

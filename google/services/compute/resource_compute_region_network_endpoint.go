@@ -404,31 +404,6 @@ func resourceComputeRegionNetworkEndpointRead(d *schema.ResourceData, meta inter
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeRegionNetworkEndpoint %q: %#v", d.Id(), res)
-
-	res, err = flattenNestedComputeRegionNetworkEndpoint(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputeRegionNetworkEndpoint because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
-	res, err = resourceComputeRegionNetworkEndpointDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeRegionNetworkEndpoint because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
 	}
@@ -441,23 +416,9 @@ func resourceComputeRegionNetworkEndpointRead(d *schema.ResourceData, meta inter
 		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
 	}
 
-	if err := d.Set("port", flattenNestedComputeRegionNetworkEndpointPort(res["port"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
-	}
-	if err := d.Set("ip_address", flattenNestedComputeRegionNetworkEndpointIpAddress(res["ipAddress"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
-	}
-	if err := d.Set("network_endpoint_id", flattenNestedComputeRegionNetworkEndpointNetworkEndpointId(res["id"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
-	}
-	if err := d.Set("fqdn", flattenNestedComputeRegionNetworkEndpointFqdn(res["fqdn"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
-	}
-	if err := d.Set("client_destination_port", flattenNestedComputeRegionNetworkEndpointClientDestinationPort(res["clientDestinationPort"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
-	}
-	if err := d.Set("instance", flattenNestedComputeRegionNetworkEndpointInstance(res["instance"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	err = ResourceComputeRegionNetworkEndpointFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -788,4 +749,51 @@ func resourceComputeRegionNetworkEndpointDecoder(d *schema.ResourceData, meta in
 	}
 
 	return v.(map[string]interface{}), nil
+}
+
+func ResourceComputeRegionNetworkEndpointFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	res, err = flattenNestedComputeRegionNetworkEndpoint(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputeRegionNetworkEndpoint because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+	res, err = resourceComputeRegionNetworkEndpointDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeRegionNetworkEndpoint because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("port", flattenNestedComputeRegionNetworkEndpointPort(res["port"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err = d.Set("ip_address", flattenNestedComputeRegionNetworkEndpointIpAddress(res["ipAddress"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err = d.Set("network_endpoint_id", flattenNestedComputeRegionNetworkEndpointNetworkEndpointId(res["id"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err = d.Set("fqdn", flattenNestedComputeRegionNetworkEndpointFqdn(res["fqdn"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err = d.Set("client_destination_port", flattenNestedComputeRegionNetworkEndpointClientDestinationPort(res["clientDestinationPort"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+	if err = d.Set("instance", flattenNestedComputeRegionNetworkEndpointInstance(res["instance"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RegionNetworkEndpoint: %s", err)
+	}
+
+	return nil
 }

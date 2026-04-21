@@ -355,22 +355,13 @@ func resourceBackupDRManagementServerRead(d *schema.ResourceData, meta interface
 	}
 
 	log.Printf("[DEBUG] Finished reading BackupDRManagementServer %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ManagementServer: %s", err)
 	}
 
-	if err := d.Set("type", flattenBackupDRManagementServerType(res["type"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ManagementServer: %s", err)
-	}
-	if err := d.Set("networks", flattenBackupDRManagementServerNetworks(res["networks"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ManagementServer: %s", err)
-	}
-	if err := d.Set("oauth2_client_id", flattenBackupDRManagementServerOauth2ClientId(res["oauth2ClientId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ManagementServer: %s", err)
-	}
-	if err := d.Set("management_uri", flattenBackupDRManagementServerManagementUri(res["managementUri"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ManagementServer: %s", err)
+	err = ResourceBackupDRManagementServerFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -576,4 +567,23 @@ func expandBackupDRManagementServerNetworksNetwork(v interface{}, d tpgresource.
 
 func expandBackupDRManagementServerNetworksPeeringMode(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceBackupDRManagementServerFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("type", flattenBackupDRManagementServerType(res["type"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ManagementServer: %s", err)
+	}
+	if err = d.Set("networks", flattenBackupDRManagementServerNetworks(res["networks"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ManagementServer: %s", err)
+	}
+	if err = d.Set("oauth2_client_id", flattenBackupDRManagementServerOauth2ClientId(res["oauth2ClientId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ManagementServer: %s", err)
+	}
+	if err = d.Set("management_uri", flattenBackupDRManagementServerManagementUri(res["managementUri"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ManagementServer: %s", err)
+	}
+
+	return nil
 }

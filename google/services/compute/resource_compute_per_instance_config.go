@@ -501,18 +501,6 @@ func resourceComputePerInstanceConfigRead(d *schema.ResourceData, meta interface
 
 	log.Printf("[DEBUG] Finished reading ComputePerInstanceConfig %q: %#v", d.Id(), res)
 
-	res, err = flattenNestedComputePerInstanceConfig(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputePerInstanceConfig because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("minimal_action"); !ok {
 		if err := d.Set("minimal_action", "NONE"); err != nil {
@@ -545,12 +533,9 @@ func resourceComputePerInstanceConfigRead(d *schema.ResourceData, meta interface
 	if err := d.Set("zone", zone); err != nil {
 		return fmt.Errorf("Error reading PerInstanceConfig: %s", err)
 	}
-
-	if err := d.Set("name", flattenNestedComputePerInstanceConfigName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PerInstanceConfig: %s", err)
-	}
-	if err := d.Set("preserved_state", flattenNestedComputePerInstanceConfigPreservedState(res["preservedState"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PerInstanceConfig: %s", err)
+	err = ResourceComputePerInstanceConfigFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1314,4 +1299,28 @@ func resourceComputePerInstanceConfigFindNestedObjectInList(d *schema.ResourceDa
 		return idx, item, nil
 	}
 	return -1, nil, nil
+}
+
+func ResourceComputePerInstanceConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	res, err = flattenNestedComputePerInstanceConfig(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputePerInstanceConfig because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenNestedComputePerInstanceConfigName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PerInstanceConfig: %s", err)
+	}
+	if err = d.Set("preserved_state", flattenNestedComputePerInstanceConfigPreservedState(res["preservedState"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PerInstanceConfig: %s", err)
+	}
+
+	return nil
 }

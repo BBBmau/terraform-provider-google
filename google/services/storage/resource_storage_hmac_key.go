@@ -393,37 +393,13 @@ func resourceStorageHmacKeyRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	log.Printf("[DEBUG] Finished reading StorageHmacKey %q: %#v", d.Id(), res)
-
-	res, err = resourceStorageHmacKeyDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing StorageHmacKey because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading HmacKey: %s", err)
 	}
 
-	if err := d.Set("service_account_email", flattenStorageHmacKeyServiceAccountEmail(res["serviceAccountEmail"], d, config)); err != nil {
-		return fmt.Errorf("Error reading HmacKey: %s", err)
-	}
-	if err := d.Set("state", flattenStorageHmacKeyState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading HmacKey: %s", err)
-	}
-	if err := d.Set("access_id", flattenStorageHmacKeyAccessId(res["accessId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading HmacKey: %s", err)
-	}
-	if err := d.Set("time_created", flattenStorageHmacKeyTimeCreated(res["timeCreated"], d, config)); err != nil {
-		return fmt.Errorf("Error reading HmacKey: %s", err)
-	}
-	if err := d.Set("updated", flattenStorageHmacKeyUpdated(res["updated"], d, config)); err != nil {
-		return fmt.Errorf("Error reading HmacKey: %s", err)
+	err = ResourceStorageHmacKeyFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -694,5 +670,39 @@ func resourceStorageHmacKeyPostCreateSetComputedFields(d *schema.ResourceData, m
 	if err := d.Set("access_id", flattenStorageHmacKeyAccessId(res["accessId"], d, config)); err != nil {
 		return fmt.Errorf(`Error setting computed identity field "access_id": %s`, err)
 	}
+	return nil
+}
+
+func ResourceStorageHmacKeyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceStorageHmacKeyDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing StorageHmacKey because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("service_account_email", flattenStorageHmacKeyServiceAccountEmail(res["serviceAccountEmail"], d, config)); err != nil {
+		return fmt.Errorf("Error reading HmacKey: %s", err)
+	}
+	if err = d.Set("state", flattenStorageHmacKeyState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading HmacKey: %s", err)
+	}
+	if err = d.Set("access_id", flattenStorageHmacKeyAccessId(res["accessId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading HmacKey: %s", err)
+	}
+	if err = d.Set("time_created", flattenStorageHmacKeyTimeCreated(res["timeCreated"], d, config)); err != nil {
+		return fmt.Errorf("Error reading HmacKey: %s", err)
+	}
+	if err = d.Set("updated", flattenStorageHmacKeyUpdated(res["updated"], d, config)); err != nil {
+		return fmt.Errorf("Error reading HmacKey: %s", err)
+	}
+
 	return nil
 }

@@ -400,40 +400,13 @@ func resourceNetappVolumeQuotaRuleRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading NetappVolumeQuotaRule %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
 	}
 
-	if err := d.Set("target", flattenNetappVolumeQuotaRuleTarget(res["target"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("type", flattenNetappVolumeQuotaRuleType(res["type"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("disk_limit_mib", flattenNetappVolumeQuotaRuleDiskLimitMib(res["diskLimitMib"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("state", flattenNetappVolumeQuotaRuleState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("state_details", flattenNetappVolumeQuotaRuleStateDetails(res["stateDetails"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("create_time", flattenNetappVolumeQuotaRuleCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("description", flattenNetappVolumeQuotaRuleDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("labels", flattenNetappVolumeQuotaRuleLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenNetappVolumeQuotaRuleTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenNetappVolumeQuotaRuleEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	err = ResourceNetappVolumeQuotaRuleFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -788,4 +761,41 @@ func expandNetappVolumeQuotaRuleEffectiveLabels(v interface{}, d tpgresource.Ter
 		m[k] = val.(string)
 	}
 	return m, nil
+}
+
+func ResourceNetappVolumeQuotaRuleFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("target", flattenNetappVolumeQuotaRuleTarget(res["target"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("type", flattenNetappVolumeQuotaRuleType(res["type"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("disk_limit_mib", flattenNetappVolumeQuotaRuleDiskLimitMib(res["diskLimitMib"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("state", flattenNetappVolumeQuotaRuleState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("state_details", flattenNetappVolumeQuotaRuleStateDetails(res["stateDetails"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("create_time", flattenNetappVolumeQuotaRuleCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("description", flattenNetappVolumeQuotaRuleDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("labels", flattenNetappVolumeQuotaRuleLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenNetappVolumeQuotaRuleTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenNetappVolumeQuotaRuleEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading VolumeQuotaRule: %s", err)
+	}
+
+	return nil
 }

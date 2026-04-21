@@ -328,16 +328,13 @@ func resourceVertexAIRagEngineConfigRead(d *schema.ResourceData, meta interface{
 	}
 
 	log.Printf("[DEBUG] Finished reading VertexAIRagEngineConfig %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RagEngineConfig: %s", err)
 	}
 
-	if err := d.Set("rag_managed_db_config", flattenVertexAIRagEngineConfigRagManagedDbConfig(res["ragManagedDbConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RagEngineConfig: %s", err)
-	}
-	if err := d.Set("name", flattenVertexAIRagEngineConfigName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RagEngineConfig: %s", err)
+	err = ResourceVertexAIRagEngineConfigFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -645,4 +642,17 @@ func expandVertexAIRagEngineConfigRagManagedDbConfigUnprovisioned(v interface{},
 	transformed := make(map[string]interface{})
 
 	return transformed, nil
+}
+
+func ResourceVertexAIRagEngineConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("rag_managed_db_config", flattenVertexAIRagEngineConfigRagManagedDbConfig(res["ragManagedDbConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RagEngineConfig: %s", err)
+	}
+	if err = d.Set("name", flattenVertexAIRagEngineConfigName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RagEngineConfig: %s", err)
+	}
+
+	return nil
 }

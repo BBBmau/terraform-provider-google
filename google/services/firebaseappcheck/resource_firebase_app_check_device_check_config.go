@@ -314,22 +314,13 @@ func resourceFirebaseAppCheckDeviceCheckConfigRead(d *schema.ResourceData, meta 
 	}
 
 	log.Printf("[DEBUG] Finished reading FirebaseAppCheckDeviceCheckConfig %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
 	}
 
-	if err := d.Set("name", flattenFirebaseAppCheckDeviceCheckConfigName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
-	}
-	if err := d.Set("token_ttl", flattenFirebaseAppCheckDeviceCheckConfigTokenTtl(res["tokenTtl"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
-	}
-	if err := d.Set("key_id", flattenFirebaseAppCheckDeviceCheckConfigKeyId(res["keyId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
-	}
-	if err := d.Set("private_key_set", flattenFirebaseAppCheckDeviceCheckConfigPrivateKeySet(res["privateKeySet"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
+	err = ResourceFirebaseAppCheckDeviceCheckConfigFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -514,4 +505,23 @@ func expandFirebaseAppCheckDeviceCheckConfigKeyId(v interface{}, d tpgresource.T
 
 func expandFirebaseAppCheckDeviceCheckConfigPrivateKey(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceFirebaseAppCheckDeviceCheckConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenFirebaseAppCheckDeviceCheckConfigName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
+	}
+	if err = d.Set("token_ttl", flattenFirebaseAppCheckDeviceCheckConfigTokenTtl(res["tokenTtl"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
+	}
+	if err = d.Set("key_id", flattenFirebaseAppCheckDeviceCheckConfigKeyId(res["keyId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
+	}
+	if err = d.Set("private_key_set", flattenFirebaseAppCheckDeviceCheckConfigPrivateKeySet(res["privateKeySet"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
+	}
+
+	return nil
 }

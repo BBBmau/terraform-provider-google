@@ -351,34 +351,13 @@ func resourceChronicleDataAccessLabelRead(d *schema.ResourceData, meta interface
 	}
 
 	log.Printf("[DEBUG] Finished reading ChronicleDataAccessLabel %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
 	}
 
-	if err := d.Set("author", flattenChronicleDataAccessLabelAuthor(res["author"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("last_editor", flattenChronicleDataAccessLabelLastEditor(res["lastEditor"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("description", flattenChronicleDataAccessLabelDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("udm_query", flattenChronicleDataAccessLabelUdmQuery(res["udmQuery"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("name", flattenChronicleDataAccessLabelName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("display_name", flattenChronicleDataAccessLabelDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("create_time", flattenChronicleDataAccessLabelCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
-	}
-	if err := d.Set("update_time", flattenChronicleDataAccessLabelUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	err = ResourceChronicleDataAccessLabelFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -626,4 +605,35 @@ func expandChronicleDataAccessLabelDescription(v interface{}, d tpgresource.Terr
 
 func expandChronicleDataAccessLabelUdmQuery(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceChronicleDataAccessLabelFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("author", flattenChronicleDataAccessLabelAuthor(res["author"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("last_editor", flattenChronicleDataAccessLabelLastEditor(res["lastEditor"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("description", flattenChronicleDataAccessLabelDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("udm_query", flattenChronicleDataAccessLabelUdmQuery(res["udmQuery"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("name", flattenChronicleDataAccessLabelName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("display_name", flattenChronicleDataAccessLabelDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("create_time", flattenChronicleDataAccessLabelCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+	if err = d.Set("update_time", flattenChronicleDataAccessLabelUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataAccessLabel: %s", err)
+	}
+
+	return nil
 }

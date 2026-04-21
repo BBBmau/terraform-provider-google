@@ -339,22 +339,13 @@ func resourceManagedKafkaTopicRead(d *schema.ResourceData, meta interface{}) err
 	}
 
 	log.Printf("[DEBUG] Finished reading ManagedKafkaTopic %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Topic: %s", err)
 	}
 
-	if err := d.Set("name", flattenManagedKafkaTopicName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Topic: %s", err)
-	}
-	if err := d.Set("partition_count", flattenManagedKafkaTopicPartitionCount(res["partitionCount"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Topic: %s", err)
-	}
-	if err := d.Set("replication_factor", flattenManagedKafkaTopicReplicationFactor(res["replicationFactor"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Topic: %s", err)
-	}
-	if err := d.Set("configs", flattenManagedKafkaTopicConfigs(res["configs"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Topic: %s", err)
+	err = ResourceManagedKafkaTopicFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -627,4 +618,23 @@ func expandManagedKafkaTopicConfigs(v interface{}, d tpgresource.TerraformResour
 		m[k] = val.(string)
 	}
 	return m, nil
+}
+
+func ResourceManagedKafkaTopicFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenManagedKafkaTopicName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Topic: %s", err)
+	}
+	if err = d.Set("partition_count", flattenManagedKafkaTopicPartitionCount(res["partitionCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Topic: %s", err)
+	}
+	if err = d.Set("replication_factor", flattenManagedKafkaTopicReplicationFactor(res["replicationFactor"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Topic: %s", err)
+	}
+	if err = d.Set("configs", flattenManagedKafkaTopicConfigs(res["configs"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Topic: %s", err)
+	}
+
+	return nil
 }

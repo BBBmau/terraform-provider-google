@@ -546,31 +546,13 @@ func resourceCertificateManagerCertificateRead(d *schema.ResourceData, meta inte
 	}
 
 	log.Printf("[DEBUG] Finished reading CertificateManagerCertificate %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Certificate: %s", err)
 	}
 
-	if err := d.Set("description", flattenCertificateManagerCertificateDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
-	}
-	if err := d.Set("labels", flattenCertificateManagerCertificateLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
-	}
-	if err := d.Set("scope", flattenCertificateManagerCertificateScope(res["scope"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
-	}
-	if err := d.Set("san_dnsnames", flattenCertificateManagerCertificateSanDnsnames(res["sanDnsnames"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
-	}
-	if err := d.Set("managed", flattenCertificateManagerCertificateManaged(res["managed"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenCertificateManagerCertificateTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenCertificateManagerCertificateEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Certificate: %s", err)
+	err = ResourceCertificateManagerCertificateFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1387,4 +1369,32 @@ Leaf certificate comes first, followed by intermediate ones if any.`,
 		},
 		UseJSONNumber: true,
 	}
+}
+
+func ResourceCertificateManagerCertificateFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("description", flattenCertificateManagerCertificateDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+	if err = d.Set("labels", flattenCertificateManagerCertificateLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+	if err = d.Set("scope", flattenCertificateManagerCertificateScope(res["scope"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+	if err = d.Set("san_dnsnames", flattenCertificateManagerCertificateSanDnsnames(res["sanDnsnames"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+	if err = d.Set("managed", flattenCertificateManagerCertificateManaged(res["managed"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenCertificateManagerCertificateTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenCertificateManagerCertificateEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Certificate: %s", err)
+	}
+
+	return nil
 }

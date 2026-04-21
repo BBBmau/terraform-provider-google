@@ -487,56 +487,9 @@ func resourceApigeeDeveloperAppRead(d *schema.ResourceData, meta interface{}) er
 
 	log.Printf("[DEBUG] Finished reading ApigeeDeveloperApp %q: %#v", d.Id(), res)
 
-	res, err = resourceApigeeDeveloperAppDecoder(d, meta, res)
+	err = ResourceApigeeDeveloperAppFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ApigeeDeveloperApp because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenApigeeDeveloperAppName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("app_family", flattenApigeeDeveloperAppAppFamily(res["appFamily"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("callback_url", flattenApigeeDeveloperAppCallbackUrl(res["callbackUrl"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("key_expires_in", flattenApigeeDeveloperAppKeyExpiresIn(res["keyExpiresIn"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("api_products", flattenApigeeDeveloperAppApiProducts(res["apiProducts"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("scopes", flattenApigeeDeveloperAppScopes(res["scopes"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("developer_id", flattenApigeeDeveloperAppDeveloperId(res["developerId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("status", flattenApigeeDeveloperAppStatus(res["status"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("attributes", flattenApigeeDeveloperAppAttributes(res["attributes"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("app_id", flattenApigeeDeveloperAppAppId(res["appId"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("created_at", flattenApigeeDeveloperAppCreatedAt(res["createdAt"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("last_modified_at", flattenApigeeDeveloperAppLastModifiedAt(res["lastModifiedAt"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
-	}
-	if err := d.Set("credentials", flattenApigeeDeveloperAppCredentials(res["credentials"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DeveloperApp: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -1020,4 +973,62 @@ func resourceApigeeDeveloperAppDecoder(d *schema.ResourceData, meta interface{},
 		}
 	}
 	return res, nil
+}
+
+func ResourceApigeeDeveloperAppFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceApigeeDeveloperAppDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ApigeeDeveloperApp because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenApigeeDeveloperAppName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("app_family", flattenApigeeDeveloperAppAppFamily(res["appFamily"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("callback_url", flattenApigeeDeveloperAppCallbackUrl(res["callbackUrl"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("key_expires_in", flattenApigeeDeveloperAppKeyExpiresIn(res["keyExpiresIn"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("api_products", flattenApigeeDeveloperAppApiProducts(res["apiProducts"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("scopes", flattenApigeeDeveloperAppScopes(res["scopes"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("developer_id", flattenApigeeDeveloperAppDeveloperId(res["developerId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("status", flattenApigeeDeveloperAppStatus(res["status"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("attributes", flattenApigeeDeveloperAppAttributes(res["attributes"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("app_id", flattenApigeeDeveloperAppAppId(res["appId"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("created_at", flattenApigeeDeveloperAppCreatedAt(res["createdAt"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("last_modified_at", flattenApigeeDeveloperAppLastModifiedAt(res["lastModifiedAt"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+	if err = d.Set("credentials", flattenApigeeDeveloperAppCredentials(res["credentials"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DeveloperApp: %s", err)
+	}
+
+	return nil
 }

@@ -290,20 +290,9 @@ func resourceAccessContextManagerIngressPolicyRead(d *schema.ResourceData, meta 
 
 	log.Printf("[DEBUG] Finished reading AccessContextManagerIngressPolicy %q: %#v", d.Id(), res)
 
-	res, err = flattenNestedAccessContextManagerIngressPolicy(d, meta, res)
+	err = ResourceAccessContextManagerIngressPolicyFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing AccessContextManagerIngressPolicy because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("resource", flattenNestedAccessContextManagerIngressPolicyResource(res["resource"], d, config)); err != nil {
-		return fmt.Errorf("Error reading IngressPolicy: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -591,4 +580,25 @@ func resourceAccessContextManagerIngressPolicyListForPatch(d *schema.ResourceDat
 		return ls, nil
 	}
 	return nil, nil
+}
+
+func ResourceAccessContextManagerIngressPolicyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	res, err = flattenNestedAccessContextManagerIngressPolicy(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing AccessContextManagerIngressPolicy because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("resource", flattenNestedAccessContextManagerIngressPolicyResource(res["resource"], d, config)); err != nil {
+		return fmt.Errorf("Error reading IngressPolicy: %s", err)
+	}
+
+	return nil
 }

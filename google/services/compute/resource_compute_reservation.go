@@ -744,98 +744,14 @@ func resourceComputeReservationRead(d *schema.ResourceData, meta interface{}) er
 
 	log.Printf("[DEBUG] Finished reading ComputeReservation %q: %#v", d.Id(), res)
 
-	zone, err := tpgresource.GetZone(d, config)
-	if err != nil {
-		return err
-	}
-	name := d.Get("name").(string)
-
-	// Fetch the list of all reservation blocks from this reservation
-	listUrl := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/reservations/%s/reservationBlocks?alt=json&maxResults=500", project, zone, name)
-
-	listRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "GET",
-		Project:   project,
-		RawURL:    listUrl,
-		UserAgent: userAgent,
-	})
-	if err != nil {
-		return fmt.Errorf("Error listing ReservationBlocks: %s", err)
-	}
-
-	blockNames := []string{}
-	if listRes != nil {
-		if items, ok := listRes["items"].([]interface{}); ok {
-			for _, item := range items {
-				if block, ok := item.(map[string]interface{}); ok {
-					if blockName, ok := block["name"].(string); ok {
-						blockNames = append(blockNames, blockName)
-					}
-				}
-			}
-		}
-	}
-
-	if err := d.Set("block_names", blockNames); err != nil {
-		return fmt.Errorf("Error setting block_names: %s", err)
-	}
-
 	// Explicitly set virtual fields to default values if unset
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Reservation: %s", err)
 	}
 
-	if err := d.Set("creation_timestamp", flattenComputeReservationCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("description", flattenComputeReservationDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("name", flattenComputeReservationName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("commitment", flattenComputeReservationCommitment(res["commitment"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("specific_reservation_required", flattenComputeReservationSpecificReservationRequired(res["specificReservationRequired"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("status", flattenComputeReservationStatus(res["status"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("specific_reservation", flattenComputeReservationSpecificReservation(res["specificReservation"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("delete_at_time", flattenComputeReservationDeleteAtTime(res["deleteAtTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("reservation_sharing_policy", flattenComputeReservationReservationSharingPolicy(res["reservationSharingPolicy"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("reservation_block_count", flattenComputeReservationReservationBlockCount(res["reservationBlockCount"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("kind", flattenComputeReservationKind(res["kind"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("id", flattenComputeReservationId(res["id"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("linked_commitments", flattenComputeReservationLinkedCommitments(res["linkedCommitments"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("satisfies_pzs", flattenComputeReservationSatisfiesPzs(res["satisfiesPzs"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("resource_status", flattenComputeReservationResourceStatus(res["resourceStatus"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("zone", flattenComputeReservationZone(res["zone"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
-	}
-	if err := d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
-		return fmt.Errorf("Error reading Reservation: %s", err)
+	err = ResourceComputeReservationFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -2151,4 +2067,98 @@ func resourceComputeReservationUpdateEncoder(d *schema.ResourceData, meta interf
 	}
 
 	return newObj, nil
+}
+
+func ResourceComputeReservationFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	zone, err := tpgresource.GetZone(d, config)
+	if err != nil {
+		return err
+	}
+	name := d.Get("name").(string)
+
+	// Fetch the list of all reservation blocks from this reservation
+	listUrl := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/reservations/%s/reservationBlocks?alt=json&maxResults=500", project, zone, name)
+
+	listRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "GET",
+		Project:   project,
+		RawURL:    listUrl,
+		UserAgent: userAgent,
+	})
+	if err != nil {
+		return fmt.Errorf("Error listing ReservationBlocks: %s", err)
+	}
+
+	blockNames := []string{}
+	if listRes != nil {
+		if items, ok := listRes["items"].([]interface{}); ok {
+			for _, item := range items {
+				if block, ok := item.(map[string]interface{}); ok {
+					if blockName, ok := block["name"].(string); ok {
+						blockNames = append(blockNames, blockName)
+					}
+				}
+			}
+		}
+	}
+
+	if err := d.Set("block_names", blockNames); err != nil {
+		return fmt.Errorf("Error setting block_names: %s", err)
+	}
+
+	if err = d.Set("creation_timestamp", flattenComputeReservationCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("description", flattenComputeReservationDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("name", flattenComputeReservationName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("commitment", flattenComputeReservationCommitment(res["commitment"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("specific_reservation_required", flattenComputeReservationSpecificReservationRequired(res["specificReservationRequired"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("status", flattenComputeReservationStatus(res["status"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("specific_reservation", flattenComputeReservationSpecificReservation(res["specificReservation"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("delete_at_time", flattenComputeReservationDeleteAtTime(res["deleteAtTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("reservation_sharing_policy", flattenComputeReservationReservationSharingPolicy(res["reservationSharingPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("reservation_block_count", flattenComputeReservationReservationBlockCount(res["reservationBlockCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("kind", flattenComputeReservationKind(res["kind"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("id", flattenComputeReservationId(res["id"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("linked_commitments", flattenComputeReservationLinkedCommitments(res["linkedCommitments"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("satisfies_pzs", flattenComputeReservationSatisfiesPzs(res["satisfiesPzs"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("resource_status", flattenComputeReservationResourceStatus(res["resourceStatus"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("zone", flattenComputeReservationZone(res["zone"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	if err = d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
+		return fmt.Errorf("Error reading Reservation: %s", err)
+	}
+	return nil
 }

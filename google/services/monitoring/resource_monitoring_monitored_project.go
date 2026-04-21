@@ -289,23 +289,9 @@ func resourceMonitoringMonitoredProjectRead(d *schema.ResourceData, meta interfa
 
 	log.Printf("[DEBUG] Finished reading MonitoringMonitoredProject %q: %#v", d.Id(), res)
 
-	res, err = resourceMonitoringMonitoredProjectDecoder(d, meta, res)
+	err = ResourceMonitoringMonitoredProjectFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing MonitoringMonitoredProject because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenMonitoringMonitoredProjectName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading MonitoredProject: %s", err)
-	}
-	if err := d.Set("create_time", flattenMonitoringMonitoredProjectCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading MonitoredProject: %s", err)
 	}
 
 	return nil
@@ -488,4 +474,29 @@ func ResourceMonitoringMonitoredProjectUpgradeV0(_ context.Context, rawState map
 
 	log.Printf("[DEBUG] Attributes after migration: %#v", rawState)
 	return rawState, nil
+}
+
+func ResourceMonitoringMonitoredProjectFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceMonitoringMonitoredProjectDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing MonitoringMonitoredProject because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenMonitoringMonitoredProjectName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading MonitoredProject: %s", err)
+	}
+	if err = d.Set("create_time", flattenMonitoringMonitoredProjectCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading MonitoredProject: %s", err)
+	}
+
+	return nil
 }

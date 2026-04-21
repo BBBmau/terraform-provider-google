@@ -410,40 +410,13 @@ func resourceBigqueryAnalyticsHubDataExchangeRead(d *schema.ResourceData, meta i
 	}
 
 	log.Printf("[DEBUG] Finished reading BigqueryAnalyticsHubDataExchange %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DataExchange: %s", err)
 	}
 
-	if err := d.Set("name", flattenBigqueryAnalyticsHubDataExchangeName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("display_name", flattenBigqueryAnalyticsHubDataExchangeDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("description", flattenBigqueryAnalyticsHubDataExchangeDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("primary_contact", flattenBigqueryAnalyticsHubDataExchangePrimaryContact(res["primaryContact"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("documentation", flattenBigqueryAnalyticsHubDataExchangeDocumentation(res["documentation"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("listing_count", flattenBigqueryAnalyticsHubDataExchangeListingCount(res["listingCount"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("icon", flattenBigqueryAnalyticsHubDataExchangeIcon(res["icon"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("sharing_environment_config", flattenBigqueryAnalyticsHubDataExchangeSharingEnvironmentConfig(res["sharingEnvironmentConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("discovery_type", flattenBigqueryAnalyticsHubDataExchangeDiscoveryType(res["discoveryType"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
-	}
-	if err := d.Set("log_linked_dataset_query_user_email", flattenBigqueryAnalyticsHubDataExchangeLogLinkedDatasetQueryUserEmail(res["logLinkedDatasetQueryUserEmail"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DataExchange: %s", err)
+	err = ResourceBigqueryAnalyticsHubDataExchangeFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -864,4 +837,41 @@ func expandBigqueryAnalyticsHubDataExchangeDiscoveryType(v interface{}, d tpgres
 
 func expandBigqueryAnalyticsHubDataExchangeLogLinkedDatasetQueryUserEmail(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceBigqueryAnalyticsHubDataExchangeFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenBigqueryAnalyticsHubDataExchangeName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("display_name", flattenBigqueryAnalyticsHubDataExchangeDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("description", flattenBigqueryAnalyticsHubDataExchangeDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("primary_contact", flattenBigqueryAnalyticsHubDataExchangePrimaryContact(res["primaryContact"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("documentation", flattenBigqueryAnalyticsHubDataExchangeDocumentation(res["documentation"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("listing_count", flattenBigqueryAnalyticsHubDataExchangeListingCount(res["listingCount"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("icon", flattenBigqueryAnalyticsHubDataExchangeIcon(res["icon"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("sharing_environment_config", flattenBigqueryAnalyticsHubDataExchangeSharingEnvironmentConfig(res["sharingEnvironmentConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("discovery_type", flattenBigqueryAnalyticsHubDataExchangeDiscoveryType(res["discoveryType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+	if err = d.Set("log_linked_dataset_query_user_email", flattenBigqueryAnalyticsHubDataExchangeLogLinkedDatasetQueryUserEmail(res["logLinkedDatasetQueryUserEmail"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DataExchange: %s", err)
+	}
+
+	return nil
 }

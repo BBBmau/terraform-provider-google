@@ -325,29 +325,9 @@ func resourceApigeeNatAddressRead(d *schema.ResourceData, meta interface{}) erro
 
 	log.Printf("[DEBUG] Finished reading ApigeeNatAddress %q: %#v", d.Id(), res)
 
-	res, err = resourceApigeeNatAddressDecoder(d, meta, res)
+	err = ResourceApigeeNatAddressFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ApigeeNatAddress because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenApigeeNatAddressName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NatAddress: %s", err)
-	}
-	if err := d.Set("activate", flattenApigeeNatAddressActivate(res["activate"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NatAddress: %s", err)
-	}
-	if err := d.Set("ip_address", flattenApigeeNatAddressIpAddress(res["ipAddress"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NatAddress: %s", err)
-	}
-	if err := d.Set("state", flattenApigeeNatAddressState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NatAddress: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -513,4 +493,35 @@ func resourceApigeeNatAddressEncoder(d *schema.ResourceData, meta interface{}, o
 func resourceApigeeNatAddressDecoder(d *schema.ResourceData, meta interface{}, res map[string]interface{}) (map[string]interface{}, error) {
 	res["activate"] = res["state"].(string) == "ACTIVE"
 	return res, nil
+}
+
+func ResourceApigeeNatAddressFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceApigeeNatAddressDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ApigeeNatAddress because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenApigeeNatAddressName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NatAddress: %s", err)
+	}
+	if err = d.Set("activate", flattenApigeeNatAddressActivate(res["activate"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NatAddress: %s", err)
+	}
+	if err = d.Set("ip_address", flattenApigeeNatAddressIpAddress(res["ipAddress"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NatAddress: %s", err)
+	}
+	if err = d.Set("state", flattenApigeeNatAddressState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NatAddress: %s", err)
+	}
+
+	return nil
 }

@@ -286,9 +286,13 @@ func resourceBigqueryReservationReservationGroupRead(d *schema.ResourceData, met
 	}
 
 	log.Printf("[DEBUG] Finished reading BigqueryReservationReservationGroup %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ReservationGroup: %s", err)
+	}
+
+	err = ResourceBigqueryReservationReservationGroupFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -388,4 +392,9 @@ func resourceBigqueryReservationReservationGroupImport(d *schema.ResourceData, m
 
 func expandBigqueryReservationReservationGroupName(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceBigqueryReservationReservationGroupFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+
+	return nil
 }

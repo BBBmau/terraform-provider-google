@@ -1221,55 +1221,13 @@ func resourceOSConfigPatchDeploymentRead(d *schema.ResourceData, meta interface{
 	}
 
 	log.Printf("[DEBUG] Finished reading OSConfigPatchDeployment %q: %#v", d.Id(), res)
-
-	res, err = resourceOSConfigPatchDeploymentDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing OSConfigPatchDeployment because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading PatchDeployment: %s", err)
 	}
 
-	if err := d.Set("name", flattenOSConfigPatchDeploymentName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("description", flattenOSConfigPatchDeploymentDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("instance_filter", flattenOSConfigPatchDeploymentInstanceFilter(res["instanceFilter"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("patch_config", flattenOSConfigPatchDeploymentPatchConfig(res["patchConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("duration", flattenOSConfigPatchDeploymentDuration(res["duration"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("create_time", flattenOSConfigPatchDeploymentCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("update_time", flattenOSConfigPatchDeploymentUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("last_execute_time", flattenOSConfigPatchDeploymentLastExecuteTime(res["lastExecuteTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("one_time_schedule", flattenOSConfigPatchDeploymentOneTimeSchedule(res["oneTimeSchedule"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("recurring_schedule", flattenOSConfigPatchDeploymentRecurringSchedule(res["recurringSchedule"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
-	}
-	if err := d.Set("rollout", flattenOSConfigPatchDeploymentRollout(res["rollout"], d, config)); err != nil {
-		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	err = ResourceOSConfigPatchDeploymentFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -3633,5 +3591,57 @@ func resourceOSConfigPatchDeploymentPostCreateSetComputedFields(d *schema.Resour
 	if err := d.Set("name", flattenOSConfigPatchDeploymentName(res["name"], d, config)); err != nil {
 		return fmt.Errorf(`Error setting computed identity field "name": %s`, err)
 	}
+	return nil
+}
+
+func ResourceOSConfigPatchDeploymentFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceOSConfigPatchDeploymentDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing OSConfigPatchDeployment because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenOSConfigPatchDeploymentName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("description", flattenOSConfigPatchDeploymentDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("instance_filter", flattenOSConfigPatchDeploymentInstanceFilter(res["instanceFilter"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("patch_config", flattenOSConfigPatchDeploymentPatchConfig(res["patchConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("duration", flattenOSConfigPatchDeploymentDuration(res["duration"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("create_time", flattenOSConfigPatchDeploymentCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("update_time", flattenOSConfigPatchDeploymentUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("last_execute_time", flattenOSConfigPatchDeploymentLastExecuteTime(res["lastExecuteTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("one_time_schedule", flattenOSConfigPatchDeploymentOneTimeSchedule(res["oneTimeSchedule"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("recurring_schedule", flattenOSConfigPatchDeploymentRecurringSchedule(res["recurringSchedule"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+	if err = d.Set("rollout", flattenOSConfigPatchDeploymentRollout(res["rollout"], d, config)); err != nil {
+		return fmt.Errorf("Error reading PatchDeployment: %s", err)
+	}
+
 	return nil
 }

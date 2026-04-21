@@ -901,37 +901,13 @@ func resourceNotebooksRuntimeRead(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	log.Printf("[DEBUG] Finished reading NotebooksRuntime %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Runtime: %s", err)
 	}
 
-	if err := d.Set("virtual_machine", flattenNotebooksRuntimeVirtualMachine(res["virtualMachine"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("state", flattenNotebooksRuntimeState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("health_state", flattenNotebooksRuntimeHealthState(res["healthState"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("access_config", flattenNotebooksRuntimeAccessConfig(res["accessConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("software_config", flattenNotebooksRuntimeSoftwareConfig(res["softwareConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("metrics", flattenNotebooksRuntimeMetrics(res["metrics"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("labels", flattenNotebooksRuntimeLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenNotebooksRuntimeTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenNotebooksRuntimeEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Runtime: %s", err)
+	err = ResourceNotebooksRuntimeFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -2621,4 +2597,38 @@ func expandNotebooksRuntimeEffectiveLabels(v interface{}, d tpgresource.Terrafor
 		m[k] = val.(string)
 	}
 	return m, nil
+}
+
+func ResourceNotebooksRuntimeFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("virtual_machine", flattenNotebooksRuntimeVirtualMachine(res["virtualMachine"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("state", flattenNotebooksRuntimeState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("health_state", flattenNotebooksRuntimeHealthState(res["healthState"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("access_config", flattenNotebooksRuntimeAccessConfig(res["accessConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("software_config", flattenNotebooksRuntimeSoftwareConfig(res["softwareConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("metrics", flattenNotebooksRuntimeMetrics(res["metrics"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("labels", flattenNotebooksRuntimeLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenNotebooksRuntimeTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenNotebooksRuntimeEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Runtime: %s", err)
+	}
+
+	return nil
 }

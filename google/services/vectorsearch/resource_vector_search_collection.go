@@ -488,43 +488,13 @@ func resourceVectorSearchCollectionRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading VectorSearchCollection %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Collection: %s", err)
 	}
 
-	if err := d.Set("create_time", flattenVectorSearchCollectionCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("data_schema", flattenVectorSearchCollectionDataSchema(res["dataSchema"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("description", flattenVectorSearchCollectionDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("display_name", flattenVectorSearchCollectionDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("encryption_spec", flattenVectorSearchCollectionEncryptionSpec(res["encryptionSpec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("labels", flattenVectorSearchCollectionLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("name", flattenVectorSearchCollectionName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("update_time", flattenVectorSearchCollectionUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("vector_schema", flattenVectorSearchCollectionVectorSchema(res["vectorSchema"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("terraform_labels", flattenVectorSearchCollectionTerraformLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
-	}
-	if err := d.Set("effective_labels", flattenVectorSearchCollectionEffectiveLabels(res["labels"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Collection: %s", err)
+	err = ResourceVectorSearchCollectionFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1122,4 +1092,44 @@ func expandVectorSearchCollectionEffectiveLabels(v interface{}, d tpgresource.Te
 		m[k] = val.(string)
 	}
 	return m, nil
+}
+
+func ResourceVectorSearchCollectionFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("create_time", flattenVectorSearchCollectionCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("data_schema", flattenVectorSearchCollectionDataSchema(res["dataSchema"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("description", flattenVectorSearchCollectionDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("display_name", flattenVectorSearchCollectionDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("encryption_spec", flattenVectorSearchCollectionEncryptionSpec(res["encryptionSpec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("labels", flattenVectorSearchCollectionLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("name", flattenVectorSearchCollectionName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("update_time", flattenVectorSearchCollectionUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("vector_schema", flattenVectorSearchCollectionVectorSchema(res["vectorSchema"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("terraform_labels", flattenVectorSearchCollectionTerraformLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+	if err = d.Set("effective_labels", flattenVectorSearchCollectionEffectiveLabels(res["labels"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Collection: %s", err)
+	}
+
+	return nil
 }

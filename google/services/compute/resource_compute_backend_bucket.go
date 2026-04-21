@@ -594,43 +594,13 @@ func resourceComputeBackendBucketRead(d *schema.ResourceData, meta interface{}) 
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeBackendBucket %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading BackendBucket: %s", err)
 	}
 
-	if err := d.Set("bucket_name", flattenComputeBackendBucketBucketName(res["bucketName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("cdn_policy", flattenComputeBackendBucketCdnPolicy(res["cdnPolicy"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("compression_mode", flattenComputeBackendBucketCompressionMode(res["compressionMode"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("edge_security_policy", flattenComputeBackendBucketEdgeSecurityPolicy(res["edgeSecurityPolicy"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("custom_response_headers", flattenComputeBackendBucketCustomResponseHeaders(res["customResponseHeaders"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("creation_timestamp", flattenComputeBackendBucketCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("description", flattenComputeBackendBucketDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("enable_cdn", flattenComputeBackendBucketEnableCdn(res["enableCdn"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("name", flattenComputeBackendBucketName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("load_balancing_scheme", flattenComputeBackendBucketLoadBalancingScheme(res["loadBalancingScheme"], d, config)); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
-	}
-	if err := d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
-		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	err = ResourceComputeBackendBucketFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1507,4 +1477,43 @@ func resourceComputeBackendBucketEncoder(d *schema.ResourceData, meta interface{
 	}
 
 	return obj, nil
+}
+
+func ResourceComputeBackendBucketFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("bucket_name", flattenComputeBackendBucketBucketName(res["bucketName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("cdn_policy", flattenComputeBackendBucketCdnPolicy(res["cdnPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("compression_mode", flattenComputeBackendBucketCompressionMode(res["compressionMode"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("edge_security_policy", flattenComputeBackendBucketEdgeSecurityPolicy(res["edgeSecurityPolicy"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("custom_response_headers", flattenComputeBackendBucketCustomResponseHeaders(res["customResponseHeaders"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("creation_timestamp", flattenComputeBackendBucketCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("description", flattenComputeBackendBucketDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("enable_cdn", flattenComputeBackendBucketEnableCdn(res["enableCdn"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("name", flattenComputeBackendBucketName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("load_balancing_scheme", flattenComputeBackendBucketLoadBalancingScheme(res["loadBalancingScheme"], d, config)); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	if err = d.Set("self_link", tpgresource.ConvertSelfLinkToV1(res["selfLink"].(string))); err != nil {
+		return fmt.Errorf("Error reading BackendBucket: %s", err)
+	}
+	return nil
 }

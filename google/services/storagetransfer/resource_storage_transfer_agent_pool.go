@@ -335,19 +335,13 @@ func resourceStorageTransferAgentPoolRead(d *schema.ResourceData, meta interface
 	}
 
 	log.Printf("[DEBUG] Finished reading StorageTransferAgentPool %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading AgentPool: %s", err)
 	}
 
-	if err := d.Set("display_name", flattenStorageTransferAgentPoolDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading AgentPool: %s", err)
-	}
-	if err := d.Set("state", flattenStorageTransferAgentPoolState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading AgentPool: %s", err)
-	}
-	if err := d.Set("bandwidth_limit", flattenStorageTransferAgentPoolBandwidthLimit(res["bandwidthLimit"], d, config)); err != nil {
-		return fmt.Errorf("Error reading AgentPool: %s", err)
+	err = ResourceStorageTransferAgentPoolFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -595,4 +589,20 @@ func expandStorageTransferAgentPoolBandwidthLimit(v interface{}, d tpgresource.T
 
 func expandStorageTransferAgentPoolBandwidthLimitLimitMbps(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceStorageTransferAgentPoolFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("display_name", flattenStorageTransferAgentPoolDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AgentPool: %s", err)
+	}
+	if err = d.Set("state", flattenStorageTransferAgentPoolState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AgentPool: %s", err)
+	}
+	if err = d.Set("bandwidth_limit", flattenStorageTransferAgentPoolBandwidthLimit(res["bandwidthLimit"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AgentPool: %s", err)
+	}
+
+	return nil
 }

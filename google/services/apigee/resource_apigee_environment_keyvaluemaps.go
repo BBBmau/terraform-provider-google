@@ -236,20 +236,9 @@ func resourceApigeeEnvironmentKeyvaluemapsRead(d *schema.ResourceData, meta inte
 
 	log.Printf("[DEBUG] Finished reading ApigeeEnvironmentKeyvaluemaps %q: %#v", d.Id(), res)
 
-	res, err = resourceApigeeEnvironmentKeyvaluemapsDecoder(d, meta, res)
+	err = ResourceApigeeEnvironmentKeyvaluemapsFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ApigeeEnvironmentKeyvaluemaps because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenApigeeEnvironmentKeyvaluemapsName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading EnvironmentKeyvaluemaps: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -355,4 +344,26 @@ func resourceApigeeEnvironmentKeyvaluemapsDecoder(d *schema.ResourceData, meta i
 	res["encrypted"] = true
 
 	return res, nil
+}
+
+func ResourceApigeeEnvironmentKeyvaluemapsFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceApigeeEnvironmentKeyvaluemapsDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ApigeeEnvironmentKeyvaluemaps because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenApigeeEnvironmentKeyvaluemapsName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EnvironmentKeyvaluemaps: %s", err)
+	}
+
+	return nil
 }

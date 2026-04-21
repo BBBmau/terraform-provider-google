@@ -358,41 +358,9 @@ func resourceIAMWorkforcePoolWorkforcePoolProviderScimTenantRead(d *schema.Resou
 
 	log.Printf("[DEBUG] Finished reading IAMWorkforcePoolWorkforcePoolProviderScimTenant %q: %#v", d.Id(), res)
 
-	res, err = resourceIAMWorkforcePoolWorkforcePoolProviderScimTenantDecoder(d, meta, res)
+	err = ResourceIAMWorkforcePoolWorkforcePoolProviderScimTenantFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePoolProviderScimTenant because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("display_name", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("description", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("state", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("base_uri", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantBaseUri(res["baseUri"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("claim_mapping", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantClaimMapping(res["claimMapping"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("purge_time", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantPurgeTime(res["purgeTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
-	}
-	if err := d.Set("service_agent", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantServiceAgent(res["serviceAgent"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -660,4 +628,47 @@ func resourceIAMWorkforcePoolWorkforcePoolProviderScimTenantDecoder(d *schema.Re
 	}
 
 	return res, nil
+}
+
+func ResourceIAMWorkforcePoolWorkforcePoolProviderScimTenantFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceIAMWorkforcePoolWorkforcePoolProviderScimTenantDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePoolProviderScimTenant because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("display_name", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("description", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("state", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("base_uri", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantBaseUri(res["baseUri"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("claim_mapping", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantClaimMapping(res["claimMapping"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("purge_time", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantPurgeTime(res["purgeTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+	if err = d.Set("service_agent", flattenIAMWorkforcePoolWorkforcePoolProviderScimTenantServiceAgent(res["serviceAgent"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePoolProviderScimTenant: %s", err)
+	}
+
+	return nil
 }

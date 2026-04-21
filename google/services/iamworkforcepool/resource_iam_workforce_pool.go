@@ -405,41 +405,9 @@ func resourceIAMWorkforcePoolWorkforcePoolRead(d *schema.ResourceData, meta inte
 
 	log.Printf("[DEBUG] Finished reading IAMWorkforcePoolWorkforcePool %q: %#v", d.Id(), res)
 
-	res, err = resourceIAMWorkforcePoolWorkforcePoolDecoder(d, meta, res)
+	err = ResourceIAMWorkforcePoolWorkforcePoolFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePool because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("name", flattenIAMWorkforcePoolWorkforcePoolName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("parent", flattenIAMWorkforcePoolWorkforcePoolParent(res["parent"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("display_name", flattenIAMWorkforcePoolWorkforcePoolDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("description", flattenIAMWorkforcePoolWorkforcePoolDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("state", flattenIAMWorkforcePoolWorkforcePoolState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("disabled", flattenIAMWorkforcePoolWorkforcePoolDisabled(res["disabled"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("session_duration", flattenIAMWorkforcePoolWorkforcePoolSessionDuration(res["sessionDuration"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
-	}
-	if err := d.Set("access_restrictions", flattenIAMWorkforcePoolWorkforcePoolAccessRestrictions(res["accessRestrictions"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkforcePool: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -806,4 +774,47 @@ func resourceIAMWorkforcePoolWorkforcePoolDecoder(d *schema.ResourceData, meta i
 	}
 
 	return res, nil
+}
+
+func ResourceIAMWorkforcePoolWorkforcePoolFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceIAMWorkforcePoolWorkforcePoolDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePool because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenIAMWorkforcePoolWorkforcePoolName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("parent", flattenIAMWorkforcePoolWorkforcePoolParent(res["parent"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("display_name", flattenIAMWorkforcePoolWorkforcePoolDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("description", flattenIAMWorkforcePoolWorkforcePoolDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("state", flattenIAMWorkforcePoolWorkforcePoolState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("disabled", flattenIAMWorkforcePoolWorkforcePoolDisabled(res["disabled"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("session_duration", flattenIAMWorkforcePoolWorkforcePoolSessionDuration(res["sessionDuration"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+	if err = d.Set("access_restrictions", flattenIAMWorkforcePoolWorkforcePoolAccessRestrictions(res["accessRestrictions"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkforcePool: %s", err)
+	}
+
+	return nil
 }

@@ -391,18 +391,6 @@ func resourceSecretManagerSecretVersionRead(d *schema.ResourceData, meta interfa
 
 	log.Printf("[DEBUG] Finished reading SecretManagerSecretVersion %q: %#v", d.Id(), res)
 
-	res, err = resourceSecretManagerSecretVersionDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing SecretManagerSecretVersion because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("deletion_policy"); !ok {
 		if err := d.Set("deletion_policy", "DELETE"); err != nil {
@@ -410,35 +398,9 @@ func resourceSecretManagerSecretVersionRead(d *schema.ResourceData, meta interfa
 		}
 	}
 
-	if err := d.Set("enabled", flattenSecretManagerSecretVersionEnabled(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading SecretVersion: %s", err)
-	}
-	if err := d.Set("name", flattenSecretManagerSecretVersionName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading SecretVersion: %s", err)
-	}
-	if err := d.Set("version", flattenSecretManagerSecretVersionVersion(res["version"], d, config)); err != nil {
-		return fmt.Errorf("Error reading SecretVersion: %s", err)
-	}
-	if err := d.Set("create_time", flattenSecretManagerSecretVersionCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading SecretVersion: %s", err)
-	}
-	if err := d.Set("destroy_time", flattenSecretManagerSecretVersionDestroyTime(res["destroyTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading SecretVersion: %s", err)
-	}
-	// Terraform must set the top level schema field, but since this object contains collapsed properties
-	// it's difficult to know what the top level should be. Instead we just loop over the map returned from flatten.
-	if flattenedProp := flattenSecretManagerSecretVersionPayload(res["payload"], d, config); flattenedProp != nil {
-		if gerr, ok := flattenedProp.(*googleapi.Error); ok {
-			return fmt.Errorf("Error reading SecretVersion: %s", gerr)
-		}
-		casted := flattenedProp.([]interface{})[0]
-		if casted != nil {
-			for k, v := range casted.(map[string]interface{}) {
-				if err := d.Set(k, v); err != nil {
-					return fmt.Errorf("Error setting %s: %s", k, err)
-				}
-			}
-		}
+	err = ResourceSecretManagerSecretVersionFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -721,5 +683,54 @@ func resourceSecretManagerSecretVersionPostCreateSetComputedFields(d *schema.Res
 	if err := d.Set("name", flattenSecretManagerSecretVersionName(res["name"], d, config)); err != nil {
 		return fmt.Errorf(`Error setting computed identity field "name": %s`, err)
 	}
+	return nil
+}
+
+func ResourceSecretManagerSecretVersionFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	res, err = resourceSecretManagerSecretVersionDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing SecretManagerSecretVersion because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("enabled", flattenSecretManagerSecretVersionEnabled(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading SecretVersion: %s", err)
+	}
+	if err = d.Set("name", flattenSecretManagerSecretVersionName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading SecretVersion: %s", err)
+	}
+	if err = d.Set("version", flattenSecretManagerSecretVersionVersion(res["version"], d, config)); err != nil {
+		return fmt.Errorf("Error reading SecretVersion: %s", err)
+	}
+	if err = d.Set("create_time", flattenSecretManagerSecretVersionCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading SecretVersion: %s", err)
+	}
+	if err = d.Set("destroy_time", flattenSecretManagerSecretVersionDestroyTime(res["destroyTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading SecretVersion: %s", err)
+	}
+	// Terraform must set the top level schema field, but since this object contains collapsed properties
+	// it's difficult to know what the top level should be. Instead we just loop over the map returned from flatten.
+	if flattenedProp := flattenSecretManagerSecretVersionPayload(res["payload"], d, config); flattenedProp != nil {
+		if gerr, ok := flattenedProp.(*googleapi.Error); ok {
+			return fmt.Errorf("Error reading SecretVersion: %s", gerr)
+		}
+		casted := flattenedProp.([]interface{})[0]
+		if casted != nil {
+			for k, v := range casted.(map[string]interface{}) {
+				if err := d.Set(k, v); err != nil {
+					return fmt.Errorf("Error setting %s: %s", k, err)
+				}
+			}
+		}
+	}
+
 	return nil
 }

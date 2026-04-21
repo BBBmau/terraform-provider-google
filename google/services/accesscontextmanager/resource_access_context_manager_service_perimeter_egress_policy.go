@@ -584,33 +584,10 @@ func resourceAccessContextManagerServicePerimeterEgressPolicyRead(d *schema.Reso
 	}
 
 	log.Printf("[DEBUG] Finished reading AccessContextManagerServicePerimeterEgressPolicy %q: %#v", d.Id(), res)
-	if err := d.Set("etag", res["etag"]); err != nil {
-		log.Printf("[ERROR] Unable to set etag: %s", err)
-	}
 
-	res, err = flattenNestedAccessContextManagerServicePerimeterEgressPolicy(d, meta, res)
+	err = ResourceAccessContextManagerServicePerimeterEgressPolicyFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing AccessContextManagerServicePerimeterEgressPolicy because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
-	if err := d.Set("egress_from", flattenNestedAccessContextManagerServicePerimeterEgressPolicyEgressFrom(res["egressFrom"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
-	}
-	if err := d.Set("egress_to", flattenNestedAccessContextManagerServicePerimeterEgressPolicyEgressTo(res["egressTo"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
-	}
-	if err := d.Set("title", flattenNestedAccessContextManagerServicePerimeterEgressPolicyTitle(res["title"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
-	}
-	if err := d.Set("etag", flattenNestedAccessContextManagerServicePerimeterEgressPolicyEtag(res["etag"], d, config)); err != nil {
-		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
 	}
 
 	identity, err := d.Identity()
@@ -1338,4 +1315,37 @@ func resourceAccessContextManagerServicePerimeterEgressPolicyListForPatch(d *sch
 		return ls, nil
 	}
 	return nil, nil
+}
+
+func ResourceAccessContextManagerServicePerimeterEgressPolicyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	if err := d.Set("etag", res["etag"]); err != nil {
+		log.Printf("[ERROR] Unable to set etag: %s", err)
+	}
+	res, err = flattenNestedAccessContextManagerServicePerimeterEgressPolicy(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing AccessContextManagerServicePerimeterEgressPolicy because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("egress_from", flattenNestedAccessContextManagerServicePerimeterEgressPolicyEgressFrom(res["egressFrom"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
+	}
+	if err = d.Set("egress_to", flattenNestedAccessContextManagerServicePerimeterEgressPolicyEgressTo(res["egressTo"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
+	}
+	if err = d.Set("title", flattenNestedAccessContextManagerServicePerimeterEgressPolicyTitle(res["title"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
+	}
+	if err = d.Set("etag", flattenNestedAccessContextManagerServicePerimeterEgressPolicyEtag(res["etag"], d, config)); err != nil {
+		return fmt.Errorf("Error reading ServicePerimeterEgressPolicy: %s", err)
+	}
+
+	return nil
 }

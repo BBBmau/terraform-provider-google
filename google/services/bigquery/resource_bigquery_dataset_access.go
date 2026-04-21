@@ -712,52 +712,13 @@ func resourceBigQueryDatasetAccessRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading BigQueryDatasetAccess %q: %#v", d.Id(), res)
-
-	res, err = flattenNestedBigQueryDatasetAccess(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing BigQueryDatasetAccess because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DatasetAccess: %s", err)
 	}
 
-	if err := d.Set("role", flattenNestedBigQueryDatasetAccessRole(res["role"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("user_by_email", flattenNestedBigQueryDatasetAccessUserByEmail(res["userByEmail"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("group_by_email", flattenNestedBigQueryDatasetAccessGroupByEmail(res["groupByEmail"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("domain", flattenNestedBigQueryDatasetAccessDomain(res["domain"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("special_group", flattenNestedBigQueryDatasetAccessSpecialGroup(res["specialGroup"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("iam_member", flattenNestedBigQueryDatasetAccessIamMember(res["iamMember"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("view", flattenNestedBigQueryDatasetAccessView(res["view"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("dataset", flattenNestedBigQueryDatasetAccessDataset(res["dataset"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("routine", flattenNestedBigQueryDatasetAccessRoutine(res["routine"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
-	}
-	if err := d.Set("condition", flattenNestedBigQueryDatasetAccessCondition(res["condition"], d, config)); err != nil {
-		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	err = ResourceBigQueryDatasetAccessFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1509,4 +1470,52 @@ func resourceBigQueryDatasetAccessListForPatch(d *schema.ResourceData, meta inte
 		return ls, nil
 	}
 	return nil, nil
+}
+
+func ResourceBigQueryDatasetAccessFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	res, err = flattenNestedBigQueryDatasetAccess(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing BigQueryDatasetAccess because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("role", flattenNestedBigQueryDatasetAccessRole(res["role"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("user_by_email", flattenNestedBigQueryDatasetAccessUserByEmail(res["userByEmail"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("group_by_email", flattenNestedBigQueryDatasetAccessGroupByEmail(res["groupByEmail"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("domain", flattenNestedBigQueryDatasetAccessDomain(res["domain"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("special_group", flattenNestedBigQueryDatasetAccessSpecialGroup(res["specialGroup"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("iam_member", flattenNestedBigQueryDatasetAccessIamMember(res["iamMember"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("view", flattenNestedBigQueryDatasetAccessView(res["view"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("dataset", flattenNestedBigQueryDatasetAccessDataset(res["dataset"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("routine", flattenNestedBigQueryDatasetAccessRoutine(res["routine"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+	if err = d.Set("condition", flattenNestedBigQueryDatasetAccessCondition(res["condition"], d, config)); err != nil {
+		return fmt.Errorf("Error reading DatasetAccess: %s", err)
+	}
+
+	return nil
 }

@@ -374,31 +374,6 @@ func resourceComputeNetworkEndpointRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeNetworkEndpoint %q: %#v", d.Id(), res)
-
-	res, err = flattenNestedComputeNetworkEndpoint(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputeNetworkEndpoint because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
-	res, err = resourceComputeNetworkEndpointDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeNetworkEndpoint because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
 	}
@@ -410,15 +385,9 @@ func resourceComputeNetworkEndpointRead(d *schema.ResourceData, meta interface{}
 	if err := d.Set("zone", zone); err != nil {
 		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
 	}
-
-	if err := d.Set("instance", flattenNestedComputeNetworkEndpointInstance(res["instance"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
-	}
-	if err := d.Set("port", flattenNestedComputeNetworkEndpointPort(res["port"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
-	}
-	if err := d.Set("ip_address", flattenNestedComputeNetworkEndpointIpAddress(res["ipAddress"], d, config)); err != nil {
-		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
+	err = ResourceComputeNetworkEndpointFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -706,4 +675,42 @@ func resourceComputeNetworkEndpointDecoder(d *schema.ResourceData, meta interfac
 	}
 
 	return v.(map[string]interface{}), nil
+}
+
+func ResourceComputeNetworkEndpointFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	res, err = flattenNestedComputeNetworkEndpoint(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputeNetworkEndpoint because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+	res, err = resourceComputeNetworkEndpointDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeNetworkEndpoint because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("instance", flattenNestedComputeNetworkEndpointInstance(res["instance"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
+	}
+	if err = d.Set("port", flattenNestedComputeNetworkEndpointPort(res["port"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
+	}
+	if err = d.Set("ip_address", flattenNestedComputeNetworkEndpointIpAddress(res["ipAddress"], d, config)); err != nil {
+		return fmt.Errorf("Error reading NetworkEndpoint: %s", err)
+	}
+
+	return nil
 }

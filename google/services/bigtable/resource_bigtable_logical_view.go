@@ -307,19 +307,13 @@ func resourceBigtableLogicalViewRead(d *schema.ResourceData, meta interface{}) e
 	}
 
 	log.Printf("[DEBUG] Finished reading BigtableLogicalView %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading LogicalView: %s", err)
 	}
 
-	if err := d.Set("name", flattenBigtableLogicalViewName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading LogicalView: %s", err)
-	}
-	if err := d.Set("query", flattenBigtableLogicalViewQuery(res["query"], d, config)); err != nil {
-		return fmt.Errorf("Error reading LogicalView: %s", err)
-	}
-	if err := d.Set("deletion_protection", flattenBigtableLogicalViewDeletionProtection(res["deletionProtection"], d, config)); err != nil {
-		return fmt.Errorf("Error reading LogicalView: %s", err)
+	err = ResourceBigtableLogicalViewFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -536,4 +530,20 @@ func expandBigtableLogicalViewQuery(v interface{}, d tpgresource.TerraformResour
 
 func expandBigtableLogicalViewDeletionProtection(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceBigtableLogicalViewFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenBigtableLogicalViewName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading LogicalView: %s", err)
+	}
+	if err = d.Set("query", flattenBigtableLogicalViewQuery(res["query"], d, config)); err != nil {
+		return fmt.Errorf("Error reading LogicalView: %s", err)
+	}
+	if err = d.Set("deletion_protection", flattenBigtableLogicalViewDeletionProtection(res["deletionProtection"], d, config)); err != nil {
+		return fmt.Errorf("Error reading LogicalView: %s", err)
+	}
+
+	return nil
 }

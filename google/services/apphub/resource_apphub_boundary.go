@@ -308,25 +308,13 @@ func resourceApphubBoundaryRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	log.Printf("[DEBUG] Finished reading ApphubBoundary %q: %#v", d.Id(), res)
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Boundary: %s", err)
 	}
 
-	if err := d.Set("name", flattenApphubBoundaryName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Boundary: %s", err)
-	}
-	if err := d.Set("crm_node", flattenApphubBoundaryCrmNode(res["crmNode"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Boundary: %s", err)
-	}
-	if err := d.Set("create_time", flattenApphubBoundaryCreateTime(res["createTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Boundary: %s", err)
-	}
-	if err := d.Set("update_time", flattenApphubBoundaryUpdateTime(res["updateTime"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Boundary: %s", err)
-	}
-	if err := d.Set("type", flattenApphubBoundaryType(res["type"], d, config)); err != nil {
-		return fmt.Errorf("Error reading Boundary: %s", err)
+	err = ResourceApphubBoundaryFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -480,4 +468,26 @@ func flattenApphubBoundaryType(v interface{}, d *schema.ResourceData, config *tr
 
 func expandApphubBoundaryCrmNode(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
+}
+
+func ResourceApphubBoundaryFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+
+	if err = d.Set("name", flattenApphubBoundaryName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Boundary: %s", err)
+	}
+	if err = d.Set("crm_node", flattenApphubBoundaryCrmNode(res["crmNode"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Boundary: %s", err)
+	}
+	if err = d.Set("create_time", flattenApphubBoundaryCreateTime(res["createTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Boundary: %s", err)
+	}
+	if err = d.Set("update_time", flattenApphubBoundaryUpdateTime(res["updateTime"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Boundary: %s", err)
+	}
+	if err = d.Set("type", flattenApphubBoundaryType(res["type"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Boundary: %s", err)
+	}
+
+	return nil
 }

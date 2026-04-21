@@ -1007,85 +1007,13 @@ func resourceComputeRouterNatRead(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeRouterNat %q: %#v", d.Id(), res)
-
-	res, err = flattenNestedComputeRouterNat(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputeRouterNat because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RouterNat: %s", err)
 	}
 
-	if err := d.Set("name", flattenNestedComputeRouterNatName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("nat_ip_allocate_option", flattenNestedComputeRouterNatNatIpAllocateOption(res["natIpAllocateOption"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("nat_ips", flattenNestedComputeRouterNatNatIps(res["natIps"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("drain_nat_ips", flattenNestedComputeRouterNatDrainNatIps(res["drainNatIps"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("source_subnetwork_ip_ranges_to_nat", flattenNestedComputeRouterNatSourceSubnetworkIpRangesToNat(res["sourceSubnetworkIpRangesToNat"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("subnetwork", flattenNestedComputeRouterNatSubnetwork(res["subnetworks"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("source_subnetwork_ip_ranges_to_nat64", flattenNestedComputeRouterNatSourceSubnetworkIpRangesToNat64(res["sourceSubnetworkIpRangesToNat64"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("nat64_subnetwork", flattenNestedComputeRouterNatNat64Subnetwork(res["nat64Subnetworks"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("min_ports_per_vm", flattenNestedComputeRouterNatMinPortsPerVm(res["minPortsPerVm"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("max_ports_per_vm", flattenNestedComputeRouterNatMaxPortsPerVm(res["maxPortsPerVm"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("enable_dynamic_port_allocation", flattenNestedComputeRouterNatEnableDynamicPortAllocation(res["enableDynamicPortAllocation"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("udp_idle_timeout_sec", flattenNestedComputeRouterNatUdpIdleTimeoutSec(res["udpIdleTimeoutSec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("icmp_idle_timeout_sec", flattenNestedComputeRouterNatIcmpIdleTimeoutSec(res["icmpIdleTimeoutSec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("tcp_established_idle_timeout_sec", flattenNestedComputeRouterNatTcpEstablishedIdleTimeoutSec(res["tcpEstablishedIdleTimeoutSec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("tcp_transitory_idle_timeout_sec", flattenNestedComputeRouterNatTcpTransitoryIdleTimeoutSec(res["tcpTransitoryIdleTimeoutSec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("tcp_time_wait_timeout_sec", flattenNestedComputeRouterNatTcpTimeWaitTimeoutSec(res["tcpTimeWaitTimeoutSec"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("log_config", flattenNestedComputeRouterNatLogConfig(res["logConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("endpoint_types", flattenNestedComputeRouterNatEndpointTypes(res["endpointTypes"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("rules", flattenNestedComputeRouterNatRules(res["rules"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("enable_endpoint_independent_mapping", flattenNestedComputeRouterNatEnableEndpointIndependentMapping(res["enableEndpointIndependentMapping"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
-	}
-	if err := d.Set("type", flattenNestedComputeRouterNatType(res["type"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RouterNat: %s", err)
+	err = ResourceComputeRouterNatFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -2420,4 +2348,85 @@ func resourceComputeRouterNatListForPatch(d *schema.ResourceData, meta interface
 		return ls, nil
 	}
 	return nil, nil
+}
+
+func ResourceComputeRouterNatFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	res, err = flattenNestedComputeRouterNat(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputeRouterNat because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("name", flattenNestedComputeRouterNatName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("nat_ip_allocate_option", flattenNestedComputeRouterNatNatIpAllocateOption(res["natIpAllocateOption"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("nat_ips", flattenNestedComputeRouterNatNatIps(res["natIps"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("drain_nat_ips", flattenNestedComputeRouterNatDrainNatIps(res["drainNatIps"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("source_subnetwork_ip_ranges_to_nat", flattenNestedComputeRouterNatSourceSubnetworkIpRangesToNat(res["sourceSubnetworkIpRangesToNat"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("subnetwork", flattenNestedComputeRouterNatSubnetwork(res["subnetworks"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("source_subnetwork_ip_ranges_to_nat64", flattenNestedComputeRouterNatSourceSubnetworkIpRangesToNat64(res["sourceSubnetworkIpRangesToNat64"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("nat64_subnetwork", flattenNestedComputeRouterNatNat64Subnetwork(res["nat64Subnetworks"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("min_ports_per_vm", flattenNestedComputeRouterNatMinPortsPerVm(res["minPortsPerVm"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("max_ports_per_vm", flattenNestedComputeRouterNatMaxPortsPerVm(res["maxPortsPerVm"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("enable_dynamic_port_allocation", flattenNestedComputeRouterNatEnableDynamicPortAllocation(res["enableDynamicPortAllocation"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("udp_idle_timeout_sec", flattenNestedComputeRouterNatUdpIdleTimeoutSec(res["udpIdleTimeoutSec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("icmp_idle_timeout_sec", flattenNestedComputeRouterNatIcmpIdleTimeoutSec(res["icmpIdleTimeoutSec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("tcp_established_idle_timeout_sec", flattenNestedComputeRouterNatTcpEstablishedIdleTimeoutSec(res["tcpEstablishedIdleTimeoutSec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("tcp_transitory_idle_timeout_sec", flattenNestedComputeRouterNatTcpTransitoryIdleTimeoutSec(res["tcpTransitoryIdleTimeoutSec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("tcp_time_wait_timeout_sec", flattenNestedComputeRouterNatTcpTimeWaitTimeoutSec(res["tcpTimeWaitTimeoutSec"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("log_config", flattenNestedComputeRouterNatLogConfig(res["logConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("endpoint_types", flattenNestedComputeRouterNatEndpointTypes(res["endpointTypes"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("rules", flattenNestedComputeRouterNatRules(res["rules"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("enable_endpoint_independent_mapping", flattenNestedComputeRouterNatEnableEndpointIndependentMapping(res["enableEndpointIndependentMapping"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+	if err = d.Set("type", flattenNestedComputeRouterNatType(res["type"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterNat: %s", err)
+	}
+
+	return nil
 }

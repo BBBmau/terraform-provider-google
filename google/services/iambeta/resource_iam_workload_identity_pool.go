@@ -614,67 +614,13 @@ func resourceIAMBetaWorkloadIdentityPoolRead(d *schema.ResourceData, meta interf
 	}
 
 	log.Printf("[DEBUG] Finished reading IAMBetaWorkloadIdentityPool %q: %#v", d.Id(), res)
-	// list attestation_rules
-	ruleUrl := url + ":listAttestationRules"
-
-	ruleRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "GET",
-		Project:   billingProject,
-		RawURL:    ruleUrl,
-		UserAgent: userAgent,
-		Headers:   headers,
-	})
-	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("IAMBetaWorkloadIdentityPool %q", d.Id()))
-	}
-
-	for k, v := range ruleRes {
-		res[k] = v
-	}
-
-	res, err = resourceIAMBetaWorkloadIdentityPoolDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing IAMBetaWorkloadIdentityPool because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
 	}
 
-	if err := d.Set("state", flattenIAMBetaWorkloadIdentityPoolState(res["state"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("display_name", flattenIAMBetaWorkloadIdentityPoolDisplayName(res["displayName"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("description", flattenIAMBetaWorkloadIdentityPoolDescription(res["description"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("name", flattenIAMBetaWorkloadIdentityPoolName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("disabled", flattenIAMBetaWorkloadIdentityPoolDisabled(res["disabled"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("mode", flattenIAMBetaWorkloadIdentityPoolMode(res["mode"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("inline_certificate_issuance_config", flattenIAMBetaWorkloadIdentityPoolInlineCertificateIssuanceConfig(res["inlineCertificateIssuanceConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("inline_trust_config", flattenIAMBetaWorkloadIdentityPoolInlineTrustConfig(res["inlineTrustConfig"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
-	}
-	if err := d.Set("attestation_rules", flattenIAMBetaWorkloadIdentityPoolAttestationRules(res["attestationRules"], d, config)); err != nil {
-		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	err = ResourceIAMBetaWorkloadIdentityPoolFlatten(d, meta, res, config, project, userAgent, billingProject, url, headers)
+	if err != nil {
+		return err
 	}
 
 	identity, err := d.Identity()
@@ -1337,4 +1283,68 @@ func resourceIAMBetaWorkloadIdentityPoolDecoder(d *schema.ResourceData, meta int
 	}
 
 	return res, nil
+}
+
+func ResourceIAMBetaWorkloadIdentityPoolFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
+	var err error
+	// list attestation_rules
+	ruleUrl := url + ":listAttestationRules"
+
+	ruleRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "GET",
+		Project:   billingProject,
+		RawURL:    ruleUrl,
+		UserAgent: userAgent,
+		Headers:   headers,
+	})
+	if err != nil {
+		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("IAMBetaWorkloadIdentityPool %q", d.Id()))
+	}
+
+	for k, v := range ruleRes {
+		res[k] = v
+	}
+
+	res, err = resourceIAMBetaWorkloadIdentityPoolDecoder(d, meta, res)
+	if err != nil {
+		return fmt.Errorf("Error decoding response: %s", err)
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing IAMBetaWorkloadIdentityPool because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
+	if err = d.Set("state", flattenIAMBetaWorkloadIdentityPoolState(res["state"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("display_name", flattenIAMBetaWorkloadIdentityPoolDisplayName(res["displayName"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("description", flattenIAMBetaWorkloadIdentityPoolDescription(res["description"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("name", flattenIAMBetaWorkloadIdentityPoolName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("disabled", flattenIAMBetaWorkloadIdentityPoolDisabled(res["disabled"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("mode", flattenIAMBetaWorkloadIdentityPoolMode(res["mode"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("inline_certificate_issuance_config", flattenIAMBetaWorkloadIdentityPoolInlineCertificateIssuanceConfig(res["inlineCertificateIssuanceConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("inline_trust_config", flattenIAMBetaWorkloadIdentityPoolInlineTrustConfig(res["inlineTrustConfig"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+	if err = d.Set("attestation_rules", flattenIAMBetaWorkloadIdentityPoolAttestationRules(res["attestationRules"], d, config)); err != nil {
+		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
+	}
+
+	return nil
 }
