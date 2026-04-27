@@ -328,6 +328,18 @@ func resourceIAMWorkforcePoolWorkforcePoolProviderScimTokenRead(d *schema.Resour
 
 	log.Printf("[DEBUG] Finished reading IAMWorkforcePoolWorkforcePoolProviderScimToken %q: %#v", d.Id(), res)
 
+	res, err = resourceIAMWorkforcePoolWorkforcePoolProviderScimTokenDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePoolProviderScimToken because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceIAMWorkforcePoolWorkforcePoolProviderScimTokenFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -562,18 +574,6 @@ func resourceIAMWorkforcePoolWorkforcePoolProviderScimTokenDecoder(d *schema.Res
 
 func ResourceIAMWorkforcePoolWorkforcePoolProviderScimTokenFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceIAMWorkforcePoolWorkforcePoolProviderScimTokenDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePoolProviderScimToken because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenIAMWorkforcePoolWorkforcePoolProviderScimTokenName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading WorkforcePoolProviderScimToken: %s", err)

@@ -636,6 +636,19 @@ func resourceComputeRouteRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeRoute %q: %#v", d.Id(), res)
+
+	res, err = resourceComputeRouteDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeRoute because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Route: %s", err)
 	}
@@ -987,7 +1000,7 @@ func expandComputeRouteNextHopInstance(v interface{}, d tpgresource.TerraformRes
 		return nil, err
 	}
 
-	nextInstance, err := NewClient(config, userAgent).Instances.Get(val.Project, val.Zone, val.Name).Do()
+	nextInstance, err := config.NewComputeClient(userAgent).Instances.Get(val.Project, val.Zone, val.Name).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -1060,18 +1073,6 @@ func resourceComputeRouteDecoder(d *schema.ResourceData, meta interface{}, res m
 
 func ResourceComputeRouteFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceComputeRouteDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeRoute because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("dest_range", flattenComputeRouteDestRange(res["destRange"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Route: %s", err)

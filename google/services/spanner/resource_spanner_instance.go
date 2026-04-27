@@ -728,6 +728,18 @@ func resourceSpannerInstanceRead(d *schema.ResourceData, meta interface{}) error
 
 	log.Printf("[DEBUG] Finished reading SpannerInstance %q: %#v", d.Id(), res)
 
+	res, err = resourceSpannerInstanceDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing SpannerInstance because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("force_destroy"); !ok {
 		if err := d.Set("force_destroy", false); err != nil {
@@ -1946,18 +1958,6 @@ func resourceSpannerInstanceDecoder(d *schema.ResourceData, meta interface{}, re
 
 func ResourceSpannerInstanceFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceSpannerInstanceDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing SpannerInstance because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenSpannerInstanceName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)

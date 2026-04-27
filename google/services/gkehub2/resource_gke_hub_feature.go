@@ -1020,6 +1020,7 @@ func resourceGKEHub2FeatureRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	log.Printf("[DEBUG] Finished reading GKEHub2Feature %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Feature: %s", err)
 	}

@@ -256,6 +256,18 @@ func resourceApigeeEnvironmentAddonsConfigRead(d *schema.ResourceData, meta inte
 
 	log.Printf("[DEBUG] Finished reading ApigeeEnvironmentAddonsConfig %q: %#v", d.Id(), res)
 
+	res, err = resourceApigeeEnvironmentAddonsConfigDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ApigeeEnvironmentAddonsConfig because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceApigeeEnvironmentAddonsConfigFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -389,18 +401,6 @@ func resourceApigeeEnvironmentAddonsConfigDecoder(d *schema.ResourceData, meta i
 
 func ResourceApigeeEnvironmentAddonsConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceApigeeEnvironmentAddonsConfigDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ApigeeEnvironmentAddonsConfig because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("analytics_enabled", flattenApigeeEnvironmentAddonsConfigAnalyticsEnabled(res["analyticsEnabled"], d, config)); err != nil {
 		return fmt.Errorf("Error reading EnvironmentAddonsConfig: %s", err)

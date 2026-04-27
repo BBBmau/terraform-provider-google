@@ -340,6 +340,7 @@ func resourceBigtableSchemaBundleRead(d *schema.ResourceData, meta interface{}) 
 	}
 
 	log.Printf("[DEBUG] Finished reading BigtableSchemaBundle %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading SchemaBundle: %s", err)
 	}

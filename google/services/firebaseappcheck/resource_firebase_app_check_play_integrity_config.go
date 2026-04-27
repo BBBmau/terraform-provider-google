@@ -285,6 +285,7 @@ func resourceFirebaseAppCheckPlayIntegrityConfigRead(d *schema.ResourceData, met
 	}
 
 	log.Printf("[DEBUG] Finished reading FirebaseAppCheckPlayIntegrityConfig %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading PlayIntegrityConfig: %s", err)
 	}

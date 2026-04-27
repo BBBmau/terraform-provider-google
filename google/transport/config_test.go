@@ -27,7 +27,6 @@ import (
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
 	"github.com/hashicorp/terraform-provider-google/google/provider"
-	compute_tpg "github.com/hashicorp/terraform-provider-google/google/services/compute"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 	googleoauth "golang.org/x/oauth2/google"
 )
@@ -282,7 +281,7 @@ func TestAccConfigLoadValidate_credentials(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	_, err = compute_tpg.NewClient(config, config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
+	_, err = config.NewComputeClient(config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
 	if err != nil {
 		t.Fatalf("expected call with loaded config client to work, got error: %s", err)
 	}
@@ -312,7 +311,7 @@ func TestAccConfigLoadValidate_impersonated(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	_, err = compute_tpg.NewClient(config, config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
+	_, err = config.NewComputeClient(config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
 	if err != nil {
 		t.Fatalf("expected API call with loaded config to work, got error: %s", err)
 	}
@@ -352,7 +351,7 @@ func TestAccConfigLoadValidate_accessTokenImpersonated(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	_, err = compute_tpg.NewClient(config, config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
+	_, err = config.NewComputeClient(config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
 	if err != nil {
 		t.Fatalf("expected API call with loaded config to work, got error: %s", err)
 	}
@@ -390,7 +389,7 @@ func TestAccConfigLoadValidate_accessToken(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 
-	_, err = compute_tpg.NewClient(config, config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
+	_, err = config.NewComputeClient(config.UserAgent).Zones.Get(proj, "us-central1-a").Do()
 	if err != nil {
 		t.Fatalf("expected API call with loaded config to work, got error: %s", err)
 	}

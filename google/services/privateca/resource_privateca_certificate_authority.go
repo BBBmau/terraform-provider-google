@@ -1179,6 +1179,18 @@ func resourcePrivatecaCertificateAuthorityRead(d *schema.ResourceData, meta inte
 
 	log.Printf("[DEBUG] Finished reading PrivatecaCertificateAuthority %q: %#v", d.Id(), res)
 
+	res, err = resourcePrivatecaCertificateAuthorityDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing PrivatecaCertificateAuthority because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("deletion_protection"); !ok {
 		if err := d.Set("deletion_protection", true); err != nil {
@@ -2329,18 +2341,6 @@ func resourcePrivatecaCertificateAuthorityDecoder(d *schema.ResourceData, meta i
 
 func ResourcePrivatecaCertificateAuthorityFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourcePrivatecaCertificateAuthorityDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing PrivatecaCertificateAuthority because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenPrivatecaCertificateAuthorityName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading CertificateAuthority: %s", err)

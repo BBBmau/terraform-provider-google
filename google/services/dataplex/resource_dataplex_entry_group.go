@@ -367,6 +367,7 @@ func resourceDataplexEntryGroupRead(d *schema.ResourceData, meta interface{}) er
 	}
 
 	log.Printf("[DEBUG] Finished reading DataplexEntryGroup %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading EntryGroup: %s", err)
 	}

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-provider-google/google/services/compute"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -108,7 +107,7 @@ func testAccCheckComputeTargetPoolDestroyProducer(t *testing.T) func(s *terrafor
 				continue
 			}
 
-			_, err := compute.NewClient(config, config.UserAgent).TargetPools.Get(
+			_, err := config.NewComputeClient(config.UserAgent).TargetPools.Get(
 				config.Project, config.Region, rs.Primary.Attributes["name"]).Do()
 			if err == nil {
 				return fmt.Errorf("TargetPool still exists")
@@ -132,7 +131,7 @@ func testAccCheckComputeTargetPoolExists(t *testing.T, n string) resource.TestCh
 
 		config := acctest.GoogleProviderConfig(t)
 
-		found, err := compute.NewClient(config, config.UserAgent).TargetPools.Get(
+		found, err := config.NewComputeClient(config.UserAgent).TargetPools.Get(
 			config.Project, config.Region, rs.Primary.Attributes["name"]).Do()
 		if err != nil {
 			return err

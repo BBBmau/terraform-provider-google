@@ -531,6 +531,7 @@ func resourceGkeonpremBareMetalNodePoolRead(d *schema.ResourceData, meta interfa
 	}
 
 	log.Printf("[DEBUG] Finished reading GkeonpremBareMetalNodePool %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading BareMetalNodePool: %s", err)
 	}

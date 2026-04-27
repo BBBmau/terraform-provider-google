@@ -501,6 +501,18 @@ func resourceComputeRegionPerInstanceConfigRead(d *schema.ResourceData, meta int
 
 	log.Printf("[DEBUG] Finished reading ComputeRegionPerInstanceConfig %q: %#v", d.Id(), res)
 
+	res, err = flattenNestedComputeRegionPerInstanceConfig(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputeRegionPerInstanceConfig because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("minimal_action"); !ok {
 		if err := d.Set("minimal_action", "NONE"); err != nil {
@@ -1304,17 +1316,6 @@ func resourceComputeRegionPerInstanceConfigFindNestedObjectInList(d *schema.Reso
 
 func ResourceComputeRegionPerInstanceConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	res, err = flattenNestedComputeRegionPerInstanceConfig(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputeRegionPerInstanceConfig because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenNestedComputeRegionPerInstanceConfigName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionPerInstanceConfig: %s", err)

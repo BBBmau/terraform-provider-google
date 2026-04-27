@@ -197,7 +197,7 @@ func ResourceComputeRouterRoutePolicy() *schema.Resource {
 						"priority": {
 							Type:        schema.TypeInt,
 							Required:    true,
-							Description: `The evaluation priority for this term, which must be between 0 (inclusive) and 2147483648 (exclusive), and unique within the list.`,
+							Description: `The evaluation priority for this term, which must be between 0 (inclusive) and 231 (exclusive), and unique within the list.`,
 						},
 						"actions": {
 							Type:        schema.TypeList,
@@ -419,6 +419,19 @@ func resourceComputeRouterRoutePolicyRead(d *schema.ResourceData, meta interface
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeRouterRoutePolicy %q: %#v", d.Id(), res)
+
+	res, err = resourceComputeRouterRoutePolicyDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeRouterRoutePolicy because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RouterRoutePolicy: %s", err)
 	}
@@ -970,18 +983,6 @@ func resourceComputeRouterRoutePolicyDecoder(d *schema.ResourceData, meta interf
 
 func ResourceComputeRouterRoutePolicyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceComputeRouterRoutePolicyDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeRouterRoutePolicy because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("type", flattenComputeRouterRoutePolicyType(res["type"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RouterRoutePolicy: %s", err)

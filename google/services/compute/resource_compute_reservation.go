@@ -744,6 +744,43 @@ func resourceComputeReservationRead(d *schema.ResourceData, meta interface{}) er
 
 	log.Printf("[DEBUG] Finished reading ComputeReservation %q: %#v", d.Id(), res)
 
+	zone, err := tpgresource.GetZone(d, config)
+	if err != nil {
+		return err
+	}
+	name := d.Get("name").(string)
+
+	// Fetch the list of all reservation blocks from this reservation
+	listUrl := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/reservations/%s/reservationBlocks?alt=json&maxResults=500", project, zone, name)
+
+	listRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "GET",
+		Project:   project,
+		RawURL:    listUrl,
+		UserAgent: userAgent,
+	})
+	if err != nil {
+		return fmt.Errorf("Error listing ReservationBlocks: %s", err)
+	}
+
+	blockNames := []string{}
+	if listRes != nil {
+		if items, ok := listRes["items"].([]interface{}); ok {
+			for _, item := range items {
+				if block, ok := item.(map[string]interface{}); ok {
+					if blockName, ok := block["name"].(string); ok {
+						blockNames = append(blockNames, blockName)
+					}
+				}
+			}
+		}
+	}
+
+	if err := d.Set("block_names", blockNames); err != nil {
+		return fmt.Errorf("Error setting block_names: %s", err)
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Reservation: %s", err)
@@ -2071,43 +2108,6 @@ func resourceComputeReservationUpdateEncoder(d *schema.ResourceData, meta interf
 
 func ResourceComputeReservationFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	zone, err := tpgresource.GetZone(d, config)
-	if err != nil {
-		return err
-	}
-	name := d.Get("name").(string)
-
-	// Fetch the list of all reservation blocks from this reservation
-	listUrl := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/reservations/%s/reservationBlocks?alt=json&maxResults=500", project, zone, name)
-
-	listRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "GET",
-		Project:   project,
-		RawURL:    listUrl,
-		UserAgent: userAgent,
-	})
-	if err != nil {
-		return fmt.Errorf("Error listing ReservationBlocks: %s", err)
-	}
-
-	blockNames := []string{}
-	if listRes != nil {
-		if items, ok := listRes["items"].([]interface{}); ok {
-			for _, item := range items {
-				if block, ok := item.(map[string]interface{}); ok {
-					if blockName, ok := block["name"].(string); ok {
-						blockNames = append(blockNames, blockName)
-					}
-				}
-			}
-		}
-	}
-
-	if err := d.Set("block_names", blockNames); err != nil {
-		return fmt.Errorf("Error setting block_names: %s", err)
-	}
 
 	if err = d.Set("creation_timestamp", flattenComputeReservationCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Reservation: %s", err)

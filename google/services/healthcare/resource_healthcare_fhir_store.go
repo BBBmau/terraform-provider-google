@@ -645,6 +645,18 @@ func resourceHealthcareFhirStoreRead(d *schema.ResourceData, meta interface{}) e
 
 	log.Printf("[DEBUG] Finished reading HealthcareFhirStore %q: %#v", d.Id(), res)
 
+	res, err = resourceHealthcareFhirStoreDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing HealthcareFhirStore because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceHealthcareFhirStoreFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -1496,18 +1508,6 @@ func resourceHealthcareFhirStoreDecoder(d *schema.ResourceData, meta interface{}
 
 func ResourceHealthcareFhirStoreFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceHealthcareFhirStoreDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing HealthcareFhirStore because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenHealthcareFhirStoreName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading FhirStore: %s", err)

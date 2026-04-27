@@ -439,6 +439,18 @@ func resourceHealthcareHl7V2StoreRead(d *schema.ResourceData, meta interface{}) 
 
 	log.Printf("[DEBUG] Finished reading HealthcareHl7V2Store %q: %#v", d.Id(), res)
 
+	res, err = resourceHealthcareHl7V2StoreDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing HealthcareHl7V2Store because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceHealthcareHl7V2StoreFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -944,18 +956,6 @@ func resourceHealthcareHl7V2StoreDecoder(d *schema.ResourceData, meta interface{
 
 func ResourceHealthcareHl7V2StoreFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceHealthcareHl7V2StoreDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing HealthcareHl7V2Store because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenHealthcareHl7V2StoreName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Hl7V2Store: %s", err)

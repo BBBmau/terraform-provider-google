@@ -462,6 +462,7 @@ func resourceNetworkConnectivityDestinationRead(d *schema.ResourceData, meta int
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkConnectivityDestination %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Destination: %s", err)
 	}

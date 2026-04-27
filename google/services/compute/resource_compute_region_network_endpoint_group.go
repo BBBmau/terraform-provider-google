@@ -555,6 +555,7 @@ func resourceComputeRegionNetworkEndpointGroupRead(d *schema.ResourceData, meta 
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeRegionNetworkEndpointGroup %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RegionNetworkEndpointGroup: %s", err)
 	}

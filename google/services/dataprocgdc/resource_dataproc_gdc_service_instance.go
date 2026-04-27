@@ -445,6 +445,7 @@ func resourceDataprocGdcServiceInstanceRead(d *schema.ResourceData, meta interfa
 	}
 
 	log.Printf("[DEBUG] Finished reading DataprocGdcServiceInstance %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ServiceInstance: %s", err)
 	}

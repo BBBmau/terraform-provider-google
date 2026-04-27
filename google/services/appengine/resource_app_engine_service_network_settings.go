@@ -309,6 +309,7 @@ func resourceAppEngineServiceNetworkSettingsRead(d *schema.ResourceData, meta in
 	}
 
 	log.Printf("[DEBUG] Finished reading AppEngineServiceNetworkSettings %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ServiceNetworkSettings: %s", err)
 	}

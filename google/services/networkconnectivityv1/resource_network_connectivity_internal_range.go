@@ -511,6 +511,7 @@ func resourceNetworkConnectivityv1InternalRangeRead(d *schema.ResourceData, meta
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkConnectivityv1InternalRange %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading InternalRange: %s", err)
 	}

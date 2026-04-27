@@ -409,6 +409,7 @@ func resourceVmwareengineNetworkPolicyRead(d *schema.ResourceData, meta interfac
 	}
 
 	log.Printf("[DEBUG] Finished reading VmwareengineNetworkPolicy %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading NetworkPolicy: %s", err)
 	}

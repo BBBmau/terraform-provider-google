@@ -537,6 +537,7 @@ func resourceNetworkConnectivityv1ServiceConnectionPolicyRead(d *schema.Resource
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkConnectivityv1ServiceConnectionPolicy %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ServiceConnectionPolicy: %s", err)
 	}

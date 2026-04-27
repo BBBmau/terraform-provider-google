@@ -753,6 +753,18 @@ func resourceComputeRegionDiskRead(d *schema.ResourceData, meta interface{}) err
 
 	log.Printf("[DEBUG] Finished reading ComputeRegionDisk %q: %#v", d.Id(), res)
 
+	res, err = resourceComputeRegionDiskDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeRegionDisk because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("create_snapshot_before_destroy"); !ok {
 		if err := d.Set("create_snapshot_before_destroy", false); err != nil {
@@ -1151,13 +1163,9 @@ func resourceComputeRegionDiskDelete(d *schema.ResourceData, meta interface{}) e
 				userAgent, d.Timeout(schema.TimeoutDelete))
 			if err != nil {
 				var opErr ComputeOperationError
-				if errors.As(err, &opErr) {
-					if rawErrors, _ := opErr["errors"].([]interface{}); len(rawErrors) == 1 {
-						if errMap, _ := rawErrors[0].(map[string]interface{}); errMap["code"] == "RESOURCE_NOT_FOUND" {
-							log.Printf("[WARN] instance %q was deleted while awaiting detach", call.instance)
-							continue
-						}
-					}
+				if errors.As(err, &opErr) && len(opErr.Errors) == 1 && opErr.Errors[0].Code == "RESOURCE_NOT_FOUND" {
+					log.Printf("[WARN] instance %q was deleted while awaiting detach", call.instance)
+					continue
 				}
 				return err
 			}
@@ -1876,18 +1884,6 @@ func resourceComputeRegionDiskDecoder(d *schema.ResourceData, meta interface{}, 
 
 func ResourceComputeRegionDiskFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceComputeRegionDiskDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeRegionDisk because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("disk_encryption_key", flattenComputeRegionDiskDiskEncryptionKey(res["diskEncryptionKey"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionDisk: %s", err)

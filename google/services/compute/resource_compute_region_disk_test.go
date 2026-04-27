@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"testing"
 
-	compute_tpg "github.com/hashicorp/terraform-provider-google/google/services/compute"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -427,7 +426,7 @@ func testAccCheckComputeRegionDiskExists(t *testing.T, n string, disk *compute.D
 
 		config := acctest.GoogleProviderConfig(t)
 
-		found, err := compute_tpg.NewClient(config, config.UserAgent).RegionDisks.Get(
+		found, err := config.NewComputeClient(config.UserAgent).RegionDisks.Get(
 			p, rs.Primary.Attributes["region"], rs.Primary.Attributes["name"]).Do()
 		if err != nil {
 			return err

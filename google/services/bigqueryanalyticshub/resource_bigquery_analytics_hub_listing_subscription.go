@@ -500,6 +500,31 @@ func resourceBigqueryAnalyticsHubListingSubscriptionRead(d *schema.ResourceData,
 	}
 
 	log.Printf("[DEBUG] Finished reading BigqueryAnalyticsHubListingSubscription %q: %#v", d.Id(), res)
+	// Set data_exchange_id and listing_id from res["listing"]
+	listing := res["listing"].(string)
+	parts := strings.Split(listing, "/")
+	if len(parts) != 8 {
+		return fmt.Errorf("Listing name %q is not in the expected format projects/*/locations/*/dataExchanges/*/listings/*", listing)
+	}
+	if err := d.Set("data_exchange_id", parts[5]); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
+	if err := d.Set("listing_id", parts[7]); err != nil {
+		return fmt.Errorf("Error reading ListingSubscription: %s", err)
+	}
+
+	res, err = resourceBigqueryAnalyticsHubListingSubscriptionDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing BigqueryAnalyticsHubListingSubscription because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ListingSubscription: %s", err)
 	}
@@ -989,30 +1014,6 @@ func resourceBigqueryAnalyticsHubListingSubscriptionPostCreateSetComputedFields(
 
 func ResourceBigqueryAnalyticsHubListingSubscriptionFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	// Set data_exchange_id and listing_id from res["listing"]
-	listing := res["listing"].(string)
-	parts := strings.Split(listing, "/")
-	if len(parts) != 8 {
-		return fmt.Errorf("Listing name %q is not in the expected format projects/*/locations/*/dataExchanges/*/listings/*", listing)
-	}
-	if err := d.Set("data_exchange_id", parts[5]); err != nil {
-		return fmt.Errorf("Error reading ListingSubscription: %s", err)
-	}
-	if err := d.Set("listing_id", parts[7]); err != nil {
-		return fmt.Errorf("Error reading ListingSubscription: %s", err)
-	}
-
-	res, err = resourceBigqueryAnalyticsHubListingSubscriptionDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing BigqueryAnalyticsHubListingSubscription because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("destination_dataset", flattenBigqueryAnalyticsHubListingSubscriptionDestinationDataset(res["destinationDataset"], d, config)); err != nil {
 		return fmt.Errorf("Error reading ListingSubscription: %s", err)

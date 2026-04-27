@@ -439,6 +439,19 @@ func resourceSpannerBackupScheduleRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading SpannerBackupSchedule %q: %#v", d.Id(), res)
+
+	res, err = resourceSpannerBackupScheduleDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing SpannerBackupSchedule because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading BackupSchedule: %s", err)
 	}
@@ -953,18 +966,6 @@ func resourceSpannerBackupScheduleDecoder(d *schema.ResourceData, meta interface
 
 func ResourceSpannerBackupScheduleFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceSpannerBackupScheduleDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing SpannerBackupSchedule because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenSpannerBackupScheduleName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackupSchedule: %s", err)

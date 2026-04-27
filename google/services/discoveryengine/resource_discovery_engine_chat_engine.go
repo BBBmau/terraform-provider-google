@@ -475,6 +475,7 @@ func resourceDiscoveryEngineChatEngineRead(d *schema.ResourceData, meta interfac
 	}
 
 	log.Printf("[DEBUG] Finished reading DiscoveryEngineChatEngine %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ChatEngine: %s", err)
 	}

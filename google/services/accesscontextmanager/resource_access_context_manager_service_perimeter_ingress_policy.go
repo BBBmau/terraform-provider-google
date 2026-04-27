@@ -580,6 +580,21 @@ func resourceAccessContextManagerServicePerimeterIngressPolicyRead(d *schema.Res
 	}
 
 	log.Printf("[DEBUG] Finished reading AccessContextManagerServicePerimeterIngressPolicy %q: %#v", d.Id(), res)
+	if err := d.Set("etag", res["etag"]); err != nil {
+		log.Printf("[ERROR] Unable to set etag: %s", err)
+	}
+
+	res, err = flattenNestedAccessContextManagerServicePerimeterIngressPolicy(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing AccessContextManagerServicePerimeterIngressPolicy because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
 
 	err = ResourceAccessContextManagerServicePerimeterIngressPolicyFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
@@ -1281,20 +1296,6 @@ func resourceAccessContextManagerServicePerimeterIngressPolicyListForPatch(d *sc
 
 func ResourceAccessContextManagerServicePerimeterIngressPolicyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	if err := d.Set("etag", res["etag"]); err != nil {
-		log.Printf("[ERROR] Unable to set etag: %s", err)
-	}
-	res, err = flattenNestedAccessContextManagerServicePerimeterIngressPolicy(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing AccessContextManagerServicePerimeterIngressPolicy because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("ingress_from", flattenNestedAccessContextManagerServicePerimeterIngressPolicyIngressFrom(res["ingressFrom"], d, config)); err != nil {
 		return fmt.Errorf("Error reading ServicePerimeterIngressPolicy: %s", err)

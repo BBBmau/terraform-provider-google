@@ -428,6 +428,7 @@ func resourceComputeRegionSslPolicyRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeRegionSslPolicy %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RegionSslPolicy: %s", err)
 	}

@@ -352,6 +352,31 @@ func resourceComputeGlobalNetworkEndpointRead(d *schema.ResourceData, meta inter
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeGlobalNetworkEndpoint %q: %#v", d.Id(), res)
+
+	res, err = flattenNestedComputeGlobalNetworkEndpoint(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputeGlobalNetworkEndpoint because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	res, err = resourceComputeGlobalNetworkEndpointDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeGlobalNetworkEndpoint because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading GlobalNetworkEndpoint: %s", err)
 	}
@@ -642,28 +667,6 @@ func resourceComputeGlobalNetworkEndpointDecoder(d *schema.ResourceData, meta in
 
 func ResourceComputeGlobalNetworkEndpointFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	res, err = flattenNestedComputeGlobalNetworkEndpoint(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputeGlobalNetworkEndpoint because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-	res, err = resourceComputeGlobalNetworkEndpointDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeGlobalNetworkEndpoint because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("port", flattenNestedComputeGlobalNetworkEndpointPort(res["port"], d, config)); err != nil {
 		return fmt.Errorf("Error reading GlobalNetworkEndpoint: %s", err)

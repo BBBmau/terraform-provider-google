@@ -942,6 +942,18 @@ func resourceRedisInstanceRead(d *schema.ResourceData, meta interface{}) error {
 
 	log.Printf("[DEBUG] Finished reading RedisInstance %q: %#v", d.Id(), res)
 
+	res, err = resourceRedisInstanceDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing RedisInstance because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)
@@ -2172,18 +2184,6 @@ func resourceRedisInstanceDecoder(d *schema.ResourceData, meta interface{}, res 
 
 func ResourceRedisInstanceFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceRedisInstanceDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing RedisInstance because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("alternative_location_id", flattenRedisInstanceAlternativeLocationId(res["alternativeLocationId"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Instance: %s", err)

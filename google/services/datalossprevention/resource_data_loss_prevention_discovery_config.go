@@ -1606,6 +1606,18 @@ func resourceDataLossPreventionDiscoveryConfigRead(d *schema.ResourceData, meta 
 
 	log.Printf("[DEBUG] Finished reading DataLossPreventionDiscoveryConfig %q: %#v", d.Id(), res)
 
+	res, err = resourceDataLossPreventionDiscoveryConfigDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing DataLossPreventionDiscoveryConfig because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceDataLossPreventionDiscoveryConfigFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -6072,18 +6084,6 @@ func resourceDataLossPreventionDiscoveryConfigPostCreateSetComputedFields(d *sch
 
 func ResourceDataLossPreventionDiscoveryConfigFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceDataLossPreventionDiscoveryConfigDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing DataLossPreventionDiscoveryConfig because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenDataLossPreventionDiscoveryConfigName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading DiscoveryConfig: %s", err)

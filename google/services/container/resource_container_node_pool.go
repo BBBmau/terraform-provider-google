@@ -33,7 +33,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	"github.com/hashicorp/terraform-provider-google/google/registry"
-	compute_tpg "github.com/hashicorp/terraform-provider-google/google/services/compute"
 	"github.com/hashicorp/terraform-provider-google/google/tpgresource"
 	transport_tpg "github.com/hashicorp/terraform-provider-google/google/transport"
 
@@ -141,7 +140,7 @@ func (instanceGroupManagerCache *instanceGroupManagerCache) refreshIfNeeded(d *s
 	}
 
 	updateTime := time.Now()
-	err := compute_tpg.NewClient(config, userAgent).InstanceGroupManagers.List(matches[1], matches[2]).Pages(context.Background(), instanceGroupManagerCache.processList(updateTime))
+	err := config.NewComputeClient(userAgent).InstanceGroupManagers.List(matches[1], matches[2]).Pages(context.Background(), instanceGroupManagerCache.processList(updateTime))
 	if err != nil {
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("InstanceGroupManagers for node pool %q", npName))
 	}
@@ -199,9 +198,9 @@ func ResourceContainerNodePool() *schema.Resource {
 		Exists: resourceContainerNodePoolExists,
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(60 * time.Minute),
-			Update: schema.DefaultTimeout(60 * time.Minute),
-			Delete: schema.DefaultTimeout(60 * time.Minute),
+			Create: schema.DefaultTimeout(30 * time.Minute),
+			Update: schema.DefaultTimeout(30 * time.Minute),
+			Delete: schema.DefaultTimeout(30 * time.Minute),
 		},
 
 		SchemaVersion: 1,

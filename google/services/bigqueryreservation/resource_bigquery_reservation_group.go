@@ -286,6 +286,7 @@ func resourceBigqueryReservationReservationGroupRead(d *schema.ResourceData, met
 	}
 
 	log.Printf("[DEBUG] Finished reading BigqueryReservationReservationGroup %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ReservationGroup: %s", err)
 	}

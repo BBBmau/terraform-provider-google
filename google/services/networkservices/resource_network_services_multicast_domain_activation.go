@@ -467,6 +467,7 @@ func resourceNetworkServicesMulticastDomainActivationRead(d *schema.ResourceData
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkServicesMulticastDomainActivation %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading MulticastDomainActivation: %s", err)
 	}

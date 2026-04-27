@@ -667,6 +667,7 @@ func resourceColabRuntimeTemplateRead(d *schema.ResourceData, meta interface{}) 
 	}
 
 	log.Printf("[DEBUG] Finished reading ColabRuntimeTemplate %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RuntimeTemplate: %s", err)
 	}

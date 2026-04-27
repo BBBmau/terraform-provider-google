@@ -441,13 +441,13 @@ func resourceComputeNetworkCreate(d *schema.ResourceData, meta interface{}) erro
 	if d.Get("delete_default_routes_on_create").(bool) {
 		token := ""
 		for paginate := true; paginate; {
-			network, err := NewClient(config, userAgent).Networks.Get(project, d.Get("name").(string)).Do()
+			network, err := config.NewComputeClient(userAgent).Networks.Get(project, d.Get("name").(string)).Do()
 			if err != nil {
 				return fmt.Errorf("Error finding network in proj: %s", err)
 			}
 			filter := fmt.Sprintf("(network=\"%s\") AND (destRange=\"0.0.0.0/0\")", network.SelfLink)
 			log.Printf("[DEBUG] Getting routes for network %q with filter '%q'", d.Get("name").(string), filter)
-			resp, err := NewClient(config, userAgent).Routes.List(project).Filter(filter).Do()
+			resp, err := config.NewComputeClient(userAgent).Routes.List(project).Filter(filter).Do()
 			if err != nil {
 				return fmt.Errorf("Error listing routes in proj: %s", err)
 			}
@@ -455,7 +455,7 @@ func resourceComputeNetworkCreate(d *schema.ResourceData, meta interface{}) erro
 			log.Printf("[DEBUG] Found %d routes rules in %q network", len(resp.Items), d.Get("name").(string))
 
 			for _, route := range resp.Items {
-				op, err := NewClient(config, userAgent).Routes.Delete(project, route.Name).Do()
+				op, err := config.NewComputeClient(userAgent).Routes.Delete(project, route.Name).Do()
 				if err != nil {
 					return fmt.Errorf("Error deleting route: %s", err)
 				}
@@ -530,6 +530,18 @@ func resourceComputeNetworkRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeNetwork %q: %#v", d.Id(), res)
+
+	res, err = resourceComputeNetworkDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeNetwork because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
 
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("delete_default_routes_on_create"); !ok {
@@ -1130,18 +1142,6 @@ func resourceComputeNetworkDecoder(d *schema.ResourceData, meta interface{}, res
 
 func ResourceComputeNetworkFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceComputeNetworkDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeNetwork because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("description", flattenComputeNetworkDescription(res["description"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Network: %s", err)

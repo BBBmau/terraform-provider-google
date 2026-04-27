@@ -423,6 +423,7 @@ func resourceEventarcMessageBusRead(d *schema.ResourceData, meta interface{}) er
 	}
 
 	log.Printf("[DEBUG] Finished reading EventarcMessageBus %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading MessageBus: %s", err)
 	}

@@ -388,6 +388,18 @@ func resourceSecretManagerRegionalRegionalSecretVersionRead(d *schema.ResourceDa
 
 	log.Printf("[DEBUG] Finished reading SecretManagerRegionalRegionalSecretVersion %q: %#v", d.Id(), res)
 
+	res, err = resourceSecretManagerRegionalRegionalSecretVersionDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing SecretManagerRegionalRegionalSecretVersion because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("deletion_policy"); !ok {
 		if err := d.Set("deletion_policy", "DELETE"); err != nil {
@@ -648,18 +660,6 @@ func resourceSecretManagerRegionalRegionalSecretVersionPostCreateSetComputedFiel
 
 func ResourceSecretManagerRegionalRegionalSecretVersionFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceSecretManagerRegionalRegionalSecretVersionDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing SecretManagerRegionalRegionalSecretVersion because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenSecretManagerRegionalRegionalSecretVersionName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionalSecretVersion: %s", err)

@@ -314,6 +314,7 @@ func resourceFirebaseAppCheckDeviceCheckConfigRead(d *schema.ResourceData, meta 
 	}
 
 	log.Printf("[DEBUG] Finished reading FirebaseAppCheckDeviceCheckConfig %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DeviceCheckConfig: %s", err)
 	}

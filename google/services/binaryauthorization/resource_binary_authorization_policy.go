@@ -443,6 +443,7 @@ func resourceBinaryAuthorizationPolicyRead(d *schema.ResourceData, meta interfac
 	}
 
 	log.Printf("[DEBUG] Finished reading BinaryAuthorizationPolicy %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Policy: %s", err)
 	}

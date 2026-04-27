@@ -583,6 +583,7 @@ func resourceVertexAIIndexRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	log.Printf("[DEBUG] Finished reading VertexAIIndex %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Index: %s", err)
 	}

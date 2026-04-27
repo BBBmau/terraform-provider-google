@@ -479,6 +479,7 @@ func resourceComputeNodeGroupRead(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeNodeGroup %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading NodeGroup: %s", err)
 	}

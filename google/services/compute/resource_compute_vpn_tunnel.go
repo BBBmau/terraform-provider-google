@@ -146,7 +146,7 @@ var invalidPeerAddrs = []struct {
 func getVpnTunnelLink(config *transport_tpg.Config, project, region, tunnel, userAgent string) (string, error) {
 	if !strings.Contains(tunnel, "/") {
 		// Tunnel value provided is just the name, lookup the tunnel SelfLink
-		tunnelData, err := NewClient(config, userAgent).VpnTunnels.Get(
+		tunnelData, err := config.NewComputeClient(userAgent).VpnTunnels.Get(
 			project, region, tunnel).Do()
 		if err != nil {
 			return "", fmt.Errorf("Error reading tunnel: %s", err)
@@ -885,6 +885,7 @@ func resourceComputeVpnTunnelRead(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeVpnTunnel %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading VpnTunnel: %s", err)
 	}

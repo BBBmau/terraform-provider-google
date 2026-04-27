@@ -318,6 +318,19 @@ func resourceComputeBackendServiceSignedUrlKeyRead(d *schema.ResourceData, meta 
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeBackendServiceSignedUrlKey %q: %#v", d.Id(), res)
+
+	res, err = flattenNestedComputeBackendServiceSignedUrlKey(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ComputeBackendServiceSignedUrlKey because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading BackendServiceSignedUrlKey: %s", err)
 	}
@@ -500,17 +513,6 @@ func resourceComputeBackendServiceSignedUrlKeyFindNestedObjectInList(d *schema.R
 
 func ResourceComputeBackendServiceSignedUrlKeyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	res, err = flattenNestedComputeBackendServiceSignedUrlKey(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ComputeBackendServiceSignedUrlKey because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenNestedComputeBackendServiceSignedUrlKeyName(res["keyName"], d, config)); err != nil {
 		return fmt.Errorf("Error reading BackendServiceSignedUrlKey: %s", err)

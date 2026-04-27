@@ -926,6 +926,7 @@ func resourceComputeInterconnectAttachmentRead(d *schema.ResourceData, meta inte
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeInterconnectAttachment %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading InterconnectAttachment: %s", err)
 	}

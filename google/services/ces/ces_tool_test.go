@@ -384,7 +384,7 @@ resource "google_ces_tool" "ces_tool_data_store_tool_engine_source_basic" {
             modality_type = "TEXT"
             rewriter_config {
                 model_settings {
-                    model = "gemini-3.0-flash-001"
+                    model = "gemini-2.5-flash-001"
                     temperature = 1
                 }
                 prompt = "example-prompt"
@@ -392,7 +392,7 @@ resource "google_ces_tool" "ces_tool_data_store_tool_engine_source_basic" {
             }
             summarization_config {
                 model_settings {
-                    model = "gemini-3.0-flash-001"
+                    model = "gemini-2.5-flash-001"
                     temperature = 1
                 }
                 prompt = "example-prompt"
@@ -414,6 +414,7 @@ resource "google_ces_tool" "ces_tool_data_store_tool_engine_source_basic" {
             }
             filter = "example_field: ANY(\"specific_example\")"
         }
+        max_results = 5
     }
 }
 `, context)
@@ -479,7 +480,7 @@ resource "google_ces_tool" "ces_tool_data_store_tool_engine_source_basic" {
             modality_type = "TEXT"
             rewriter_config {
                 model_settings {
-                    model = "gemini-3.0-flash-001"
+                    model = "gemini-2.5-flash-001"
                     temperature = 1
                 }
                 prompt = "example-prompt"
@@ -487,7 +488,7 @@ resource "google_ces_tool" "ces_tool_data_store_tool_engine_source_basic" {
             }
             summarization_config {
                 model_settings {
-                    model = "gemini-3.0-flash-001"
+                    model = "gemini-2.5-flash-001"
                     temperature = 1
                 }
                 prompt = "example-prompt"
@@ -509,6 +510,7 @@ resource "google_ces_tool" "ces_tool_data_store_tool_engine_source_basic" {
             }
             filter = "example_field: ANY(\"specific_example\")"
         }
+        max_results = 5
     }
 }
 `, context)

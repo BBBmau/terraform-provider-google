@@ -32,17 +32,9 @@ func DataSourceNetworkSecurityAddressGroups() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"project": {
-				Type:          schema.TypeString,
-				Optional:      true,
-				Computed:      true,
-				ConflictsWith: []string{"parent"},
-			},
-			"parent": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Description: `The parent of the Address Group. Use "organizations/{organization_id}" ` +
-					`for organization-level address groups or "projects/{project_id}" for project-level address groups.`,
-				ConflictsWith: []string{"project"},
+				Computed: true,
 			},
 			"location": {
 				Type:     schema.TypeString,
@@ -84,24 +76,15 @@ func dataSourceNetworkSecurityAddressGroups(d *schema.ResourceData, meta interfa
 		return err
 	}
 
+	project, err := tpgresource.GetProject(d, config)
+	if err != nil {
+		return err
+	}
 	location := d.Get("location").(string)
 
-	var url string
-	var project string
-
-	if parent, ok := d.GetOk("parent"); ok {
-		url = fmt.Sprintf("%s%s/locations/%s/addressGroups", config.NetworkSecurityBasePath, parent.(string), location)
-	} else {
-		// Project-level, defaults to provider project if not set
-		project, err = tpgresource.GetProject(d, config)
-		if err != nil {
-			return err
-		}
-
-		url, err = tpgresource.ReplaceVars(d, config, "{{NetworkSecurityBasePath}}projects/{{project}}/locations/{{location}}/addressGroups")
-		if err != nil {
-			return err
-		}
+	url, err := tpgresource.ReplaceVars(d, config, "{{NetworkSecurityBasePath}}projects/{{project}}/locations/{{location}}/addressGroups")
+	if err != nil {
+		return err
 	}
 
 	var allAddressGroups []interface{}
@@ -133,11 +116,7 @@ func dataSourceNetworkSecurityAddressGroups(d *schema.ResourceData, meta interfa
 	}
 
 	if len(allAddressGroups) == 0 {
-		if parent, ok := d.GetOk("parent"); ok {
-			log.Printf("[DEBUG] No Address Groups found for parent %s in location %s", parent.(string), location)
-		} else {
-			log.Printf("[DEBUG] No Address Groups found for project %s in location %s", project, location)
-		}
+		log.Printf("[DEBUG] No Address Groups found for project %s in location %s", project, location)
 	}
 
 	flattenedGroups := make([]map[string]interface{}, 0, len(allAddressGroups))
@@ -157,11 +136,7 @@ func dataSourceNetworkSecurityAddressGroups(d *schema.ResourceData, meta interfa
 		return fmt.Errorf("error setting address_groups state: %s", err)
 	}
 
-	if parent, ok := d.GetOk("parent"); ok {
-		d.SetId(fmt.Sprintf("%s/locations/%s", parent.(string), location))
-	} else {
-		d.SetId(fmt.Sprintf("projects/%s/locations/%s", project, location))
-	}
+	d.SetId(fmt.Sprintf("projects/%s/locations/%s", project, location))
 
 	return nil
 }

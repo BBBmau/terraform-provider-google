@@ -388,6 +388,7 @@ func resourceDiscoveryEngineServingConfigRead(d *schema.ResourceData, meta inter
 	}
 
 	log.Printf("[DEBUG] Finished reading DiscoveryEngineServingConfig %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ServingConfig: %s", err)
 	}

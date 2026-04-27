@@ -471,6 +471,7 @@ func resourceNetworkSecurityInterceptEndpointGroupRead(d *schema.ResourceData, m
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkSecurityInterceptEndpointGroup %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading InterceptEndpointGroup: %s", err)
 	}

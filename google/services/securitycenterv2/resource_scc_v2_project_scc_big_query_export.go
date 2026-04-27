@@ -372,6 +372,7 @@ func resourceSecurityCenterV2ProjectSccBigQueryExportRead(d *schema.ResourceData
 	}
 
 	log.Printf("[DEBUG] Finished reading SecurityCenterV2ProjectSccBigQueryExport %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ProjectSccBigQueryExport: %s", err)
 	}

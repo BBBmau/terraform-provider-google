@@ -318,6 +318,7 @@ func resourceComputePreviewFeatureRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputePreviewFeature %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading PreviewFeature: %s", err)
 	}

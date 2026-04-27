@@ -373,6 +373,7 @@ func resourceGKEBackupBackupChannelRead(d *schema.ResourceData, meta interface{}
 	}
 
 	log.Printf("[DEBUG] Finished reading GKEBackupBackupChannel %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading BackupChannel: %s", err)
 	}

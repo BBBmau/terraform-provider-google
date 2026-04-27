@@ -383,6 +383,7 @@ func resourceVertexAIDeploymentResourcePoolRead(d *schema.ResourceData, meta int
 	}
 
 	log.Printf("[DEBUG] Finished reading VertexAIDeploymentResourcePool %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DeploymentResourcePool: %s", err)
 	}

@@ -405,6 +405,7 @@ func resourceCertificateManagerCertificateMapEntryRead(d *schema.ResourceData, m
 	}
 
 	log.Printf("[DEBUG] Finished reading CertificateManagerCertificateMapEntry %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading CertificateMapEntry: %s", err)
 	}

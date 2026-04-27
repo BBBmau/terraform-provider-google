@@ -857,6 +857,18 @@ func resourceVmwareenginePrivateCloudRead(d *schema.ResourceData, meta interface
 
 	log.Printf("[DEBUG] Finished reading VmwareenginePrivateCloud %q: %#v", d.Id(), res)
 
+	res, err = resourceVmwareenginePrivateCloudDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing VmwareenginePrivateCloud because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading PrivateCloud: %s", err)
@@ -2196,18 +2208,6 @@ func resourceVmwareenginePrivateCloudDecoder(d *schema.ResourceData, meta interf
 
 func ResourceVmwareenginePrivateCloudFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceVmwareenginePrivateCloudDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing VmwareenginePrivateCloud because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("description", flattenVmwareenginePrivateCloudDescription(res["description"], d, config)); err != nil {
 		return fmt.Errorf("Error reading PrivateCloud: %s", err)

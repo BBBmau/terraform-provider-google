@@ -712,6 +712,19 @@ func resourceBigQueryDatasetAccessRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading BigQueryDatasetAccess %q: %#v", d.Id(), res)
+
+	res, err = flattenNestedBigQueryDatasetAccess(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing BigQueryDatasetAccess because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DatasetAccess: %s", err)
 	}
@@ -1474,17 +1487,6 @@ func resourceBigQueryDatasetAccessListForPatch(d *schema.ResourceData, meta inte
 
 func ResourceBigQueryDatasetAccessFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	res, err = flattenNestedBigQueryDatasetAccess(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing BigQueryDatasetAccess because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("role", flattenNestedBigQueryDatasetAccessRole(res["role"], d, config)); err != nil {
 		return fmt.Errorf("Error reading DatasetAccess: %s", err)

@@ -252,10 +252,10 @@ func ResourceContainerCluster() *schema.Resource {
 		),
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(90 * time.Minute),
-			Read:   schema.DefaultTimeout(90 * time.Minute),
-			Update: schema.DefaultTimeout(90 * time.Minute),
-			Delete: schema.DefaultTimeout(90 * time.Minute),
+			Create: schema.DefaultTimeout(40 * time.Minute),
+			Read:   schema.DefaultTimeout(40 * time.Minute),
+			Update: schema.DefaultTimeout(60 * time.Minute),
+			Delete: schema.DefaultTimeout(40 * time.Minute),
 		},
 
 		SchemaVersion: 2,
@@ -2114,11 +2114,10 @@ func ResourceContainerCluster() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"state": {
-							Type:             schema.TypeString,
-							Required:         true,
-							ValidateFunc:     validation.StringInSlice([]string{"ENCRYPTED", "ALL_OBJECTS_ENCRYPTION_ENABLED", "DECRYPTED"}, false),
-							Description:      `ENCRYPTED, ALL_OBJECTS_ENCRYPTION_ENABLED or DECRYPTED.`,
-							DiffSuppressFunc: DatabaseEncryptionSuppress,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.StringInSlice([]string{"ENCRYPTED", "DECRYPTED"}, false),
+							Description:  `ENCRYPTED or DECRYPTED.`,
 						},
 						"key_name": {
 							Type:        schema.TypeString,
@@ -7992,18 +7991,6 @@ func SecretManagerCfgSuppress(k, old, new string, r *schema.ResourceData) bool {
 				return !d["enabled"].(bool)
 			}
 		}
-	}
-	return false
-}
-
-func DatabaseEncryptionSuppress(k, old, new string, d *schema.ResourceData) bool {
-	// The API sometimes returns ALL_OBJECTS_ENCRYPTION_ENABLED when the user sets ENCRYPTED
-	// and vice versa (depending on the cluster version and underlying resource storage).
-	if old == "ALL_OBJECTS_ENCRYPTION_ENABLED" && new == "ENCRYPTED" {
-		return true
-	}
-	if old == "ENCRYPTED" && new == "ALL_OBJECTS_ENCRYPTION_ENABLED" {
-		return true
 	}
 	return false
 }

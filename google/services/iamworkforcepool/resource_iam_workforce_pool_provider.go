@@ -885,6 +885,18 @@ func resourceIAMWorkforcePoolWorkforcePoolProviderRead(d *schema.ResourceData, m
 
 	log.Printf("[DEBUG] Finished reading IAMWorkforcePoolWorkforcePoolProvider %q: %#v", d.Id(), res)
 
+	res, err = resourceIAMWorkforcePoolWorkforcePoolProviderDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePoolProvider because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceIAMWorkforcePoolWorkforcePoolProviderFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -2062,18 +2074,6 @@ func resourceIAMWorkforcePoolWorkforcePoolProviderDecoder(d *schema.ResourceData
 
 func ResourceIAMWorkforcePoolWorkforcePoolProviderFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceIAMWorkforcePoolWorkforcePoolProviderDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing IAMWorkforcePoolWorkforcePoolProvider because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenIAMWorkforcePoolWorkforcePoolProviderName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading WorkforcePoolProvider: %s", err)

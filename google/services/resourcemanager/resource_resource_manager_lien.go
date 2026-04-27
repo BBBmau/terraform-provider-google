@@ -312,6 +312,30 @@ func resourceResourceManagerLienRead(d *schema.ResourceData, meta interface{}) e
 
 	log.Printf("[DEBUG] Finished reading ResourceManagerLien %q: %#v", d.Id(), res)
 
+	res, err = flattenNestedResourceManagerLien(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Object isn't there any more - remove it from the state.
+		log.Printf("[DEBUG] Removing ResourceManagerLien because it couldn't be matched.")
+		d.SetId("")
+		return nil
+	}
+
+	res, err = resourceResourceManagerLienDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ResourceManagerLien because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceResourceManagerLienFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -600,28 +624,6 @@ func resourceResourceManagerLienPostCreateSetComputedFields(d *schema.ResourceDa
 
 func ResourceResourceManagerLienFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	res, err = flattenNestedResourceManagerLien(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Object isn't there any more - remove it from the state.
-		log.Printf("[DEBUG] Removing ResourceManagerLien because it couldn't be matched.")
-		d.SetId("")
-		return nil
-	}
-	res, err = resourceResourceManagerLienDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ResourceManagerLien because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("name", flattenNestedResourceManagerLienName(res["name"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Lien: %s", err)

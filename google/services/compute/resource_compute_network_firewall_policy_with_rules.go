@@ -983,6 +983,19 @@ func resourceComputeNetworkFirewallPolicyWithRulesRead(d *schema.ResourceData, m
 	}
 
 	log.Printf("[DEBUG] Finished reading ComputeNetworkFirewallPolicyWithRules %q: %#v", d.Id(), res)
+
+	res, err = resourceComputeNetworkFirewallPolicyWithRulesDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeNetworkFirewallPolicyWithRules because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading NetworkFirewallPolicyWithRules: %s", err)
 	}
@@ -2168,18 +2181,6 @@ func resourceComputeNetworkFirewallPolicyWithRulesDecoder(d *schema.ResourceData
 
 func ResourceComputeNetworkFirewallPolicyWithRulesFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceComputeNetworkFirewallPolicyWithRulesDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeNetworkFirewallPolicyWithRules because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("creation_timestamp", flattenComputeNetworkFirewallPolicyWithRulesCreationTimestamp(res["creationTimestamp"], d, config)); err != nil {
 		return fmt.Errorf("Error reading NetworkFirewallPolicyWithRules: %s", err)

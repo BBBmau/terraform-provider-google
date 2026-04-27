@@ -471,6 +471,7 @@ func resourceIAM3ProjectsPolicyBindingRead(d *schema.ResourceData, meta interfac
 	}
 
 	log.Printf("[DEBUG] Finished reading IAM3ProjectsPolicyBinding %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading ProjectsPolicyBinding: %s", err)
 	}

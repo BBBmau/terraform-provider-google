@@ -144,11 +144,10 @@ func ResourceComputeInstanceGroup() *schema.Resource {
 	}
 }
 
-func getInstanceReferences(instanceUrls []string) []interface{} {
-	var refs []interface{}
+func getInstanceReferences(instanceUrls []string) (refs []*compute.InstanceReference) {
 	for _, v := range instanceUrls {
-		refs = append(refs, map[string]interface{}{
-			"instance": v,
+		refs = append(refs, &compute.InstanceReference{
+			Instance: v,
 		})
 	}
 	return refs
@@ -182,36 +181,26 @@ func resourceComputeInstanceGroupCreate(d *schema.ResourceData, meta interface{}
 	name := d.Get("name").(string)
 
 	// Build the parameter
-	instanceGroup := map[string]interface{}{
-		"name": name,
+	instanceGroup := &compute.InstanceGroup{
+		Name: name,
 	}
 
 	// Set optional fields
 	if v, ok := d.GetOk("description"); ok {
-		instanceGroup["description"] = v.(string)
+		instanceGroup.Description = v.(string)
 	}
 
 	if v, ok := d.GetOk("named_port"); ok {
-		instanceGroup["namedPorts"] = getNamedPorts(v.([]interface{}))
+		instanceGroup.NamedPorts = getNamedPorts(v.([]interface{}))
 	}
 
 	if v, ok := d.GetOk("network"); ok {
-		instanceGroup["network"] = v.(string)
+		instanceGroup.Network = v.(string)
 	}
 
 	log.Printf("[DEBUG] InstanceGroup insert request: %#v", instanceGroup)
-	url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instanceGroups")
-	if err != nil {
-		return fmt.Errorf("Error creating InstanceGroup: %s", err)
-	}
-	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "POST",
-		Project:   project,
-		RawURL:    url,
-		UserAgent: userAgent,
-		Body:      instanceGroup,
-	})
+	op, err := config.NewComputeClient(userAgent).InstanceGroups.Insert(
+		project, zone, instanceGroup).Do()
 	if err != nil {
 		return fmt.Errorf("Error creating InstanceGroup: %s", err)
 	}
@@ -220,7 +209,7 @@ func resourceComputeInstanceGroupCreate(d *schema.ResourceData, meta interface{}
 	d.SetId(fmt.Sprintf("projects/%s/zones/%s/instanceGroups/%s", project, zone, name))
 
 	// Wait for the operation to complete
-	err = ComputeOperationWaitTime(config, res, project, "Creating InstanceGroup", userAgent, d.Timeout(schema.TimeoutCreate))
+	err = ComputeOperationWaitTime(config, op, project, "Creating InstanceGroup", userAgent, d.Timeout(schema.TimeoutCreate))
 	if err != nil {
 		d.SetId("")
 		return err
@@ -242,29 +231,19 @@ func resourceComputeInstanceGroupCreate(d *schema.ResourceData, meta interface{}
 			}
 		}
 
-		addInstanceReq := map[string]interface{}{
-			"instances": getInstanceReferences(instanceUrls),
+		addInstanceReq := &compute.InstanceGroupsAddInstancesRequest{
+			Instances: getInstanceReferences(instanceUrls),
 		}
 
 		log.Printf("[DEBUG] InstanceGroup add instances request: %#v", addInstanceReq)
-		url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instanceGroups/{{name}}/addInstances")
-		if err != nil {
-			return err
-		}
-		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-			Config:    config,
-			Method:    "POST",
-			Project:   project,
-			RawURL:    url,
-			UserAgent: userAgent,
-			Body:      addInstanceReq,
-		})
+		op, err := config.NewComputeClient(userAgent).InstanceGroups.AddInstances(
+			project, zone, name, addInstanceReq).Do()
 		if err != nil {
 			return fmt.Errorf("Error adding instances to InstanceGroup: %s", err)
 		}
 
 		// Wait for the operation to complete
-		err = ComputeOperationWaitTime(config, res, project, "Adding instances to InstanceGroup", userAgent, d.Timeout(schema.TimeoutCreate))
+		err = ComputeOperationWaitTime(config, op, project, "Adding instances to InstanceGroup", userAgent, d.Timeout(schema.TimeoutCreate))
 		if err != nil {
 			return err
 		}
@@ -292,77 +271,18 @@ func resourceComputeInstanceGroupRead(d *schema.ResourceData, meta interface{}) 
 	name := d.Get("name").(string)
 
 	// retrieve instance group
-	url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instanceGroups/{{name}}")
-	if err != nil {
-		return err
-	}
-	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "GET",
-		Project:   project,
-		RawURL:    url,
-		UserAgent: userAgent,
-	})
+	instanceGroup, err := config.NewComputeClient(userAgent).InstanceGroups.Get(
+		project, zone, name).Do()
 	if err != nil {
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("Instance Group %q", name))
 	}
 
-	instanceGroup := &struct {
-		Description string
-		Network     string
-		Size        int64
-		SelfLink    string
-		NamedPorts  []*compute.NamedPort
-	}{}
-	if v, ok := res["description"].(string); ok {
-		instanceGroup.Description = v
-	}
-	if v, ok := res["network"].(string); ok {
-		instanceGroup.Network = v
-	}
-	if v, ok := res["selfLink"].(string); ok {
-		instanceGroup.SelfLink = v
-	}
-	if v, ok := res["size"].(float64); ok {
-		instanceGroup.Size = int64(v)
-	}
-	if rawPorts, ok := res["namedPorts"].([]interface{}); ok {
-		for _, rawPort := range rawPorts {
-			if p, ok := rawPort.(map[string]interface{}); ok {
-				port := &compute.NamedPort{}
-				if v, ok := p["name"].(string); ok {
-					port.Name = v
-				}
-				if v, ok := p["port"].(float64); ok {
-					port.Port = int64(v)
-				}
-				instanceGroup.NamedPorts = append(instanceGroup.NamedPorts, port)
-			}
-		}
-	}
-
 	// retrieve instance group members
 	var memberUrls []string
-	url, err = tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}projects/{{project}}/zones/{{zone}}/instanceGroups/{{name}}/listInstances")
-	if err != nil {
-		return err
-	}
-	reqBody := map[string]interface{}{
-		"instanceState": "ALL",
-	}
-	resp, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "POST",
-		Project:   project,
-		RawURL:    url,
-		UserAgent: userAgent,
-		Body:      reqBody,
-	})
-	var members struct {
-		Items []struct {
-			Instance string
-		}
-	}
+	members, err := config.NewComputeClient(userAgent).InstanceGroups.ListInstances(
+		project, zone, name, &compute.InstanceGroupsListInstancesRequest{
+			InstanceState: "ALL",
+		}).Do()
 	if err != nil {
 		if gerr, ok := err.(*googleapi.Error); ok && gerr.Code == 404 {
 			// The resource doesn't have any instances
@@ -374,17 +294,6 @@ func resourceComputeInstanceGroupRead(d *schema.ResourceData, meta interface{}) 
 			return fmt.Errorf("Error reading InstanceGroup Members: %s", err)
 		}
 	} else {
-		if rawItems, ok := resp["items"].([]interface{}); ok {
-			for _, rawItem := range rawItems {
-				if m, ok := rawItem.(map[string]interface{}); ok {
-					if instance, ok := m["instance"].(string); ok {
-						members.Items = append(members.Items, struct {
-							Instance string
-						}{Instance: instance})
-					}
-				}
-			}
-		}
 		for _, member := range members.Items {
 			memberUrls = append(memberUrls, member.Instance)
 		}
@@ -457,24 +366,13 @@ func resourceComputeInstanceGroupUpdate(d *schema.ResourceData, meta interface{}
 		add, remove := tpgresource.CalcAddRemove(from, to)
 
 		if len(remove) > 0 {
-			removeReq := map[string]interface{}{
-				"instances": getInstanceReferences(remove),
+			removeReq := &compute.InstanceGroupsRemoveInstancesRequest{
+				Instances: getInstanceReferences(remove),
 			}
 
 			log.Printf("[DEBUG] InstanceGroup remove instances request: %#v", removeReq)
-			url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}")
-			if err != nil {
-				return err
-			}
-			url = fmt.Sprintf("%sprojects/%s/zones/%s/instanceGroups/%s/removeInstances", url, project, zone, name)
-			res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-				Config:    config,
-				Method:    "POST",
-				Project:   project,
-				RawURL:    url,
-				UserAgent: userAgent,
-				Body:      removeReq,
-			})
+			removeOp, err := config.NewComputeClient(userAgent).InstanceGroups.RemoveInstances(
+				project, zone, name, removeReq).Do()
 			if err != nil {
 				if gerr, ok := err.(*googleapi.Error); ok && gerr.Code == 404 {
 					log.Printf("[WARN] Instances already removed from InstanceGroup: %s", remove)
@@ -483,7 +381,7 @@ func resourceComputeInstanceGroupUpdate(d *schema.ResourceData, meta interface{}
 				}
 			} else {
 				// Wait for the operation to complete
-				err = ComputeOperationWaitTime(config, res, project, "Updating InstanceGroup", userAgent, d.Timeout(schema.TimeoutUpdate))
+				err = ComputeOperationWaitTime(config, removeOp, project, "Updating InstanceGroup", userAgent, d.Timeout(schema.TimeoutUpdate))
 				if err != nil {
 					return err
 				}
@@ -492,30 +390,19 @@ func resourceComputeInstanceGroupUpdate(d *schema.ResourceData, meta interface{}
 
 		if len(add) > 0 {
 
-			addReq := map[string]interface{}{
-				"instances": getInstanceReferences(add),
+			addReq := &compute.InstanceGroupsAddInstancesRequest{
+				Instances: getInstanceReferences(add),
 			}
 
 			log.Printf("[DEBUG] InstanceGroup adding instances request: %#v", addReq)
-			url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}")
-			if err != nil {
-				return err
-			}
-			url = fmt.Sprintf("%sprojects/%s/zones/%s/instanceGroups/%s/addInstances", url, project, zone, name)
-			res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-				Config:    config,
-				Method:    "POST",
-				Project:   project,
-				RawURL:    url,
-				UserAgent: userAgent,
-				Body:      addReq,
-			})
+			addOp, err := config.NewComputeClient(userAgent).InstanceGroups.AddInstances(
+				project, zone, name, addReq).Do()
 			if err != nil {
 				return fmt.Errorf("Error adding instances from InstanceGroup: %s", err)
 			}
 
 			// Wait for the operation to complete
-			err = ComputeOperationWaitTime(config, res, project, "Updating InstanceGroup", userAgent, d.Timeout(schema.TimeoutUpdate))
+			err = ComputeOperationWaitTime(config, addOp, project, "Updating InstanceGroup", userAgent, d.Timeout(schema.TimeoutUpdate))
 			if err != nil {
 				return err
 			}
@@ -525,29 +412,18 @@ func resourceComputeInstanceGroupUpdate(d *schema.ResourceData, meta interface{}
 	if d.HasChange("named_port") {
 		namedPorts := getNamedPorts(d.Get("named_port").([]interface{}))
 
-		namedPortsReq := map[string]interface{}{
-			"namedPorts": namedPorts,
+		namedPortsReq := &compute.InstanceGroupsSetNamedPortsRequest{
+			NamedPorts: namedPorts,
 		}
 
 		log.Printf("[DEBUG] InstanceGroup updating named ports request: %#v", namedPortsReq)
-		url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}")
-		if err != nil {
-			return err
-		}
-		url = fmt.Sprintf("%sprojects/%s/zones/%s/instanceGroups/%s/setNamedPorts", url, project, zone, name)
-		res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-			Config:    config,
-			Method:    "POST",
-			Project:   project,
-			RawURL:    url,
-			UserAgent: userAgent,
-			Body:      namedPortsReq,
-		})
+		op, err := config.NewComputeClient(userAgent).InstanceGroups.SetNamedPorts(
+			project, zone, name, namedPortsReq).Do()
 		if err != nil {
 			return fmt.Errorf("Error updating named ports for InstanceGroup: %s", err)
 		}
 
-		err = ComputeOperationWaitTime(config, res, project, "Updating InstanceGroup", userAgent, d.Timeout(schema.TimeoutUpdate))
+		err = ComputeOperationWaitTime(config, op, project, "Updating InstanceGroup", userAgent, d.Timeout(schema.TimeoutUpdate))
 		if err != nil {
 			return err
 		}
@@ -575,23 +451,12 @@ func resourceComputeInstanceGroupDelete(d *schema.ResourceData, meta interface{}
 		return err
 	}
 	name := d.Get("name").(string)
-	url, err := tpgresource.ReplaceVars(d, config, "{{ComputeBasePath}}")
-	if err != nil {
-		return err
-	}
-	url = fmt.Sprintf("%sprojects/%s/zones/%s/instanceGroups/%s", url, project, zone, name)
-	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "DELETE",
-		Project:   project,
-		RawURL:    url,
-		UserAgent: userAgent,
-	})
+	op, err := config.NewComputeClient(userAgent).InstanceGroups.Delete(project, zone, name).Do()
 	if err != nil {
 		return fmt.Errorf("Error deleting InstanceGroup: %s", err)
 	}
 
-	err = ComputeOperationWaitTime(config, res, project, "Deleting InstanceGroup", userAgent, d.Timeout(schema.TimeoutDelete))
+	err = ComputeOperationWaitTime(config, op, project, "Deleting InstanceGroup", userAgent, d.Timeout(schema.TimeoutDelete))
 	if err != nil {
 		return err
 	}

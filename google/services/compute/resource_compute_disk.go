@@ -365,6 +365,10 @@ func ExpandStoragePoolUrl(v interface{}, d tpgresource.TerraformResourceData, co
 	if err != nil {
 		return "", err
 	}
+	zone, err := tpgresource.GetZone(d, config)
+	if err != nil {
+		return "", err
+	}
 
 	formattedStr := v.(string)
 	if strings.HasPrefix(v.(string), "/") {
@@ -382,12 +386,6 @@ func ExpandStoragePoolUrl(v interface{}, d tpgresource.TerraformResourceData, co
 		// For regional or zonal resources which include their region or zone, just put the project in front.
 		replacedStr = config.ComputeBasePath + "projects/" + project + "/" + formattedStr
 	} else {
-		// Resources like instance template do not have a zone argument.
-		// In this case, run GetZone when it is strictly necessary.
-		zone, err := tpgresource.GetZone(d, config)
-		if err != nil {
-			return "", err
-		}
 		// Anything else is assumed to be a zonal resource, with a partial link that begins with the resource name.
 		replacedStr = config.ComputeBasePath + "projects/" + project + "/zones/" + zone + "/storagePools/" + formattedStr
 	}
@@ -1299,6 +1297,18 @@ func resourceComputeDiskRead(d *schema.ResourceData, meta interface{}) error {
 
 	log.Printf("[DEBUG] Finished reading ComputeDisk %q: %#v", d.Id(), res)
 
+	res, err = resourceComputeDiskDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing ComputeDisk because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("create_snapshot_before_destroy"); !ok {
 		if err := d.Set("create_snapshot_before_destroy", false); err != nil {
@@ -1640,13 +1650,9 @@ func resourceComputeDiskDelete(d *schema.ResourceData, meta interface{}) error {
 				userAgent, d.Timeout(schema.TimeoutDelete))
 			if err != nil {
 				var opErr ComputeOperationError
-				if errors.As(err, &opErr) {
-					if rawErrors, _ := opErr["errors"].([]interface{}); len(rawErrors) == 1 {
-						if errMap, _ := rawErrors[0].(map[string]interface{}); errMap["code"] == "RESOURCE_NOT_FOUND" {
-							log.Printf("[WARN] instance %q was deleted while awaiting detach", call.instance)
-							continue
-						}
-					}
+				if errors.As(err, &opErr) && len(opErr.Errors) == 1 && opErr.Errors[0].Code == "RESOURCE_NOT_FOUND" {
+					log.Printf("[WARN] instance %q was deleted while awaiting detach", call.instance)
+					continue
 				}
 				return err
 			}
@@ -2571,18 +2577,6 @@ func resourceComputeDiskDecoder(d *schema.ResourceData, meta interface{}, res ma
 
 func ResourceComputeDiskFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceComputeDiskDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ComputeDisk because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("source_image_encryption_key", flattenComputeDiskSourceImageEncryptionKey(res["sourceImageEncryptionKey"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Disk: %s", err)

@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-provider-google/google/acctest"
 	"github.com/hashicorp/terraform-provider-google/google/envvar"
-	"github.com/hashicorp/terraform-provider-google/google/services/compute"
 )
 
 func TestAccComputeRouterInterface_basic(t *testing.T) {
@@ -186,7 +185,7 @@ func testAccCheckComputeRouterInterfaceDestroyProducer(t *testing.T) func(s *ter
 	return func(s *terraform.State) error {
 		config := acctest.GoogleProviderConfig(t)
 
-		routersService := compute.NewClient(config, config.UserAgent).Routers
+		routersService := config.NewComputeClient(config.UserAgent).Routers
 
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "google_compute_router" {
@@ -221,7 +220,7 @@ func testAccCheckComputeRouterInterfaceDelete(t *testing.T, n string) resource.T
 	return func(s *terraform.State) error {
 		config := acctest.GoogleProviderConfig(t)
 
-		routersService := compute.NewClient(config, config.UserAgent).Routers
+		routersService := config.NewComputeClient(config.UserAgent).Routers
 
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "google_compute_router_interface" {
@@ -286,7 +285,7 @@ func testAccCheckComputeRouterInterfaceExists(t *testing.T, n string) resource.T
 		name := rs.Primary.Attributes["name"]
 		routerName := rs.Primary.Attributes["router"]
 
-		routersService := compute.NewClient(config, config.UserAgent).Routers
+		routersService := config.NewComputeClient(config.UserAgent).Routers
 		router, err := routersService.Get(project, region, routerName).Do()
 
 		if err != nil {

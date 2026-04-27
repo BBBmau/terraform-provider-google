@@ -386,6 +386,7 @@ func resourceParameterManagerRegionalRegionalParameterRead(d *schema.ResourceDat
 	}
 
 	log.Printf("[DEBUG] Finished reading ParameterManagerRegionalRegionalParameter %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading RegionalParameter: %s", err)
 	}

@@ -1585,7 +1585,7 @@ func getInstance(config *transport_tpg.Config, d *schema.ResourceData) (*compute
 	if err != nil {
 		return nil, err
 	}
-	instance, err := NewClient(config, userAgent).Instances.Get(project, zone, d.Get("name").(string)).Do()
+	instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, d.Get("name").(string)).Do()
 	if err != nil {
 		return nil, transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("Instance %s", d.Get("name").(string)))
 	}
@@ -1603,7 +1603,7 @@ func getDisk(diskUri string, d *schema.ResourceData, config *transport_tpg.Confi
 		return nil, err
 	}
 
-	disk, err := NewClient(config, userAgent).Disks.Get(source.Project, source.Zone, source.Name).Do()
+	disk, err := config.NewComputeClient(userAgent).Disks.Get(source.Project, source.Zone, source.Name).Do()
 	if err != nil {
 		return nil, err
 	}
@@ -1745,9 +1745,9 @@ func changeInstanceStatusOnCreation(config *transport_tpg.Config, d *schema.Reso
 	var op *compute.Operation
 	var err error
 	if status == "TERMINATED" {
-		op, err = NewClient(config, userAgent).Instances.Stop(project, zone, d.Get("name").(string)).Do()
+		op, err = config.NewComputeClient(userAgent).Instances.Stop(project, zone, d.Get("name").(string)).Do()
 	} else if status == "SUSPENDED" {
-		op, err = NewClient(config, userAgent).Instances.Suspend(project, zone, d.Get("name").(string)).Do()
+		op, err = config.NewComputeClient(userAgent).Instances.Suspend(project, zone, d.Get("name").(string)).Do()
 	}
 	if err != nil {
 		return fmt.Errorf("Error changing instance status after creation: %s", err)
@@ -1814,7 +1814,7 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 		return err
 	}
 	log.Printf("[DEBUG] Loading zone: %s", z)
-	zone, err := NewClient(config, userAgent).Zones.Get(
+	zone, err := config.NewComputeClient(userAgent).Zones.Get(
 		project, z).Do()
 	if err != nil {
 		return fmt.Errorf("Error loading zone '%s': %s", z, err)
@@ -1826,7 +1826,7 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 	}
 
 	log.Printf("[INFO] Requesting instance creation")
-	op, err := NewClient(config, userAgent).Instances.Insert(project, zone.Name, instance).Do()
+	op, err := config.NewComputeClient(userAgent).Instances.Insert(project, zone.Name, instance).Do()
 	if err != nil {
 		return fmt.Errorf("Error creating instance: %s", err)
 	}
@@ -2168,7 +2168,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 	// Use beta api directly in order to read network_interface.fingerprint without having to put it in the schema.
 	// Change back to getInstance(config, d) once updating alias ips is GA.
-	instance, err := NewClient(config, userAgent).Instances.Get(project, zone, d.Get("name").(string)).Do()
+	instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, d.Get("name").(string)).Do()
 	if err != nil {
 		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("Instance %s", d.Get("name").(string)))
 	}
@@ -2179,14 +2179,14 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 	if d.HasChange("description") {
 		err = transport_tpg.Retry(transport_tpg.RetryOptions{
 			RetryFunc: func() error {
-				instance, err := NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+				instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 				if err != nil {
 					return fmt.Errorf("Error retrieving instance: %s", err)
 				}
 
 				instance.Description = d.Get("description").(string)
 
-				op, err := NewClient(config, userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
+				op, err := config.NewComputeClient(userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
 				if err != nil {
 					return fmt.Errorf("Error updating instance: %s", err)
 				}
@@ -2221,14 +2221,14 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			RetryFunc: func() error {
 				// retrieve up-to-date metadata from the API in case several updates hit simultaneously. instances
 				// sometimes but not always share metadata fingerprints.
-				instance, err := NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+				instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 				if err != nil {
 					return fmt.Errorf("Error retrieving metadata: %s", err)
 				}
 
 				metadataV1.Fingerprint = instance.Metadata.Fingerprint
 
-				op, err := NewClient(config, userAgent).Instances.SetMetadata(project, zone, instance.Name, metadataV1).Do()
+				op, err := config.NewComputeClient(userAgent).Instances.SetMetadata(project, zone, instance.Name, metadataV1).Do()
 				if err != nil {
 					return fmt.Errorf("Error updating metadata: %s", err)
 				}
@@ -2253,7 +2253,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		if err := tpgresource.Convert(tags, tagsV1); err != nil {
 			return err
 		}
-		op, err := NewClient(config, userAgent).Instances.SetTags(
+		op, err := config.NewComputeClient(userAgent).Instances.SetTags(
 			project, zone, d.Get("name").(string), tagsV1).Do()
 		if err != nil {
 			return fmt.Errorf("Error updating tags: %s", err)
@@ -2270,7 +2270,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		labelFingerprint := d.Get("label_fingerprint").(string)
 		req := compute.InstancesSetLabelsRequest{Labels: labels, LabelFingerprint: labelFingerprint}
 
-		op, err := NewClient(config, userAgent).Instances.SetLabels(project, zone, instance.Name, &req).Do()
+		op, err := config.NewComputeClient(userAgent).Instances.SetLabels(project, zone, instance.Name, &req).Do()
 		if err != nil {
 			return fmt.Errorf("Error updating labels: %s", err)
 		}
@@ -2284,7 +2284,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 	if d.HasChange("params.0.resource_manager_tags") {
 		err = transport_tpg.Retry(transport_tpg.RetryOptions{
 			RetryFunc: func() error {
-				instance, err := NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+				instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 				if err != nil {
 					return fmt.Errorf("Error retrieving instance: %s", err)
 				}
@@ -2296,7 +2296,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 				instance.Params = params
 
-				op, err := NewClient(config, userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
+				op, err := config.NewComputeClient(userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
 				if err != nil {
 					return fmt.Errorf("Error updating instance: %s", err)
 				}
@@ -2319,7 +2319,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		if len(instance.ResourcePolicies) > 0 {
 			req := compute.InstancesRemoveResourcePoliciesRequest{ResourcePolicies: instance.ResourcePolicies}
 
-			op, err := NewClient(config, userAgent).Instances.RemoveResourcePolicies(project, zone, instance.Name, &req).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.RemoveResourcePolicies(project, zone, instance.Name, &req).Do()
 			if err != nil {
 				return fmt.Errorf("Error removing existing resource policies: %s", err)
 			}
@@ -2334,7 +2334,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		if len(resourcePolicies) > 0 {
 			req := compute.InstancesAddResourcePoliciesRequest{ResourcePolicies: resourcePolicies}
 
-			op, err := NewClient(config, userAgent).Instances.AddResourcePolicies(project, zone, instance.Name, &req).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.AddResourcePolicies(project, zone, instance.Name, &req).Do()
 			if err != nil {
 				return fmt.Errorf("Error adding resource policies: %s", err)
 			}
@@ -2354,7 +2354,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			return fmt.Errorf("Error creating request data to update scheduling: %s", err)
 		}
 
-		op, err := NewClient(config, userAgent).Instances.SetScheduling(
+		op, err := config.NewComputeClient(userAgent).Instances.SetScheduling(
 			project, zone, instance.Name, scheduling).Do()
 		if err != nil {
 			return fmt.Errorf("Error updating scheduling policy: %s", err)
@@ -2378,7 +2378,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		return fmt.Errorf("Instance had unexpected number of network interfaces: %d", len(instance.NetworkInterfaces))
 	}
 
-	var updatesToNIWhileStopped []func(inst map[string]interface{}) error
+	var updatesToNIWhileStopped []func(inst *compute.Instance) error
 	for i := 0; i < len(networkInterfaces); i++ {
 		prefix := fmt.Sprintf("network_interface.%d", i)
 		networkInterface := networkInterfaces[i]
@@ -2407,7 +2407,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				if err != nil {
 					return fmt.Errorf("Cannot determine self_link for subnetwork %q: %s", subnetwork, err)
 				}
-				resp, err := NewClient(config, userAgent).Subnetworks.Get(sf.Project, sf.Region, sf.Name).Do()
+				resp, err := config.NewComputeClient(userAgent).Subnetworks.Get(sf.Project, sf.Region, sf.Name).Do()
 				if err != nil {
 					return errwrap.Wrapf("Error getting subnetwork value: {{err}}", err)
 				}
@@ -2427,31 +2427,19 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			// necessary, and also add before removing.
 
 			// Delete current access configs
-			instNiMap, err := tpgresource.ConvertToMap(instNetworkInterface)
-			if err != nil {
-				return fmt.Errorf("Error converting network interface to map: %w", err)
-			}
-			err = computeInstanceDeleteAccessConfigs(d, config, instNiMap, project, zone, userAgent, instance.Name)
+			err := computeInstanceDeleteAccessConfigs(d, config, instNetworkInterface, project, zone, userAgent, instance.Name)
 			if err != nil {
 				return err
 			}
 
 			// Create new ones
-			acMaps := make([]interface{}, len(networkInterface.AccessConfigs))
-			for j, ac := range networkInterface.AccessConfigs {
-				acMap, err := tpgresource.ConvertToMap(ac)
-				if err != nil {
-					return fmt.Errorf("Error converting access config to map: %w", err)
-				}
-				acMaps[j] = acMap
-			}
-			err = computeInstanceAddAccessConfigs(d, config, instNiMap, acMaps, project, zone, userAgent, instance.Name)
+			err = computeInstanceAddAccessConfigs(d, config, instNetworkInterface, networkInterface.AccessConfigs, project, zone, userAgent, instance.Name)
 			if err != nil {
 				return err
 			}
 
 			// re-read fingerprint
-			instance, err = NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+			instance, err = config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 			if err != nil {
 				return err
 			}
@@ -2469,7 +2457,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				if commonAliasIpRanges := CheckForCommonAliasIp(instNetworkInterface, networkInterface); len(commonAliasIpRanges) > 0 {
 					ni.AliasIpRanges = commonAliasIpRanges
 				}
-				op, err := NewClient(config, userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, ni).Do()
+				op, err := config.NewComputeClient(userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, ni).Do()
 				if err != nil {
 					return errwrap.Wrapf("Error removing alias_ip_range: {{err}}", err)
 				}
@@ -2478,7 +2466,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 					return opErr
 				}
 				// re-read fingerprint
-				instance, err = NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+				instance, err = config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 				if err != nil {
 					return err
 				}
@@ -2489,7 +2477,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				AliasIpRanges: networkInterface.AliasIpRanges,
 				Fingerprint:   instNetworkInterface.Fingerprint,
 			}
-			updateCall := NewClient(config, userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
+			updateCall := config.NewComputeClient(userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
 			op, err := updateCall()
 			if err != nil {
 				return errwrap.Wrapf("Error updating network interface: {{err}}", err)
@@ -2506,7 +2494,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				StackType:   d.Get(prefix + ".stack_type").(string),
 				Fingerprint: instNetworkInterface.Fingerprint,
 			}
-			updateCall := NewClient(config, userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
+			updateCall := config.NewComputeClient(userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
 			op, err := updateCall()
 			if err != nil {
 				return errwrap.Wrapf("Error updating network interface: {{err}}", err)
@@ -2523,7 +2511,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				IgmpQuery:   d.Get(prefix + ".igmp_query").(string),
 				Fingerprint: instNetworkInterface.Fingerprint,
 			}
-			updateCall := NewClient(config, userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
+			updateCall := config.NewComputeClient(userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
 			op, err := updateCall()
 			if err != nil {
 				return errwrap.Wrapf("Error updating network interface: {{err}}", err)
@@ -2540,7 +2528,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				Ipv6Address: d.Get(prefix + ".ipv6_address").(string),
 				Fingerprint: instNetworkInterface.Fingerprint,
 			}
-			updateCall := NewClient(config, userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
+			updateCall := config.NewComputeClient(userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
 			op, err := updateCall()
 			if err != nil {
 				return errwrap.Wrapf("Error updating network interface: {{err}}", err)
@@ -2557,7 +2545,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				InternalIpv6PrefixLength: d.Get(prefix + ".internal_ipv6_prefix_length").(int64),
 				Fingerprint:              instNetworkInterface.Fingerprint,
 			}
-			updateCall := NewClient(config, userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
+			updateCall := config.NewComputeClient(userAgent).Instances.UpdateNetworkInterface(project, zone, instance.Name, networkName, networkInterfacePatchObj).Do
 			op, err := updateCall()
 			if err != nil {
 				return errwrap.Wrapf("Error updating network interface: {{err}}", err)
@@ -2597,20 +2585,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			// configs if we notice the configuration (user intent) changes.
 			accessConfigsHaveChanged := d.HasChange(prefix + ".access_config")
 
-			acMaps := make([]interface{}, len(networkInterface.AccessConfigs))
-			for j, ac := range networkInterface.AccessConfigs {
-				acMap, err := tpgresource.ConvertToMap(ac)
-				if err != nil {
-					return fmt.Errorf("Error converting access config to map: %w", err)
-				}
-				acMaps[j] = acMap
-			}
-			niPatchMap, err := tpgresource.ConvertToMap(networkInterfacePatchObj)
-			if err != nil {
-				return fmt.Errorf("Error converting network interface patch object to map: %w", err)
-			}
-
-			updateCall := computeInstanceCreateUpdateWhileStoppedCall(d, config, niPatchMap, acMaps, accessConfigsHaveChanged, i, project, zone, userAgent, instance.Name)
+			updateCall := computeInstanceCreateUpdateWhileStoppedCall(d, config, networkInterfacePatchObj, networkInterface.AccessConfigs, accessConfigsHaveChanged, i, project, zone, userAgent, instance.Name)
 			updatesToNIWhileStopped = append(updatesToNIWhileStopped, updateCall)
 		}
 	}
@@ -2622,7 +2597,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			diskName = v
 		}
 
-		disk, err := NewClient(config, userAgent).Disks.Get(project, zone, diskName).Do()
+		disk, err := config.NewComputeClient(userAgent).Disks.Get(project, zone, diskName).Do()
 		if err != nil {
 			return fmt.Errorf("Error getting boot disk: %s", err)
 		}
@@ -2714,7 +2689,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		// Detach the old disks.
 		for hash, deviceName := range oDisks {
 			if _, ok := nDisks[hash]; !ok {
-				op, err := NewClient(config, userAgent).Instances.DetachDisk(project, zone, instance.Name, deviceName).Do()
+				op, err := config.NewComputeClient(userAgent).Instances.DetachDisk(project, zone, instance.Name, deviceName).Do()
 				if err != nil {
 					return errwrap.Wrapf("Error detaching disk: %s", err)
 				}
@@ -2729,7 +2704,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 		// Attach the new disks
 		for _, disk := range attach {
-			op, err := NewClient(config, userAgent).Instances.AttachDisk(project, zone, instance.Name, disk).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.AttachDisk(project, zone, instance.Name, disk).Do()
 			if err != nil {
 				return errwrap.Wrapf("Error attaching disk : {{err}}", err)
 			}
@@ -2744,7 +2719,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 	// if any other boot_disk fields will be added here this should be wrapped in if d.HasChange("boot_disk")
 	if d.HasChange("boot_disk.0.auto_delete") {
-		op, err := NewClient(config, userAgent).Instances.SetDiskAutoDelete(project, zone, instance.Name, d.Get("boot_disk.0.auto_delete").(bool), d.Get("boot_disk.0.device_name").(string)).Do()
+		op, err := config.NewComputeClient(userAgent).Instances.SetDiskAutoDelete(project, zone, instance.Name, d.Get("boot_disk.0.auto_delete").(bool), d.Get("boot_disk.0.device_name").(string)).Do()
 		if err != nil {
 			return fmt.Errorf("Error changing auto_delete: %s", err)
 		}
@@ -2773,7 +2748,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 	if d.HasChange("deletion_protection") {
 		nDeletionProtection := d.Get("deletion_protection").(bool)
 
-		op, err := NewClient(config, userAgent).Instances.SetDeletionProtection(project, zone, d.Get("name").(string)).DeletionProtection(nDeletionProtection).Do()
+		op, err := config.NewComputeClient(userAgent).Instances.SetDeletionProtection(project, zone, d.Get("name").(string)).DeletionProtection(nDeletionProtection).Do()
 		if err != nil {
 			return fmt.Errorf("Error updating deletion protection flag: %s", err)
 		}
@@ -2787,14 +2762,14 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 	if d.HasChange("can_ip_forward") {
 		err = transport_tpg.Retry(transport_tpg.RetryOptions{
 			RetryFunc: func() error {
-				instance, err := NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+				instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 				if err != nil {
 					return fmt.Errorf("Error retrieving instance: %s", err)
 				}
 
 				instance.CanIpForward = d.Get("can_ip_forward").(bool)
 
-				op, err := NewClient(config, userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
+				op, err := config.NewComputeClient(userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
 				if err != nil {
 					return fmt.Errorf("Error updating instance: %s", err)
 				}
@@ -2823,7 +2798,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 			if desiredStatus == "RUNNING" {
 				if previousStatus == "SUSPENDED" {
-					op, err = NewClient(config, userAgent).Instances.Resume(project, zone, instance.Name).Do()
+					op, err = config.NewComputeClient(userAgent).Instances.Resume(project, zone, instance.Name).Do()
 					if err != nil {
 						return err
 					}
@@ -2834,12 +2809,12 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 					}
 				}
 			} else if desiredStatus == "TERMINATED" {
-				op, err = NewClient(config, userAgent).Instances.Stop(project, zone, instance.Name).Do()
+				op, err = config.NewComputeClient(userAgent).Instances.Stop(project, zone, instance.Name).Do()
 				if err != nil {
 					return err
 				}
 			} else if desiredStatus == "SUSPENDED" {
-				op, err = NewClient(config, userAgent).Instances.Suspend(project, zone, instance.Name).Do()
+				op, err = config.NewComputeClient(userAgent).Instances.Suspend(project, zone, instance.Name).Do()
 				if err != nil {
 					return err
 				}
@@ -2866,7 +2841,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		}
 
 		if statusBeforeUpdate != "TERMINATED" {
-			op, err := NewClient(config, userAgent).Instances.Stop(project, zone, instance.Name).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.Stop(project, zone, instance.Name).Do()
 			if err != nil {
 				return errwrap.Wrapf("Error stopping instance: {{err}}", err)
 			}
@@ -2882,7 +2857,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			req := &compute.InstancesSetMinCpuPlatformRequest{
 				MinCpuPlatform: minCpuPlatform.(string),
 			}
-			op, err := NewClient(config, userAgent).Instances.SetMinCpuPlatform(project, zone, instance.Name, req).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.SetMinCpuPlatform(project, zone, instance.Name, req).Do()
 			if err != nil {
 				return err
 			}
@@ -2900,7 +2875,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 			req := &compute.InstancesSetMachineTypeRequest{
 				MachineType: mt.RelativeLink(),
 			}
-			op, err := NewClient(config, userAgent).Instances.SetMachineType(project, zone, instance.Name, req).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.SetMachineType(project, zone, instance.Name, req).Do()
 			if err != nil {
 				return err
 			}
@@ -2918,7 +2893,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				req.Email = saMap["email"].(string)
 				req.Scopes = tpgresource.CanonicalizeServiceScopes(tpgresource.ConvertStringSet(saMap["scopes"].(*schema.Set)))
 			}
-			op, err := NewClient(config, userAgent).Instances.SetServiceAccount(project, zone, instance.Name, req).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.SetServiceAccount(project, zone, instance.Name, req).Do()
 			if err != nil {
 				return err
 			}
@@ -2933,7 +2908,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				EnableDisplay:   d.Get("enable_display").(bool),
 				ForceSendFields: []string{"EnableDisplay"},
 			}
-			op, err := NewClient(config, userAgent).Instances.UpdateDisplayDevice(project, zone, instance.Name, req).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.UpdateDisplayDevice(project, zone, instance.Name, req).Do()
 			if err != nil {
 				return fmt.Errorf("Error updating display device: %s", err)
 			}
@@ -2946,7 +2921,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		if d.HasChange("shielded_instance_config") {
 			shieldedVmConfig := expandShieldedVmConfigs(d)
 
-			op, err := NewClient(config, userAgent).Instances.UpdateShieldedInstanceConfig(project, zone, instance.Name, shieldedVmConfig).Do()
+			op, err := config.NewComputeClient(userAgent).Instances.UpdateShieldedInstanceConfig(project, zone, instance.Name, shieldedVmConfig).Do()
 			if err != nil {
 				return fmt.Errorf("Error updating shielded vm config: %s", err)
 			}
@@ -2964,7 +2939,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				return fmt.Errorf("Error creating request data to update scheduling: %s", err)
 			}
 
-			op, err := NewClient(config, userAgent).Instances.SetScheduling(
+			op, err := config.NewComputeClient(userAgent).Instances.SetScheduling(
 				project, zone, instance.Name, scheduling).Do()
 			if err != nil {
 				return fmt.Errorf("Error updating scheduling policy: %s", err)
@@ -2983,14 +2958,14 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				RetryFunc: func() error {
 					// retrieve up-to-date instance from the API in case several updates hit simultaneously. instances
 					// sometimes but not always share metadata fingerprints.
-					instance, err := NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+					instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 					if err != nil {
 						return fmt.Errorf("Error retrieving instance: %s", err)
 					}
 
 					instance.AdvancedMachineFeatures = expandAdvancedMachineFeatures(d)
 
-					op, err := NewClient(config, userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
+					op, err := config.NewComputeClient(userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
 					if err != nil {
 						return fmt.Errorf("Error updating instance: %s", err)
 					}
@@ -3012,17 +2987,13 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		// If the instance stops it can invalidate the fingerprint for network interface.
 		// refresh the instance to get a new fingerprint
 		if len(updatesToNIWhileStopped) > 0 {
-			instance, err = NewClient(config, userAgent).Instances.Get(project, zone, instance.Name).Do()
+			instance, err = config.NewComputeClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
 			if err != nil {
 				return err
 			}
 		}
 		for _, patch := range updatesToNIWhileStopped {
-			instanceMap, err := tpgresource.ConvertToMap(instance)
-			if err != nil {
-				return fmt.Errorf("Error converting instance to map: %w", err)
-			}
-			err = patch(instanceMap)
+			err := patch(instance)
 			if err != nil {
 				return err
 			}
@@ -3067,7 +3038,7 @@ func startInstanceOperation(d *schema.ResourceData, config *transport_tpg.Config
 
 	// Use beta api directly in order to read network_interface.fingerprint without having to put it in the schema.
 	// Change back to getInstance(config, d) once updating alias ips is GA.
-	instance, err := NewClient(config, userAgent).Instances.Get(project, zone, d.Get("name").(string)).Do()
+	instance, err := config.NewComputeClient(userAgent).Instances.Get(project, zone, d.Get("name").(string)).Do()
 	if err != nil {
 		return nil, transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("Instance %s", instance.Name))
 	}
@@ -3091,9 +3062,9 @@ func startInstanceOperation(d *schema.ResourceData, config *transport_tpg.Config
 
 	if len(encrypted) > 0 {
 		request := compute.InstancesStartWithEncryptionKeyRequest{Disks: encrypted}
-		op, err = NewClient(config, userAgent).Instances.StartWithEncryptionKey(project, zone, instance.Name, &request).Do()
+		op, err = config.NewComputeClient(userAgent).Instances.StartWithEncryptionKey(project, zone, instance.Name, &request).Do()
 	} else {
-		op, err = NewClient(config, userAgent).Instances.Start(project, zone, instance.Name).Do()
+		op, err = config.NewComputeClient(userAgent).Instances.Start(project, zone, instance.Name).Do()
 	}
 
 	return op, err
@@ -3321,7 +3292,7 @@ func resourceComputeInstanceDelete(d *schema.ResourceData, meta interface{}) err
 	if d.Get("deletion_protection").(bool) {
 		return fmt.Errorf("Cannot delete instance %s: instance Deletion Protection is enabled. Set deletion_protection to false for this resource and run \"terraform apply\" before attempting to delete it.", d.Get("name").(string))
 	} else {
-		op, err := NewClient(config, userAgent).Instances.Delete(project, zone, d.Get("name").(string)).Do()
+		op, err := config.NewComputeClient(userAgent).Instances.Delete(project, zone, d.Get("name").(string)).Do()
 		if err != nil {
 			return fmt.Errorf("Error deleting instance: %s", err)
 		}
@@ -3330,7 +3301,7 @@ func resourceComputeInstanceDelete(d *schema.ResourceData, meta interface{}) err
 		opErr := ComputeOperationWaitTime(config, op, project, "instance to delete", userAgent, d.Timeout(schema.TimeoutDelete))
 		if opErr != nil {
 			// Refresh operation to check status
-			op, _ = NewClient(config, userAgent).ZoneOperations.Get(project, zone, strconv.FormatUint(op.Id, 10)).Do()
+			op, _ = config.NewComputeClient(userAgent).ZoneOperations.Get(project, zone, strconv.FormatUint(op.Id, 10)).Do()
 			// Do not return an error if the operation actually completed
 			if op == nil || op.Status != "DONE" {
 				return opErr

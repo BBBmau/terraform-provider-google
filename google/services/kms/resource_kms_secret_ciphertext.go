@@ -283,6 +283,18 @@ func resourceKMSSecretCiphertextRead(d *schema.ResourceData, meta interface{}) e
 
 	log.Printf("[DEBUG] Finished reading KMSSecretCiphertext %q: %#v", d.Id(), res)
 
+	res, err = resourceKMSSecretCiphertextDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing KMSSecretCiphertext because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	err = ResourceKMSSecretCiphertextFlatten(d, meta, res, config, userAgent, billingProject, url, headers)
 	if err != nil {
 		return err
@@ -333,19 +345,6 @@ func resourceKMSSecretCiphertextDecoder(d *schema.ResourceData, meta interface{}
 }
 
 func ResourceKMSSecretCiphertextFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {
-	var err error
-
-	res, err = resourceKMSSecretCiphertextDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing KMSSecretCiphertext because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	return nil
 }

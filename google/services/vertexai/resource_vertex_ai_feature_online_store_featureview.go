@@ -450,6 +450,7 @@ func resourceVertexAIFeatureOnlineStoreFeatureviewRead(d *schema.ResourceData, m
 	}
 
 	log.Printf("[DEBUG] Finished reading VertexAIFeatureOnlineStoreFeatureview %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading FeatureOnlineStoreFeatureview: %s", err)
 	}

@@ -578,6 +578,7 @@ func resourceDatabaseMigrationServiceMigrationJobRead(d *schema.ResourceData, me
 	}
 
 	log.Printf("[DEBUG] Finished reading DatabaseMigrationServiceMigrationJob %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading MigrationJob: %s", err)
 	}

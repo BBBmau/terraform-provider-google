@@ -890,6 +890,7 @@ func resourcePrivatecaCaPoolRead(d *schema.ResourceData, meta interface{}) error
 	}
 
 	log.Printf("[DEBUG] Finished reading PrivatecaCaPool %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading CaPool: %s", err)
 	}

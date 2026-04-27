@@ -595,6 +595,7 @@ func resourceNetappStoragePoolRead(d *schema.ResourceData, meta interface{}) err
 	}
 
 	log.Printf("[DEBUG] Finished reading NetappStoragePool %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading StoragePool: %s", err)
 	}

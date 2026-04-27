@@ -382,6 +382,7 @@ func resourceNetworkSecurityBackendAuthenticationConfigRead(d *schema.ResourceDa
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkSecurityBackendAuthenticationConfig %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading BackendAuthenticationConfig: %s", err)
 	}

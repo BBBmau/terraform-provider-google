@@ -554,6 +554,7 @@ func resourceDiscoveryEngineSearchEngineRead(d *schema.ResourceData, meta interf
 	}
 
 	log.Printf("[DEBUG] Finished reading DiscoveryEngineSearchEngine %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading SearchEngine: %s", err)
 	}

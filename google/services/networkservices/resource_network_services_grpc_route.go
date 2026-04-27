@@ -581,6 +581,7 @@ func resourceNetworkServicesGrpcRouteRead(d *schema.ResourceData, meta interface
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkServicesGrpcRoute %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading GrpcRoute: %s", err)
 	}

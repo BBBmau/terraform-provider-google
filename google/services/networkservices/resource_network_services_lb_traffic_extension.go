@@ -482,6 +482,7 @@ func resourceNetworkServicesLbTrafficExtensionRead(d *schema.ResourceData, meta 
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkServicesLbTrafficExtension %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading LbTrafficExtension: %s", err)
 	}

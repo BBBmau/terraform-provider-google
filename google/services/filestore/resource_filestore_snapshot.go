@@ -376,6 +376,7 @@ func resourceFilestoreSnapshotRead(d *schema.ResourceData, meta interface{}) err
 	}
 
 	log.Printf("[DEBUG] Finished reading FilestoreSnapshot %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Snapshot: %s", err)
 	}

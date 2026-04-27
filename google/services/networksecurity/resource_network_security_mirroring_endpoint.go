@@ -385,6 +385,7 @@ func resourceNetworkSecurityMirroringEndpointRead(d *schema.ResourceData, meta i
 	}
 
 	log.Printf("[DEBUG] Finished reading NetworkSecurityMirroringEndpoint %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading MirroringEndpoint: %s", err)
 	}

@@ -563,6 +563,7 @@ func resourceModelArmorTemplateRead(d *schema.ResourceData, meta interface{}) er
 	}
 
 	log.Printf("[DEBUG] Finished reading ModelArmorTemplate %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading Template: %s", err)
 	}

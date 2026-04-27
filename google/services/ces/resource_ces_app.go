@@ -793,14 +793,12 @@ The value must be a valid JSON string representing the Schema object.
 										Description:  `Optional. The instance value should be valid against at least one of the schemas in this list.`,
 									},
 									"default": {
-										Type:         schema.TypeString,
-										Optional:     true,
-										ValidateFunc: validation.StringIsJSON,
-										StateFunc:    func(v interface{}) string { s, _ := structure.NormalizeJsonString(v); return s },
+										Type:     schema.TypeString,
+										Optional: true,
 										Description: `Optional. Default value of the data. Represents a dynamically typed value
 which can be either null, a number, a string, a boolean, a struct,
-or a list of values. The provided default value must be encoded as a JSON string.
-Use 'jsonencode' in Terraform HCL to encode the default value.`,
+or a list of values. The provided default value must be compatible
+with the defined 'type' and other schema constraints.`,
 									},
 									"defs": {
 										Type:         schema.TypeString,
@@ -1179,6 +1177,7 @@ func resourceCESAppRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	log.Printf("[DEBUG] Finished reading CESApp %q: %#v", d.Id(), res)
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading App: %s", err)
 	}
@@ -2230,15 +2229,7 @@ func flattenCESAppVariableDeclarationsSchemaDefs(v interface{}, d *schema.Resour
 }
 
 func flattenCESAppVariableDeclarationsSchemaDefault(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	if v == nil {
-		return nil
-	}
-	b, err := json.Marshal(v)
-	if err != nil {
-		// TODO: return error once https://github.com/GoogleCloudPlatform/magic-modules/issues/3257 is fixed.
-		log.Printf("[ERROR] failed to marshal schema to JSON: %v", err)
-	}
-	return string(b)
+	return v
 }
 
 func flattenCESAppVariableDeclarationsSchemaAdditionalProperties(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -3331,7 +3322,7 @@ func expandCESAppVariableDeclarationsSchema(v interface{}, d tpgresource.Terrafo
 	transformedDefault, err := expandCESAppVariableDeclarationsSchemaDefault(original["default"], d, config)
 	if err != nil {
 		return nil, err
-	} else {
+	} else if val := reflect.ValueOf(transformedDefault); val.IsValid() && !tpgresource.IsEmptyValue(val) {
 		transformed["default"] = transformedDefault
 	}
 
@@ -3418,15 +3409,7 @@ func expandCESAppVariableDeclarationsSchemaDefs(v interface{}, d tpgresource.Ter
 }
 
 func expandCESAppVariableDeclarationsSchemaDefault(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
-	b := []byte(v.(string))
-	if len(b) == 0 {
-		return nil, nil
-	}
-	var j interface{}
-	if err := json.Unmarshal(b, &j); err != nil {
-		return nil, err
-	}
-	return j, nil
+	return v, nil
 }
 
 func expandCESAppVariableDeclarationsSchemaAdditionalProperties(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {

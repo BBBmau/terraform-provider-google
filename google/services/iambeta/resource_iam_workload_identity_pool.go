@@ -614,6 +614,37 @@ func resourceIAMBetaWorkloadIdentityPoolRead(d *schema.ResourceData, meta interf
 	}
 
 	log.Printf("[DEBUG] Finished reading IAMBetaWorkloadIdentityPool %q: %#v", d.Id(), res)
+	// list attestation_rules
+	ruleUrl := url + ":listAttestationRules"
+
+	ruleRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
+		Config:    config,
+		Method:    "GET",
+		Project:   billingProject,
+		RawURL:    ruleUrl,
+		UserAgent: userAgent,
+		Headers:   headers,
+	})
+	if err != nil {
+		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("IAMBetaWorkloadIdentityPool %q", d.Id()))
+	}
+
+	for k, v := range ruleRes {
+		res[k] = v
+	}
+
+	res, err = resourceIAMBetaWorkloadIdentityPoolDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing IAMBetaWorkloadIdentityPool because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)
 	}
@@ -1287,36 +1318,6 @@ func resourceIAMBetaWorkloadIdentityPoolDecoder(d *schema.ResourceData, meta int
 
 func ResourceIAMBetaWorkloadIdentityPoolFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-	// list attestation_rules
-	ruleUrl := url + ":listAttestationRules"
-
-	ruleRes, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "GET",
-		Project:   billingProject,
-		RawURL:    ruleUrl,
-		UserAgent: userAgent,
-		Headers:   headers,
-	})
-	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, fmt.Sprintf("IAMBetaWorkloadIdentityPool %q", d.Id()))
-	}
-
-	for k, v := range ruleRes {
-		res[k] = v
-	}
-
-	res, err = resourceIAMBetaWorkloadIdentityPoolDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing IAMBetaWorkloadIdentityPool because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("state", flattenIAMBetaWorkloadIdentityPoolState(res["state"], d, config)); err != nil {
 		return fmt.Errorf("Error reading WorkloadIdentityPool: %s", err)

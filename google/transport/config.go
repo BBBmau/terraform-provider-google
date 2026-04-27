@@ -54,13 +54,16 @@ import (
 	backupdr "google.golang.org/api/backupdr/v1"
 	"google.golang.org/api/bigquery/v2"
 	"google.golang.org/api/bigtableadmin/v2"
+	"google.golang.org/api/certificatemanager/v1"
 	"google.golang.org/api/cloudbilling/v1"
+	"google.golang.org/api/cloudbuild/v1"
 	"google.golang.org/api/cloudfunctions/v1"
 	"google.golang.org/api/cloudidentity/v1"
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	resourceManagerV3 "google.golang.org/api/cloudresourcemanager/v3"
 	"google.golang.org/api/composer/v1"
+	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 	dataflow "google.golang.org/api/dataflow/v1b3"
 	"google.golang.org/api/dataproc/v1"
@@ -69,7 +72,9 @@ import (
 	"google.golang.org/api/iam/v1"
 	iamcredentials "google.golang.org/api/iamcredentials/v1"
 	cloudlogging "google.golang.org/api/logging/v2"
+	"google.golang.org/api/pubsub/v1"
 	runadminv2 "google.golang.org/api/run/v2"
+	"google.golang.org/api/servicemanagement/v1"
 	"google.golang.org/api/servicenetworking/v1"
 	"google.golang.org/api/serviceusage/v1"
 	"google.golang.org/api/sourcerepo/v1"
@@ -232,7 +237,6 @@ type Config struct {
 	Region                                    string
 	BillingProject                            string
 	Zone                                      string
-	IsMtls                                    bool
 	UniverseDomain                            string
 	Scopes                                    []string
 	BatchingConfig                            *BatchingConfig
@@ -252,8 +256,6 @@ type Config struct {
 	gRPCLoggingOptions []option.ClientOption
 
 	TokenSource oauth2.TokenSource
-
-	CustomEndpoints map[string]string
 
 	AccessApprovalBasePath           string
 	AccessContextManagerBasePath     string
@@ -277,14 +279,13 @@ type Config struct {
 	BigqueryDataTransferBasePath     string
 	BigqueryReservationBasePath      string
 	BigtableBasePath                 string
-	BillingBudgetsBasePath           string
+	BillingBasePath                  string
 	BinaryAuthorizationBasePath      string
 	BlockchainNodeEngineBasePath     string
 	CertificateManagerBasePath       string
 	CESBasePath                      string
 	ChronicleBasePath                string
 	CloudAssetBasePath               string
-	CloudBillingBasePath             string
 	CloudBuildBasePath               string
 	Cloudbuildv2BasePath             string
 	ClouddeployBasePath              string
@@ -306,12 +307,11 @@ type Config struct {
 	ContainerBasePath                string
 	ContainerAnalysisBasePath        string
 	ContainerAttachedBasePath        string
+	CoreBillingBasePath              string
 	DatabaseMigrationServiceBasePath string
 	DataCatalogBasePath              string
-	DataflowBasePath                 string
 	DataformBasePath                 string
 	DataFusionBasePath               string
-	DataLineageBasePath              string
 	DataLossPreventionBasePath       string
 	DataPipelineBasePath             string
 	DataplexBasePath                 string
@@ -335,7 +335,6 @@ type Config struct {
 	FirebaseAppCheckBasePath         string
 	FirebaseAppHostingBasePath       string
 	FirebaseDataConnectBasePath      string
-	FirebaseRemoteConfigBasePath     string
 	FirestoreBasePath                string
 	GeminiBasePath                   string
 	GKEBackupBasePath                string
@@ -347,7 +346,6 @@ type Config struct {
 	IAM2BasePath                     string
 	IAM3BasePath                     string
 	IAMBetaBasePath                  string
-	IamCredentialsBasePath           string
 	IAMWorkforcePoolBasePath         string
 	IapBasePath                      string
 	IdentityPlatformBasePath         string
@@ -388,7 +386,7 @@ type Config struct {
 	PubsubLiteBasePath               string
 	RedisBasePath                    string
 	ResourceManagerBasePath          string
-	ResourceManagerV3BasePath        string
+	ResourceManager3BasePath         string
 	SecretManagerBasePath            string
 	SecretManagerRegionalBasePath    string
 	SecureSourceManagerBasePath      string
@@ -410,7 +408,6 @@ type Config struct {
 	StorageInsightsBasePath          string
 	StorageTransferBasePath          string
 	TagsBasePath                     string
-	TagsLocationBasePath             string
 	TranscoderBasePath               string
 	VectorSearchBasePath             string
 	VertexAIBasePath                 string
@@ -420,6 +417,13 @@ type Config struct {
 	WorkflowsBasePath                string
 	WorkloadIdentityBasePath         string
 	WorkstationsBasePath             string
+
+	CloudBillingBasePath      string
+	DataflowBasePath          string
+	IamCredentialsBasePath    string
+	ResourceManagerV3BasePath string
+	IAMBasePath               string
+	TagsLocationBasePath      string
 
 	// DCL
 	ContainerAwsBasePath         string
@@ -458,14 +462,13 @@ const BigqueryDatapolicyv2BasePathKey = "BigqueryDatapolicyv2"
 const BigqueryDataTransferBasePathKey = "BigqueryDataTransfer"
 const BigqueryReservationBasePathKey = "BigqueryReservation"
 const BigtableBasePathKey = "Bigtable"
-const BillingBudgetsBasePathKey = "BillingBudgets"
+const BillingBasePathKey = "Billing"
 const BinaryAuthorizationBasePathKey = "BinaryAuthorization"
 const BlockchainNodeEngineBasePathKey = "BlockchainNodeEngine"
 const CertificateManagerBasePathKey = "CertificateManager"
 const CESBasePathKey = "CES"
 const ChronicleBasePathKey = "Chronicle"
 const CloudAssetBasePathKey = "CloudAsset"
-const CloudBillingBasePathKey = "CloudBilling"
 const CloudBuildBasePathKey = "CloudBuild"
 const Cloudbuildv2BasePathKey = "Cloudbuildv2"
 const ClouddeployBasePathKey = "Clouddeploy"
@@ -487,12 +490,11 @@ const ContactCenterInsightsBasePathKey = "ContactCenterInsights"
 const ContainerBasePathKey = "Container"
 const ContainerAnalysisBasePathKey = "ContainerAnalysis"
 const ContainerAttachedBasePathKey = "ContainerAttached"
+const CoreBillingBasePathKey = "CoreBilling"
 const DatabaseMigrationServiceBasePathKey = "DatabaseMigrationService"
 const DataCatalogBasePathKey = "DataCatalog"
-const DataflowBasePathKey = "Dataflow"
 const DataformBasePathKey = "Dataform"
 const DataFusionBasePathKey = "DataFusion"
-const DataLineageBasePathKey = "DataLineage"
 const DataLossPreventionBasePathKey = "DataLossPrevention"
 const DataPipelineBasePathKey = "DataPipeline"
 const DataplexBasePathKey = "Dataplex"
@@ -516,7 +518,6 @@ const FilestoreBasePathKey = "Filestore"
 const FirebaseAppCheckBasePathKey = "FirebaseAppCheck"
 const FirebaseAppHostingBasePathKey = "FirebaseAppHosting"
 const FirebaseDataConnectBasePathKey = "FirebaseDataConnect"
-const FirebaseRemoteConfigBasePathKey = "FirebaseRemoteConfig"
 const FirestoreBasePathKey = "Firestore"
 const GeminiBasePathKey = "Gemini"
 const GKEBackupBasePathKey = "GKEBackup"
@@ -528,7 +529,6 @@ const HypercomputeclusterBasePathKey = "Hypercomputecluster"
 const IAM2BasePathKey = "IAM2"
 const IAM3BasePathKey = "IAM3"
 const IAMBetaBasePathKey = "IAMBeta"
-const IamCredentialsBasePathKey = "IamCredentials"
 const IAMWorkforcePoolBasePathKey = "IAMWorkforcePool"
 const IapBasePathKey = "Iap"
 const IdentityPlatformBasePathKey = "IdentityPlatform"
@@ -569,7 +569,7 @@ const PubsubBasePathKey = "Pubsub"
 const PubsubLiteBasePathKey = "PubsubLite"
 const RedisBasePathKey = "Redis"
 const ResourceManagerBasePathKey = "ResourceManager"
-const ResourceManagerV3BasePathKey = "ResourceManagerV3"
+const ResourceManager3BasePathKey = "ResourceManager3"
 const SecretManagerBasePathKey = "SecretManager"
 const SecretManagerRegionalBasePathKey = "SecretManagerRegional"
 const SecureSourceManagerBasePathKey = "SecureSourceManager"
@@ -591,7 +591,6 @@ const StorageControlBasePathKey = "StorageControl"
 const StorageInsightsBasePathKey = "StorageInsights"
 const StorageTransferBasePathKey = "StorageTransfer"
 const TagsBasePathKey = "Tags"
-const TagsLocationBasePathKey = "TagsLocation"
 const TranscoderBasePathKey = "Transcoder"
 const VectorSearchBasePathKey = "VectorSearch"
 const VertexAIBasePathKey = "VertexAI"
@@ -601,8 +600,14 @@ const WorkbenchBasePathKey = "Workbench"
 const WorkflowsBasePathKey = "Workflows"
 const WorkloadIdentityBasePathKey = "WorkloadIdentity"
 const WorkstationsBasePathKey = "Workstations"
+const CloudBillingBasePathKey = "CloudBilling"
+const DataflowBasePathKey = "Dataflow"
+const IAMBasePathKey = "IAM"
+const IamCredentialsBasePathKey = "IamCredentials"
+const ResourceManagerV3BasePathKey = "ResourceManagerV3"
 const ContainerAwsBasePathKey = "ContainerAws"
 const ContainerAzureBasePathKey = "ContainerAzure"
+const TagsLocationBasePathKey = "TagsLocation"
 
 // Generated product base paths
 var DefaultBasePaths = map[string]string{
@@ -627,14 +632,13 @@ var DefaultBasePaths = map[string]string{
 	BigqueryDataTransferBasePathKey:     "https://bigquerydatatransfer.googleapis.com/v1/",
 	BigqueryReservationBasePathKey:      "https://bigqueryreservation.googleapis.com/v1/",
 	BigtableBasePathKey:                 "https://bigtableadmin.googleapis.com/v2/",
-	BillingBudgetsBasePathKey:           "https://billingbudgets.googleapis.com/v1/",
+	BillingBasePathKey:                  "https://billingbudgets.googleapis.com/v1/",
 	BinaryAuthorizationBasePathKey:      "https://binaryauthorization.googleapis.com/v1/",
 	BlockchainNodeEngineBasePathKey:     "https://blockchainnodeengine.googleapis.com/v1/",
 	CertificateManagerBasePathKey:       "https://certificatemanager.googleapis.com/v1/",
 	CESBasePathKey:                      "https://ces.googleapis.com/v1/",
 	ChronicleBasePathKey:                "https://{{location}}-chronicle.googleapis.com/v1/",
 	CloudAssetBasePathKey:               "https://cloudasset.googleapis.com/v1/",
-	CloudBillingBasePathKey:             "https://cloudbilling.googleapis.com/v1/",
 	CloudBuildBasePathKey:               "https://cloudbuild.googleapis.com/v1/",
 	Cloudbuildv2BasePathKey:             "https://cloudbuild.googleapis.com/v2/",
 	ClouddeployBasePathKey:              "https://clouddeploy.googleapis.com/v1/",
@@ -656,12 +660,11 @@ var DefaultBasePaths = map[string]string{
 	ContainerBasePathKey:                "https://container.googleapis.com/v1/",
 	ContainerAnalysisBasePathKey:        "https://containeranalysis.googleapis.com/v1/",
 	ContainerAttachedBasePathKey:        "https://{{location}}-gkemulticloud.googleapis.com/v1/",
+	CoreBillingBasePathKey:              "https://cloudbilling.googleapis.com/v1/",
 	DatabaseMigrationServiceBasePathKey: "https://datamigration.googleapis.com/v1/",
 	DataCatalogBasePathKey:              "https://datacatalog.googleapis.com/v1/",
-	DataflowBasePathKey:                 "https://dataflow.googleapis.com/v1b3/",
 	DataformBasePathKey:                 "https://dataform.googleapis.com/v1/",
 	DataFusionBasePathKey:               "https://datafusion.googleapis.com/v1/",
-	DataLineageBasePathKey:              "https://datalineage.googleapis.com/v1/",
 	DataLossPreventionBasePathKey:       "https://dlp.googleapis.com/v2/",
 	DataPipelineBasePathKey:             "https://datapipelines.googleapis.com/v1/",
 	DataplexBasePathKey:                 "https://dataplex.googleapis.com/v1/",
@@ -685,7 +688,6 @@ var DefaultBasePaths = map[string]string{
 	FirebaseAppCheckBasePathKey:         "https://firebaseappcheck.googleapis.com/v1/",
 	FirebaseAppHostingBasePathKey:       "https://firebaseapphosting.googleapis.com/v1/",
 	FirebaseDataConnectBasePathKey:      "https://firebasedataconnect.googleapis.com/v1/",
-	FirebaseRemoteConfigBasePathKey:     "https://firebaseremoteconfig.googleapis.com/v1/",
 	FirestoreBasePathKey:                "https://firestore.googleapis.com/v1/",
 	GeminiBasePathKey:                   "https://cloudaicompanion.googleapis.com/v1/",
 	GKEBackupBasePathKey:                "https://gkebackup.googleapis.com/v1/",
@@ -697,7 +699,6 @@ var DefaultBasePaths = map[string]string{
 	IAM2BasePathKey:                     "https://iam.googleapis.com/v2/",
 	IAM3BasePathKey:                     "https://iam.googleapis.com/v3/",
 	IAMBetaBasePathKey:                  "https://iam.googleapis.com/v1/",
-	IamCredentialsBasePathKey:           "https://iamcredentials.googleapis.com/v1/",
 	IAMWorkforcePoolBasePathKey:         "https://iam.googleapis.com/v1/",
 	IapBasePathKey:                      "https://iap.googleapis.com/v1/",
 	IdentityPlatformBasePathKey:         "https://identitytoolkit.googleapis.com/v2/",
@@ -738,7 +739,7 @@ var DefaultBasePaths = map[string]string{
 	PubsubLiteBasePathKey:               "https://{{region}}-pubsublite.googleapis.com/v1/admin/",
 	RedisBasePathKey:                    "https://redis.googleapis.com/v1/",
 	ResourceManagerBasePathKey:          "https://cloudresourcemanager.googleapis.com/v1/",
-	ResourceManagerV3BasePathKey:        "https://cloudresourcemanager.googleapis.com/v3/",
+	ResourceManager3BasePathKey:         "https://cloudresourcemanager.googleapis.com/v3/",
 	SecretManagerBasePathKey:            "https://secretmanager.googleapis.com/v1/",
 	SecretManagerRegionalBasePathKey:    "https://secretmanager.{{location}}.rep.googleapis.com/v1/",
 	SecureSourceManagerBasePathKey:      "https://securesourcemanager.googleapis.com/v1/",
@@ -760,7 +761,6 @@ var DefaultBasePaths = map[string]string{
 	StorageInsightsBasePathKey:          "https://storageinsights.googleapis.com/v1/",
 	StorageTransferBasePathKey:          "https://storagetransfer.googleapis.com/v1/",
 	TagsBasePathKey:                     "https://cloudresourcemanager.googleapis.com/v3/",
-	TagsLocationBasePathKey:             "https://{{location}}-cloudresourcemanager.googleapis.com/v3/",
 	TranscoderBasePathKey:               "https://transcoder.googleapis.com/v1/",
 	VectorSearchBasePathKey:             "https://vectorsearch.googleapis.com/v1/",
 	VertexAIBasePathKey:                 "https://{{region}}-aiplatform.googleapis.com/v1/",
@@ -770,6 +770,12 @@ var DefaultBasePaths = map[string]string{
 	WorkflowsBasePathKey:                "https://workflows.googleapis.com/v1/",
 	WorkloadIdentityBasePathKey:         "https://workloadidentity.googleapis.com/v1/",
 	WorkstationsBasePathKey:             "https://workstations.googleapis.com/v1/",
+	CloudBillingBasePathKey:             "https://cloudbilling.googleapis.com/v1/",
+	DataflowBasePathKey:                 "https://dataflow.googleapis.com/v1b3/",
+	IAMBasePathKey:                      "https://iam.googleapis.com/v1/",
+	IamCredentialsBasePathKey:           "https://iamcredentials.googleapis.com/v1/",
+	ResourceManagerV3BasePathKey:        "https://cloudresourcemanager.googleapis.com/v3/",
+	TagsLocationBasePathKey:             "https://{{location}}-cloudresourcemanager.googleapis.com/v3/",
 	// DCL
 	ContainerAwsBasePathKey:              "https://{{location}}-gkemulticloud.googleapis.com/v1/",
 	ContainerAzureBasePathKey:            "https://{{location}}-gkemulticloud.googleapis.com/v1/",
@@ -805,14 +811,13 @@ var DefaultRepStatus = map[string]bool{
 	BigqueryDataTransferBasePathKey:     false,
 	BigqueryReservationBasePathKey:      false,
 	BigtableBasePathKey:                 false,
-	BillingBudgetsBasePathKey:           false,
+	BillingBasePathKey:                  false,
 	BinaryAuthorizationBasePathKey:      false,
 	BlockchainNodeEngineBasePathKey:     false,
 	CertificateManagerBasePathKey:       false,
 	CESBasePathKey:                      false,
 	ChronicleBasePathKey:                false,
 	CloudAssetBasePathKey:               false,
-	CloudBillingBasePathKey:             false,
 	CloudBuildBasePathKey:               false,
 	Cloudbuildv2BasePathKey:             false,
 	ClouddeployBasePathKey:              false,
@@ -834,12 +839,11 @@ var DefaultRepStatus = map[string]bool{
 	ContainerBasePathKey:                false,
 	ContainerAnalysisBasePathKey:        false,
 	ContainerAttachedBasePathKey:        false,
+	CoreBillingBasePathKey:              false,
 	DatabaseMigrationServiceBasePathKey: false,
 	DataCatalogBasePathKey:              false,
-	DataflowBasePathKey:                 false,
 	DataformBasePathKey:                 false,
 	DataFusionBasePathKey:               false,
-	DataLineageBasePathKey:              false,
 	DataLossPreventionBasePathKey:       false,
 	DataPipelineBasePathKey:             false,
 	DataplexBasePathKey:                 false,
@@ -863,7 +867,6 @@ var DefaultRepStatus = map[string]bool{
 	FirebaseAppCheckBasePathKey:         false,
 	FirebaseAppHostingBasePathKey:       false,
 	FirebaseDataConnectBasePathKey:      false,
-	FirebaseRemoteConfigBasePathKey:     false,
 	FirestoreBasePathKey:                false,
 	GeminiBasePathKey:                   false,
 	GKEBackupBasePathKey:                false,
@@ -875,7 +878,6 @@ var DefaultRepStatus = map[string]bool{
 	IAM2BasePathKey:                     false,
 	IAM3BasePathKey:                     false,
 	IAMBetaBasePathKey:                  false,
-	IamCredentialsBasePathKey:           false,
 	IAMWorkforcePoolBasePathKey:         false,
 	IapBasePathKey:                      false,
 	IdentityPlatformBasePathKey:         false,
@@ -916,7 +918,7 @@ var DefaultRepStatus = map[string]bool{
 	PubsubLiteBasePathKey:               false,
 	RedisBasePathKey:                    false,
 	ResourceManagerBasePathKey:          false,
-	ResourceManagerV3BasePathKey:        false,
+	ResourceManager3BasePathKey:         false,
 	SecretManagerBasePathKey:            false,
 	SecretManagerRegionalBasePathKey:    false,
 	SecureSourceManagerBasePathKey:      false,
@@ -938,7 +940,6 @@ var DefaultRepStatus = map[string]bool{
 	StorageInsightsBasePathKey:          false,
 	StorageTransferBasePathKey:          false,
 	TagsBasePathKey:                     false,
-	TagsLocationBasePathKey:             false,
 	TranscoderBasePathKey:               false,
 	VectorSearchBasePathKey:             false,
 	VertexAIBasePathKey:                 false,
@@ -1020,8 +1021,840 @@ func HandleSDKDefaults(d *schema.ResourceData) error {
 	return nil
 }
 
-// Legacy logic for non-registered products.
 func SetEndpointDefaults(d *schema.ResourceData) error {
+	// Generated Products
+	if d.Get("access_approval_custom_endpoint") == "" {
+		d.Set("access_approval_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ACCESS_APPROVAL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[AccessApprovalBasePathKey]))
+	}
+	if d.Get("access_context_manager_custom_endpoint") == "" {
+		d.Set("access_context_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ACCESS_CONTEXT_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[AccessContextManagerBasePathKey]))
+	}
+	if d.Get("active_directory_custom_endpoint") == "" {
+		d.Set("active_directory_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ACTIVE_DIRECTORY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ActiveDirectoryBasePathKey]))
+	}
+	if d.Get("alloydb_custom_endpoint") == "" {
+		d.Set("alloydb_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ALLOYDB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[AlloydbBasePathKey]))
+	}
+	if d.Get("apigee_custom_endpoint") == "" {
+		d.Set("apigee_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_APIGEE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ApigeeBasePathKey]))
+	}
+	if d.Get("apihub_custom_endpoint") == "" {
+		d.Set("apihub_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_APIHUB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ApihubBasePathKey]))
+	}
+	if d.Get("app_engine_custom_endpoint") == "" {
+		d.Set("app_engine_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_APP_ENGINE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[AppEngineBasePathKey]))
+	}
+	if d.Get("apphub_custom_endpoint") == "" {
+		d.Set("apphub_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_APPHUB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ApphubBasePathKey]))
+	}
+	if d.Get("artifact_registry_custom_endpoint") == "" {
+		d.Set("artifact_registry_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ARTIFACT_REGISTRY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ArtifactRegistryBasePathKey]))
+	}
+	if d.Get("backup_dr_custom_endpoint") == "" {
+		d.Set("backup_dr_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BACKUP_DR_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BackupDRBasePathKey]))
+	}
+	if d.Get("beyondcorp_custom_endpoint") == "" {
+		d.Set("beyondcorp_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BEYONDCORP_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BeyondcorpBasePathKey]))
+	}
+	if d.Get("biglake_custom_endpoint") == "" {
+		d.Set("biglake_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGLAKE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BiglakeBasePathKey]))
+	}
+	if d.Get("biglake_iceberg_custom_endpoint") == "" {
+		d.Set("biglake_iceberg_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGLAKE_ICEBERG_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BiglakeIcebergBasePathKey]))
+	}
+	if d.Get("big_query_custom_endpoint") == "" {
+		d.Set("big_query_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIG_QUERY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigQueryBasePathKey]))
+	}
+	if d.Get("bigquery_analytics_hub_custom_endpoint") == "" {
+		d.Set("bigquery_analytics_hub_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGQUERY_ANALYTICS_HUB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigqueryAnalyticsHubBasePathKey]))
+	}
+	if d.Get("bigquery_connection_custom_endpoint") == "" {
+		d.Set("bigquery_connection_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGQUERY_CONNECTION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigqueryConnectionBasePathKey]))
+	}
+	if d.Get("bigquery_datapolicy_custom_endpoint") == "" {
+		d.Set("bigquery_datapolicy_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGQUERY_DATAPOLICY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigqueryDatapolicyBasePathKey]))
+	}
+	if d.Get("bigquery_datapolicyv2_custom_endpoint") == "" {
+		d.Set("bigquery_datapolicyv2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGQUERY_DATAPOLICYV2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigqueryDatapolicyv2BasePathKey]))
+	}
+	if d.Get("bigquery_data_transfer_custom_endpoint") == "" {
+		d.Set("bigquery_data_transfer_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGQUERY_DATA_TRANSFER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigqueryDataTransferBasePathKey]))
+	}
+	if d.Get("bigquery_reservation_custom_endpoint") == "" {
+		d.Set("bigquery_reservation_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGQUERY_RESERVATION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigqueryReservationBasePathKey]))
+	}
+	if d.Get("bigtable_custom_endpoint") == "" {
+		d.Set("bigtable_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BIGTABLE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BigtableBasePathKey]))
+	}
+	if d.Get("billing_custom_endpoint") == "" {
+		d.Set("billing_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BILLING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BillingBasePathKey]))
+	}
+	if d.Get("binary_authorization_custom_endpoint") == "" {
+		d.Set("binary_authorization_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BINARY_AUTHORIZATION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BinaryAuthorizationBasePathKey]))
+	}
+	if d.Get("blockchain_node_engine_custom_endpoint") == "" {
+		d.Set("blockchain_node_engine_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_BLOCKCHAIN_NODE_ENGINE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[BlockchainNodeEngineBasePathKey]))
+	}
+	if d.Get("certificate_manager_custom_endpoint") == "" {
+		d.Set("certificate_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CERTIFICATE_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CertificateManagerBasePathKey]))
+	}
+	if d.Get("ces_custom_endpoint") == "" {
+		d.Set("ces_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CES_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CESBasePathKey]))
+	}
+	if d.Get("chronicle_custom_endpoint") == "" {
+		d.Set("chronicle_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CHRONICLE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ChronicleBasePathKey]))
+	}
+	if d.Get("cloud_asset_custom_endpoint") == "" {
+		d.Set("cloud_asset_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_ASSET_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudAssetBasePathKey]))
+	}
+	if d.Get("cloud_build_custom_endpoint") == "" {
+		d.Set("cloud_build_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_BUILD_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudBuildBasePathKey]))
+	}
+	if d.Get("cloudbuildv2_custom_endpoint") == "" {
+		d.Set("cloudbuildv2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUDBUILDV2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[Cloudbuildv2BasePathKey]))
+	}
+	if d.Get("clouddeploy_custom_endpoint") == "" {
+		d.Set("clouddeploy_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUDDEPLOY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ClouddeployBasePathKey]))
+	}
+	if d.Get("clouddomains_custom_endpoint") == "" {
+		d.Set("clouddomains_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUDDOMAINS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ClouddomainsBasePathKey]))
+	}
+	if d.Get("cloud_functions_custom_endpoint") == "" {
+		d.Set("cloud_functions_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_FUNCTIONS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudFunctionsBasePathKey]))
+	}
+	if d.Get("cloudfunctions2_custom_endpoint") == "" {
+		d.Set("cloudfunctions2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUDFUNCTIONS2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[Cloudfunctions2BasePathKey]))
+	}
+	if d.Get("cloud_identity_custom_endpoint") == "" {
+		d.Set("cloud_identity_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_IDENTITY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudIdentityBasePathKey]))
+	}
+	if d.Get("cloud_ids_custom_endpoint") == "" {
+		d.Set("cloud_ids_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_IDS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudIdsBasePathKey]))
+	}
+	if d.Get("cloud_quotas_custom_endpoint") == "" {
+		d.Set("cloud_quotas_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_QUOTAS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudQuotasBasePathKey]))
+	}
+	if d.Get("cloud_run_custom_endpoint") == "" {
+		d.Set("cloud_run_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_RUN_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudRunBasePathKey]))
+	}
+	if d.Get("cloud_run_v2_custom_endpoint") == "" {
+		d.Set("cloud_run_v2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_RUN_V2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudRunV2BasePathKey]))
+	}
+	if d.Get("cloud_scheduler_custom_endpoint") == "" {
+		d.Set("cloud_scheduler_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_SCHEDULER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudSchedulerBasePathKey]))
+	}
+	if d.Get("cloud_security_compliance_custom_endpoint") == "" {
+		d.Set("cloud_security_compliance_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_SECURITY_COMPLIANCE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudSecurityComplianceBasePathKey]))
+	}
+	if d.Get("cloud_tasks_custom_endpoint") == "" {
+		d.Set("cloud_tasks_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_TASKS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudTasksBasePathKey]))
+	}
+	if d.Get("colab_custom_endpoint") == "" {
+		d.Set("colab_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_COLAB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ColabBasePathKey]))
+	}
+	if d.Get("composer_custom_endpoint") == "" {
+		d.Set("composer_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_COMPOSER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ComposerBasePathKey]))
+	}
+	if d.Get("compute_custom_endpoint") == "" {
+		d.Set("compute_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_COMPUTE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ComputeBasePathKey]))
+	}
+	if d.Get("contact_center_insights_custom_endpoint") == "" {
+		d.Set("contact_center_insights_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CONTACT_CENTER_INSIGHTS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ContactCenterInsightsBasePathKey]))
+	}
+	if d.Get("container_custom_endpoint") == "" {
+		d.Set("container_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CONTAINER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ContainerBasePathKey]))
+	}
+	if d.Get("container_analysis_custom_endpoint") == "" {
+		d.Set("container_analysis_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CONTAINER_ANALYSIS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ContainerAnalysisBasePathKey]))
+	}
+	if d.Get("container_attached_custom_endpoint") == "" {
+		d.Set("container_attached_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CONTAINER_ATTACHED_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ContainerAttachedBasePathKey]))
+	}
+	if d.Get("core_billing_custom_endpoint") == "" {
+		d.Set("core_billing_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_CORE_BILLING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CoreBillingBasePathKey]))
+	}
+	if d.Get("database_migration_service_custom_endpoint") == "" {
+		d.Set("database_migration_service_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATABASE_MIGRATION_SERVICE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DatabaseMigrationServiceBasePathKey]))
+	}
+	if d.Get("data_catalog_custom_endpoint") == "" {
+		d.Set("data_catalog_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATA_CATALOG_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataCatalogBasePathKey]))
+	}
+	if d.Get("dataform_custom_endpoint") == "" {
+		d.Set("dataform_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATAFORM_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataformBasePathKey]))
+	}
+	if d.Get("data_fusion_custom_endpoint") == "" {
+		d.Set("data_fusion_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATA_FUSION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataFusionBasePathKey]))
+	}
+	if d.Get("data_loss_prevention_custom_endpoint") == "" {
+		d.Set("data_loss_prevention_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATA_LOSS_PREVENTION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataLossPreventionBasePathKey]))
+	}
+	if d.Get("data_pipeline_custom_endpoint") == "" {
+		d.Set("data_pipeline_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATA_PIPELINE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataPipelineBasePathKey]))
+	}
+	if d.Get("dataplex_custom_endpoint") == "" {
+		d.Set("dataplex_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATAPLEX_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataplexBasePathKey]))
+	}
+	if d.Get("dataproc_custom_endpoint") == "" {
+		d.Set("dataproc_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATAPROC_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataprocBasePathKey]))
+	}
+	if d.Get("dataproc_gdc_custom_endpoint") == "" {
+		d.Set("dataproc_gdc_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATAPROC_GDC_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataprocGdcBasePathKey]))
+	}
+	if d.Get("dataproc_metastore_custom_endpoint") == "" {
+		d.Set("dataproc_metastore_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATAPROC_METASTORE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataprocMetastoreBasePathKey]))
+	}
+	if d.Get("datastream_custom_endpoint") == "" {
+		d.Set("datastream_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DATASTREAM_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DatastreamBasePathKey]))
+	}
+	if d.Get("deployment_manager_custom_endpoint") == "" {
+		d.Set("deployment_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DEPLOYMENT_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DeploymentManagerBasePathKey]))
+	}
+	if d.Get("developer_connect_custom_endpoint") == "" {
+		d.Set("developer_connect_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DEVELOPER_CONNECT_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DeveloperConnectBasePathKey]))
+	}
+	if d.Get("dialogflow_custom_endpoint") == "" {
+		d.Set("dialogflow_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DIALOGFLOW_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DialogflowBasePathKey]))
+	}
+	if d.Get("dialogflow_cx_custom_endpoint") == "" {
+		d.Set("dialogflow_cx_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DIALOGFLOW_CX_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DialogflowCXBasePathKey]))
+	}
+	if d.Get("discovery_engine_custom_endpoint") == "" {
+		d.Set("discovery_engine_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DISCOVERY_ENGINE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DiscoveryEngineBasePathKey]))
+	}
+	if d.Get("dns_custom_endpoint") == "" {
+		d.Set("dns_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DNS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DNSBasePathKey]))
+	}
+	if d.Get("document_ai_custom_endpoint") == "" {
+		d.Set("document_ai_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DOCUMENT_AI_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DocumentAIBasePathKey]))
+	}
+	if d.Get("document_ai_warehouse_custom_endpoint") == "" {
+		d.Set("document_ai_warehouse_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_DOCUMENT_AI_WAREHOUSE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DocumentAIWarehouseBasePathKey]))
+	}
+	if d.Get("edgecontainer_custom_endpoint") == "" {
+		d.Set("edgecontainer_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_EDGECONTAINER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[EdgecontainerBasePathKey]))
+	}
+	if d.Get("edgenetwork_custom_endpoint") == "" {
+		d.Set("edgenetwork_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_EDGENETWORK_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[EdgenetworkBasePathKey]))
+	}
+	if d.Get("essential_contacts_custom_endpoint") == "" {
+		d.Set("essential_contacts_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ESSENTIAL_CONTACTS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[EssentialContactsBasePathKey]))
+	}
+	if d.Get("eventarc_custom_endpoint") == "" {
+		d.Set("eventarc_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_EVENTARC_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[EventarcBasePathKey]))
+	}
+	if d.Get("filestore_custom_endpoint") == "" {
+		d.Set("filestore_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_FILESTORE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[FilestoreBasePathKey]))
+	}
+	if d.Get("firebase_app_check_custom_endpoint") == "" {
+		d.Set("firebase_app_check_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_FIREBASE_APP_CHECK_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[FirebaseAppCheckBasePathKey]))
+	}
+	if d.Get("firebase_app_hosting_custom_endpoint") == "" {
+		d.Set("firebase_app_hosting_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_FIREBASE_APP_HOSTING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[FirebaseAppHostingBasePathKey]))
+	}
+	if d.Get("firebase_data_connect_custom_endpoint") == "" {
+		d.Set("firebase_data_connect_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_FIREBASE_DATA_CONNECT_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[FirebaseDataConnectBasePathKey]))
+	}
+	if d.Get("firestore_custom_endpoint") == "" {
+		d.Set("firestore_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_FIRESTORE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[FirestoreBasePathKey]))
+	}
+	if d.Get("gemini_custom_endpoint") == "" {
+		d.Set("gemini_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_GEMINI_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[GeminiBasePathKey]))
+	}
+	if d.Get("gke_backup_custom_endpoint") == "" {
+		d.Set("gke_backup_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_GKE_BACKUP_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[GKEBackupBasePathKey]))
+	}
+	if d.Get("gke_hub_custom_endpoint") == "" {
+		d.Set("gke_hub_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_GKE_HUB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[GKEHubBasePathKey]))
+	}
+	if d.Get("gke_hub2_custom_endpoint") == "" {
+		d.Set("gke_hub2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_GKE_HUB2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[GKEHub2BasePathKey]))
+	}
+	if d.Get("gkeonprem_custom_endpoint") == "" {
+		d.Set("gkeonprem_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_GKEONPREM_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[GkeonpremBasePathKey]))
+	}
+	if d.Get("healthcare_custom_endpoint") == "" {
+		d.Set("healthcare_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_HEALTHCARE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[HealthcareBasePathKey]))
+	}
+	if d.Get("hypercomputecluster_custom_endpoint") == "" {
+		d.Set("hypercomputecluster_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_HYPERCOMPUTECLUSTER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[HypercomputeclusterBasePathKey]))
+	}
+	if d.Get("iam2_custom_endpoint") == "" {
+		d.Set("iam2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_IAM2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IAM2BasePathKey]))
+	}
+	if d.Get("iam3_custom_endpoint") == "" {
+		d.Set("iam3_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_IAM3_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IAM3BasePathKey]))
+	}
+	if d.Get("iam_beta_custom_endpoint") == "" {
+		d.Set("iam_beta_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_IAM_BETA_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IAMBetaBasePathKey]))
+	}
+	if d.Get("iam_workforce_pool_custom_endpoint") == "" {
+		d.Set("iam_workforce_pool_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_IAM_WORKFORCE_POOL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IAMWorkforcePoolBasePathKey]))
+	}
+	if d.Get("iap_custom_endpoint") == "" {
+		d.Set("iap_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_IAP_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IapBasePathKey]))
+	}
+	if d.Get("identity_platform_custom_endpoint") == "" {
+		d.Set("identity_platform_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_IDENTITY_PLATFORM_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IdentityPlatformBasePathKey]))
+	}
+	if d.Get("integration_connectors_custom_endpoint") == "" {
+		d.Set("integration_connectors_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_INTEGRATION_CONNECTORS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IntegrationConnectorsBasePathKey]))
+	}
+	if d.Get("integrations_custom_endpoint") == "" {
+		d.Set("integrations_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_INTEGRATIONS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IntegrationsBasePathKey]))
+	}
+	if d.Get("kms_custom_endpoint") == "" {
+		d.Set("kms_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_KMS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[KMSBasePathKey]))
+	}
+	if d.Get("logging_custom_endpoint") == "" {
+		d.Set("logging_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_LOGGING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[LoggingBasePathKey]))
+	}
+	if d.Get("looker_custom_endpoint") == "" {
+		d.Set("looker_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_LOOKER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[LookerBasePathKey]))
+	}
+	if d.Get("lustre_custom_endpoint") == "" {
+		d.Set("lustre_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_LUSTRE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[LustreBasePathKey]))
+	}
+	if d.Get("managed_kafka_custom_endpoint") == "" {
+		d.Set("managed_kafka_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MANAGED_KAFKA_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ManagedKafkaBasePathKey]))
+	}
+	if d.Get("memcache_custom_endpoint") == "" {
+		d.Set("memcache_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MEMCACHE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[MemcacheBasePathKey]))
+	}
+	if d.Get("memorystore_custom_endpoint") == "" {
+		d.Set("memorystore_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MEMORYSTORE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[MemorystoreBasePathKey]))
+	}
+	if d.Get("migration_center_custom_endpoint") == "" {
+		d.Set("migration_center_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MIGRATION_CENTER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[MigrationCenterBasePathKey]))
+	}
+	if d.Get("ml_engine_custom_endpoint") == "" {
+		d.Set("ml_engine_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ML_ENGINE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[MLEngineBasePathKey]))
+	}
+	if d.Get("model_armor_custom_endpoint") == "" {
+		d.Set("model_armor_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MODEL_ARMOR_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ModelArmorBasePathKey]))
+	}
+	if d.Get("model_armor_global_custom_endpoint") == "" {
+		d.Set("model_armor_global_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MODEL_ARMOR_GLOBAL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ModelArmorGlobalBasePathKey]))
+	}
+	if d.Get("monitoring_custom_endpoint") == "" {
+		d.Set("monitoring_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_MONITORING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[MonitoringBasePathKey]))
+	}
+	if d.Get("netapp_custom_endpoint") == "" {
+		d.Set("netapp_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NETAPP_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NetappBasePathKey]))
+	}
+	if d.Get("network_connectivity_custom_endpoint") == "" {
+		d.Set("network_connectivity_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NETWORK_CONNECTIVITY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NetworkConnectivityBasePathKey]))
+	}
+	if d.Get("network_connectivityv1_custom_endpoint") == "" {
+		d.Set("network_connectivityv1_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NETWORK_CONNECTIVITYV1_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NetworkConnectivityv1BasePathKey]))
+	}
+	if d.Get("network_management_custom_endpoint") == "" {
+		d.Set("network_management_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NETWORK_MANAGEMENT_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NetworkManagementBasePathKey]))
+	}
+	if d.Get("network_security_custom_endpoint") == "" {
+		d.Set("network_security_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NETWORK_SECURITY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NetworkSecurityBasePathKey]))
+	}
+	if d.Get("network_services_custom_endpoint") == "" {
+		d.Set("network_services_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NETWORK_SERVICES_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NetworkServicesBasePathKey]))
+	}
+	if d.Get("notebooks_custom_endpoint") == "" {
+		d.Set("notebooks_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_NOTEBOOKS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[NotebooksBasePathKey]))
+	}
+	if d.Get("observability_custom_endpoint") == "" {
+		d.Set("observability_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_OBSERVABILITY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ObservabilityBasePathKey]))
+	}
+	if d.Get("oracle_database_custom_endpoint") == "" {
+		d.Set("oracle_database_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ORACLE_DATABASE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[OracleDatabaseBasePathKey]))
+	}
+	if d.Get("org_policy_custom_endpoint") == "" {
+		d.Set("org_policy_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_ORG_POLICY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[OrgPolicyBasePathKey]))
+	}
+	if d.Get("os_config_custom_endpoint") == "" {
+		d.Set("os_config_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_OS_CONFIG_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[OSConfigBasePathKey]))
+	}
+	if d.Get("os_config_v2_custom_endpoint") == "" {
+		d.Set("os_config_v2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_OS_CONFIG_V2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[OSConfigV2BasePathKey]))
+	}
+	if d.Get("os_login_custom_endpoint") == "" {
+		d.Set("os_login_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_OS_LOGIN_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[OSLoginBasePathKey]))
+	}
+	if d.Get("parallelstore_custom_endpoint") == "" {
+		d.Set("parallelstore_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PARALLELSTORE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ParallelstoreBasePathKey]))
+	}
+	if d.Get("parameter_manager_custom_endpoint") == "" {
+		d.Set("parameter_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PARAMETER_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ParameterManagerBasePathKey]))
+	}
+	if d.Get("parameter_manager_regional_custom_endpoint") == "" {
+		d.Set("parameter_manager_regional_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PARAMETER_MANAGER_REGIONAL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ParameterManagerRegionalBasePathKey]))
+	}
+	if d.Get("privateca_custom_endpoint") == "" {
+		d.Set("privateca_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PRIVATECA_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[PrivatecaBasePathKey]))
+	}
+	if d.Get("privileged_access_manager_custom_endpoint") == "" {
+		d.Set("privileged_access_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PRIVILEGED_ACCESS_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[PrivilegedAccessManagerBasePathKey]))
+	}
+	if d.Get("public_ca_custom_endpoint") == "" {
+		d.Set("public_ca_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PUBLIC_CA_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[PublicCABasePathKey]))
+	}
+	if d.Get("pubsub_custom_endpoint") == "" {
+		d.Set("pubsub_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PUBSUB_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[PubsubBasePathKey]))
+	}
+	if d.Get("pubsub_lite_custom_endpoint") == "" {
+		d.Set("pubsub_lite_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_PUBSUB_LITE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[PubsubLiteBasePathKey]))
+	}
+	if d.Get("redis_custom_endpoint") == "" {
+		d.Set("redis_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_REDIS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[RedisBasePathKey]))
+	}
+	if d.Get("resource_manager_custom_endpoint") == "" {
+		d.Set("resource_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_RESOURCE_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ResourceManagerBasePathKey]))
+	}
+	if d.Get("resource_manager3_custom_endpoint") == "" {
+		d.Set("resource_manager3_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_RESOURCE_MANAGER3_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ResourceManager3BasePathKey]))
+	}
+	if d.Get("secret_manager_custom_endpoint") == "" {
+		d.Set("secret_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECRET_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecretManagerBasePathKey]))
+	}
+	if d.Get("secret_manager_regional_custom_endpoint") == "" {
+		d.Set("secret_manager_regional_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECRET_MANAGER_REGIONAL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecretManagerRegionalBasePathKey]))
+	}
+	if d.Get("secure_source_manager_custom_endpoint") == "" {
+		d.Set("secure_source_manager_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECURE_SOURCE_MANAGER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecureSourceManagerBasePathKey]))
+	}
+	if d.Get("security_center_custom_endpoint") == "" {
+		d.Set("security_center_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECURITY_CENTER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecurityCenterBasePathKey]))
+	}
+	if d.Get("security_center_management_custom_endpoint") == "" {
+		d.Set("security_center_management_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECURITY_CENTER_MANAGEMENT_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecurityCenterManagementBasePathKey]))
+	}
+	if d.Get("security_center_v2_custom_endpoint") == "" {
+		d.Set("security_center_v2_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECURITY_CENTER_V2_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecurityCenterV2BasePathKey]))
+	}
+	if d.Get("securityposture_custom_endpoint") == "" {
+		d.Set("securityposture_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SECURITYPOSTURE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SecuritypostureBasePathKey]))
+	}
+	if d.Get("service_directory_custom_endpoint") == "" {
+		d.Set("service_directory_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SERVICE_DIRECTORY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ServiceDirectoryBasePathKey]))
+	}
+	if d.Get("service_management_custom_endpoint") == "" {
+		d.Set("service_management_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SERVICE_MANAGEMENT_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ServiceManagementBasePathKey]))
+	}
+	if d.Get("service_networking_custom_endpoint") == "" {
+		d.Set("service_networking_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SERVICE_NETWORKING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ServiceNetworkingBasePathKey]))
+	}
+	if d.Get("service_usage_custom_endpoint") == "" {
+		d.Set("service_usage_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SERVICE_USAGE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ServiceUsageBasePathKey]))
+	}
+	if d.Get("site_verification_custom_endpoint") == "" {
+		d.Set("site_verification_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SITE_VERIFICATION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SiteVerificationBasePathKey]))
+	}
+	if d.Get("source_repo_custom_endpoint") == "" {
+		d.Set("source_repo_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SOURCE_REPO_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SourceRepoBasePathKey]))
+	}
+	if d.Get("spanner_custom_endpoint") == "" {
+		d.Set("spanner_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SPANNER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SpannerBasePathKey]))
+	}
+	if d.Get("sql_custom_endpoint") == "" {
+		d.Set("sql_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_SQL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[SQLBasePathKey]))
+	}
+	if d.Get("storage_custom_endpoint") == "" {
+		d.Set("storage_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_STORAGE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[StorageBasePathKey]))
+	}
+	if d.Get("storage_batch_operations_custom_endpoint") == "" {
+		d.Set("storage_batch_operations_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_STORAGE_BATCH_OPERATIONS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[StorageBatchOperationsBasePathKey]))
+	}
+	if d.Get("storage_control_custom_endpoint") == "" {
+		d.Set("storage_control_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_STORAGE_CONTROL_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[StorageControlBasePathKey]))
+	}
+	if d.Get("storage_insights_custom_endpoint") == "" {
+		d.Set("storage_insights_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_STORAGE_INSIGHTS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[StorageInsightsBasePathKey]))
+	}
+	if d.Get("storage_transfer_custom_endpoint") == "" {
+		d.Set("storage_transfer_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_STORAGE_TRANSFER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[StorageTransferBasePathKey]))
+	}
+	if d.Get("tags_custom_endpoint") == "" {
+		d.Set("tags_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_TAGS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[TagsBasePathKey]))
+	}
+	if d.Get("transcoder_custom_endpoint") == "" {
+		d.Set("transcoder_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_TRANSCODER_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[TranscoderBasePathKey]))
+	}
+	if d.Get("vector_search_custom_endpoint") == "" {
+		d.Set("vector_search_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_VECTOR_SEARCH_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[VectorSearchBasePathKey]))
+	}
+	if d.Get("vertex_ai_custom_endpoint") == "" {
+		d.Set("vertex_ai_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_VERTEX_AI_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[VertexAIBasePathKey]))
+	}
+	if d.Get("vmwareengine_custom_endpoint") == "" {
+		d.Set("vmwareengine_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_VMWAREENGINE_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[VmwareengineBasePathKey]))
+	}
+	if d.Get("vpc_access_custom_endpoint") == "" {
+		d.Set("vpc_access_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_VPC_ACCESS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[VPCAccessBasePathKey]))
+	}
+	if d.Get("workbench_custom_endpoint") == "" {
+		d.Set("workbench_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_WORKBENCH_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[WorkbenchBasePathKey]))
+	}
+	if d.Get("workflows_custom_endpoint") == "" {
+		d.Set("workflows_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_WORKFLOWS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[WorkflowsBasePathKey]))
+	}
+	if d.Get("workload_identity_custom_endpoint") == "" {
+		d.Set("workload_identity_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_WORKLOAD_IDENTITY_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[WorkloadIdentityBasePathKey]))
+	}
+	if d.Get("workstations_custom_endpoint") == "" {
+		d.Set("workstations_custom_endpoint", MultiEnvDefault([]string{
+			"GOOGLE_WORKSTATIONS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[WorkstationsBasePathKey]))
+	}
+
+	if d.Get(CloudBillingCustomEndpointEntryKey) == "" {
+		d.Set(CloudBillingCustomEndpointEntryKey, MultiEnvDefault([]string{
+			"GOOGLE_CLOUD_BILLING_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[CloudBillingBasePathKey]))
+	}
+
+	if d.Get(DataflowCustomEndpointEntryKey) == "" {
+		d.Set(DataflowCustomEndpointEntryKey, MultiEnvDefault([]string{
+			"GOOGLE_DATAFLOW_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[DataflowBasePathKey]))
+	}
+
+	if d.Get(IamCredentialsCustomEndpointEntryKey) == "" {
+		d.Set(IamCredentialsCustomEndpointEntryKey, MultiEnvDefault([]string{
+			"GOOGLE_IAM_CREDENTIALS_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IamCredentialsBasePathKey]))
+	}
+
+	if d.Get(ResourceManagerV3CustomEndpointEntryKey) == "" {
+		d.Set(ResourceManagerV3CustomEndpointEntryKey, MultiEnvDefault([]string{
+			"GOOGLE_RESOURCE_MANAGER_V3_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[ResourceManagerV3BasePathKey]))
+	}
+
+	if d.Get(IAMCustomEndpointEntryKey) == "" {
+		d.Set(IAMCustomEndpointEntryKey, MultiEnvDefault([]string{
+			"GOOGLE_IAM_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[IAMBasePathKey]))
+	}
+
+	if d.Get(TagsLocationCustomEndpointEntryKey) == "" {
+		d.Set(TagsLocationCustomEndpointEntryKey, MultiEnvDefault([]string{
+			"GOOGLE_TAGS_LOCATION_CUSTOM_ENDPOINT",
+		}, DefaultBasePaths[TagsLocationBasePathKey]))
+	}
+
 	// DCL endpoints - these are hardcoded as a workaround for the DCL not providing a way to
 	// determine base paths at generation time.
 
@@ -1293,6 +2126,33 @@ func (c *Config) getTokenSource(ctx context.Context, clientScopes []string, init
 // while most only want the host URL, some older ones also want the version and some
 // of those "projects" as well. You can find out if this is required by looking at
 // the basePath value in the client library file.
+func (c *Config) NewCertificateManagerClient(userAgent string) *certificatemanager.Service {
+	certificateManagerClientBasePath := RemoveBasePathVersion(c.CertificateManagerBasePath)
+	log.Printf("[INFO] Instantiating Certificate Manager client for path %s", certificateManagerClientBasePath)
+	clientCertificateManager, err := certificatemanager.NewService(c.Context, option.WithHTTPClient(c.Client))
+	if err != nil {
+		log.Printf("[WARN] Error creating client certificate manager: %s", err)
+		return nil
+	}
+	clientCertificateManager.UserAgent = userAgent
+	clientCertificateManager.BasePath = certificateManagerClientBasePath
+
+	return clientCertificateManager
+}
+
+func (c *Config) NewComputeClient(userAgent string) *compute.Service {
+	log.Printf("[INFO] Instantiating GCE client for path %s", c.ComputeBasePath)
+	clientCompute, err := compute.NewService(c.Context, option.WithHTTPClient(c.Client))
+	if err != nil {
+		log.Printf("[WARN] Error creating client compute: %s", err)
+		return nil
+	}
+	clientCompute.UserAgent = userAgent
+	clientCompute.BasePath = c.ComputeBasePath
+
+	return clientCompute
+}
+
 func (c *Config) NewContainerClient(userAgent string) *container.Service {
 	containerClientBasePath := RemoveBasePathVersion(c.ContainerBasePath)
 	log.Printf("[INFO] Instantiating GKE client for path %s", containerClientBasePath)
@@ -1420,6 +2280,21 @@ func (c *Config) NewBackupDRClient(userAgent string) *backupdr.Service {
 	return clientBackupdrAdmin
 }
 
+func (c *Config) NewPubsubClient(userAgent string) *pubsub.Service {
+	pubsubClientBasePath := RemoveBasePathVersion(c.PubsubBasePath)
+	log.Printf("[INFO] Instantiating Google Pubsub client for path %s", pubsubClientBasePath)
+	wrappedPubsubClient := ClientWithAdditionalRetries(c.Client, PubsubTopicProjectNotReady)
+	clientPubsub, err := pubsub.NewService(c.Context, option.WithHTTPClient(wrappedPubsubClient))
+	if err != nil {
+		log.Printf("[WARN] Error creating client pubsub: %s", err)
+		return nil
+	}
+	clientPubsub.UserAgent = userAgent
+	clientPubsub.BasePath = pubsubClientBasePath
+
+	return clientPubsub
+}
+
 func (c *Config) NewDataflowClient(userAgent string) *dataflow.Service {
 	dataflowClientBasePath := RemoveBasePathVersion(c.DataflowBasePath)
 	log.Printf("[INFO] Instantiating Google Dataflow client for path %s", dataflowClientBasePath)
@@ -1463,7 +2338,7 @@ func (c *Config) NewResourceManagerV3Client(userAgent string) *resourceManagerV3
 }
 
 func (c *Config) NewIamClient(userAgent string) *iam.Service {
-	iamClientBasePath := RemoveBasePathVersion(c.IAMBetaBasePath)
+	iamClientBasePath := RemoveBasePathVersion(c.IAMBasePath)
 	log.Printf("[INFO] Instantiating Google Cloud IAM client for path %s", iamClientBasePath)
 	clientIAM, err := iam.NewService(c.Context, option.WithHTTPClient(c.Client))
 	if err != nil {
@@ -1488,6 +2363,20 @@ func (c *Config) NewIamCredentialsClient(userAgent string) *iamcredentials.Servi
 	clientIamCredentials.BasePath = iamCredentialsClientBasePath
 
 	return clientIamCredentials
+}
+
+func (c *Config) NewServiceManClient(userAgent string) *servicemanagement.APIService {
+	serviceManagementClientBasePath := RemoveBasePathVersion(c.ServiceManagementBasePath)
+	log.Printf("[INFO] Instantiating Google Cloud Service Management client for path %s", serviceManagementClientBasePath)
+	clientServiceMan, err := servicemanagement.NewService(c.Context, option.WithHTTPClient(c.Client))
+	if err != nil {
+		log.Printf("[WARN] Error creating client service management: %s", err)
+		return nil
+	}
+	clientServiceMan.UserAgent = userAgent
+	clientServiceMan.BasePath = serviceManagementClientBasePath
+
+	return clientServiceMan
 }
 
 func (c *Config) NewServiceUsageClient(userAgent string) *serviceusage.Service {
@@ -1516,6 +2405,20 @@ func (c *Config) NewBillingClient(userAgent string) *cloudbilling.APIService {
 	clientBilling.BasePath = cloudBillingClientBasePath
 
 	return clientBilling
+}
+
+func (c *Config) NewBuildClient(userAgent string) *cloudbuild.Service {
+	cloudBuildClientBasePath := RemoveBasePathVersion(c.CloudBuildBasePath)
+	log.Printf("[INFO] Instantiating Google Cloud Build client for path %s", cloudBuildClientBasePath)
+	clientBuild, err := cloudbuild.NewService(c.Context, option.WithHTTPClient(c.Client))
+	if err != nil {
+		log.Printf("[WARN] Error creating client build: %s", err)
+		return nil
+	}
+	clientBuild.UserAgent = userAgent
+	clientBuild.BasePath = cloudBuildClientBasePath
+
+	return clientBuild
 }
 
 func (c *Config) NewCloudFunctionsClient(userAgent string) *cloudfunctions.Service {
@@ -1981,14 +2884,13 @@ func ConfigureBasePaths(c *Config) {
 	c.BigqueryDataTransferBasePath = DefaultBasePaths[BigqueryDataTransferBasePathKey]
 	c.BigqueryReservationBasePath = DefaultBasePaths[BigqueryReservationBasePathKey]
 	c.BigtableBasePath = DefaultBasePaths[BigtableBasePathKey]
-	c.BillingBudgetsBasePath = DefaultBasePaths[BillingBudgetsBasePathKey]
+	c.BillingBasePath = DefaultBasePaths[BillingBasePathKey]
 	c.BinaryAuthorizationBasePath = DefaultBasePaths[BinaryAuthorizationBasePathKey]
 	c.BlockchainNodeEngineBasePath = DefaultBasePaths[BlockchainNodeEngineBasePathKey]
 	c.CertificateManagerBasePath = DefaultBasePaths[CertificateManagerBasePathKey]
 	c.CESBasePath = DefaultBasePaths[CESBasePathKey]
 	c.ChronicleBasePath = DefaultBasePaths[ChronicleBasePathKey]
 	c.CloudAssetBasePath = DefaultBasePaths[CloudAssetBasePathKey]
-	c.CloudBillingBasePath = DefaultBasePaths[CloudBillingBasePathKey]
 	c.CloudBuildBasePath = DefaultBasePaths[CloudBuildBasePathKey]
 	c.Cloudbuildv2BasePath = DefaultBasePaths[Cloudbuildv2BasePathKey]
 	c.ClouddeployBasePath = DefaultBasePaths[ClouddeployBasePathKey]
@@ -2010,12 +2912,11 @@ func ConfigureBasePaths(c *Config) {
 	c.ContainerBasePath = DefaultBasePaths[ContainerBasePathKey]
 	c.ContainerAnalysisBasePath = DefaultBasePaths[ContainerAnalysisBasePathKey]
 	c.ContainerAttachedBasePath = DefaultBasePaths[ContainerAttachedBasePathKey]
+	c.CoreBillingBasePath = DefaultBasePaths[CoreBillingBasePathKey]
 	c.DatabaseMigrationServiceBasePath = DefaultBasePaths[DatabaseMigrationServiceBasePathKey]
 	c.DataCatalogBasePath = DefaultBasePaths[DataCatalogBasePathKey]
-	c.DataflowBasePath = DefaultBasePaths[DataflowBasePathKey]
 	c.DataformBasePath = DefaultBasePaths[DataformBasePathKey]
 	c.DataFusionBasePath = DefaultBasePaths[DataFusionBasePathKey]
-	c.DataLineageBasePath = DefaultBasePaths[DataLineageBasePathKey]
 	c.DataLossPreventionBasePath = DefaultBasePaths[DataLossPreventionBasePathKey]
 	c.DataPipelineBasePath = DefaultBasePaths[DataPipelineBasePathKey]
 	c.DataplexBasePath = DefaultBasePaths[DataplexBasePathKey]
@@ -2039,7 +2940,6 @@ func ConfigureBasePaths(c *Config) {
 	c.FirebaseAppCheckBasePath = DefaultBasePaths[FirebaseAppCheckBasePathKey]
 	c.FirebaseAppHostingBasePath = DefaultBasePaths[FirebaseAppHostingBasePathKey]
 	c.FirebaseDataConnectBasePath = DefaultBasePaths[FirebaseDataConnectBasePathKey]
-	c.FirebaseRemoteConfigBasePath = DefaultBasePaths[FirebaseRemoteConfigBasePathKey]
 	c.FirestoreBasePath = DefaultBasePaths[FirestoreBasePathKey]
 	c.GeminiBasePath = DefaultBasePaths[GeminiBasePathKey]
 	c.GKEBackupBasePath = DefaultBasePaths[GKEBackupBasePathKey]
@@ -2051,7 +2951,6 @@ func ConfigureBasePaths(c *Config) {
 	c.IAM2BasePath = DefaultBasePaths[IAM2BasePathKey]
 	c.IAM3BasePath = DefaultBasePaths[IAM3BasePathKey]
 	c.IAMBetaBasePath = DefaultBasePaths[IAMBetaBasePathKey]
-	c.IamCredentialsBasePath = DefaultBasePaths[IamCredentialsBasePathKey]
 	c.IAMWorkforcePoolBasePath = DefaultBasePaths[IAMWorkforcePoolBasePathKey]
 	c.IapBasePath = DefaultBasePaths[IapBasePathKey]
 	c.IdentityPlatformBasePath = DefaultBasePaths[IdentityPlatformBasePathKey]
@@ -2092,7 +2991,7 @@ func ConfigureBasePaths(c *Config) {
 	c.PubsubLiteBasePath = DefaultBasePaths[PubsubLiteBasePathKey]
 	c.RedisBasePath = DefaultBasePaths[RedisBasePathKey]
 	c.ResourceManagerBasePath = DefaultBasePaths[ResourceManagerBasePathKey]
-	c.ResourceManagerV3BasePath = DefaultBasePaths[ResourceManagerV3BasePathKey]
+	c.ResourceManager3BasePath = DefaultBasePaths[ResourceManager3BasePathKey]
 	c.SecretManagerBasePath = DefaultBasePaths[SecretManagerBasePathKey]
 	c.SecretManagerRegionalBasePath = DefaultBasePaths[SecretManagerRegionalBasePathKey]
 	c.SecureSourceManagerBasePath = DefaultBasePaths[SecureSourceManagerBasePathKey]
@@ -2114,7 +3013,6 @@ func ConfigureBasePaths(c *Config) {
 	c.StorageInsightsBasePath = DefaultBasePaths[StorageInsightsBasePathKey]
 	c.StorageTransferBasePath = DefaultBasePaths[StorageTransferBasePathKey]
 	c.TagsBasePath = DefaultBasePaths[TagsBasePathKey]
-	c.TagsLocationBasePath = DefaultBasePaths[TagsLocationBasePathKey]
 	c.TranscoderBasePath = DefaultBasePaths[TranscoderBasePathKey]
 	c.VectorSearchBasePath = DefaultBasePaths[VectorSearchBasePathKey]
 	c.VertexAIBasePath = DefaultBasePaths[VertexAIBasePathKey]
@@ -2124,6 +3022,14 @@ func ConfigureBasePaths(c *Config) {
 	c.WorkflowsBasePath = DefaultBasePaths[WorkflowsBasePathKey]
 	c.WorkloadIdentityBasePath = DefaultBasePaths[WorkloadIdentityBasePathKey]
 	c.WorkstationsBasePath = DefaultBasePaths[WorkstationsBasePathKey]
+
+	// Handwritten Products / Versioned / Atypical Entries
+	c.CloudBillingBasePath = DefaultBasePaths[CloudBillingBasePathKey]
+	c.DataflowBasePath = DefaultBasePaths[DataflowBasePathKey]
+	c.IamCredentialsBasePath = DefaultBasePaths[IamCredentialsBasePathKey]
+	c.ResourceManagerV3BasePath = DefaultBasePaths[ResourceManagerV3BasePathKey]
+	c.IAMBasePath = DefaultBasePaths[IAMBasePathKey]
+	c.TagsLocationBasePath = DefaultBasePaths[TagsLocationBasePathKey]
 
 	// DCL
 	c.ContainerAwsBasePath = DefaultBasePaths[ContainerAwsBasePathKey]

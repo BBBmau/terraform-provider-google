@@ -589,6 +589,19 @@ func resourceCloudRunDomainMappingRead(d *schema.ResourceData, meta interface{})
 	}
 
 	log.Printf("[DEBUG] Finished reading CloudRunDomainMapping %q: %#v", d.Id(), res)
+
+	res, err = resourceCloudRunDomainMappingDecoder(d, meta, res)
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		// Decoding the object has resulted in it being gone. It may be marked deleted
+		log.Printf("[DEBUG] Removing CloudRunDomainMapping because it no longer exists.")
+		d.SetId("")
+		return nil
+	}
+
 	if err := d.Set("project", project); err != nil {
 		return fmt.Errorf("Error reading DomainMapping: %s", err)
 	}
@@ -1411,18 +1424,6 @@ func ResourceCloudRunDomainMappingUpgradeV0(_ context.Context, rawState map[stri
 
 func ResourceCloudRunDomainMappingFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
-
-	res, err = resourceCloudRunDomainMappingDecoder(d, meta, res)
-	if err != nil {
-		return fmt.Errorf("Error decoding response: %s", err)
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing CloudRunDomainMapping because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
 
 	if err = d.Set("status", flattenCloudRunDomainMappingStatus(res["status"], d, config)); err != nil {
 		return fmt.Errorf("Error reading DomainMapping: %s", err)
