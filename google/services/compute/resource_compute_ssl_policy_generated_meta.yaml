@@ -14,7 +14,6 @@ fields:
     - api_field: fingerprint
     - api_field: minTlsVersion
     - api_field: name
-    - api_field: postQuantumKeyExchange
     - api_field: profile
     - api_field: selfLink
     - field: deletion_policy

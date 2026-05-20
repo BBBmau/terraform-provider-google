@@ -203,20 +203,6 @@ to establish a connection with the load balancer. When set to
 'TLS_1_3', the profile field must be set to 'RESTRICTED'. Default value: "TLS_1_0" Possible values: ["TLS_1_0", "TLS_1_1", "TLS_1_2", "TLS_1_3"]`,
 				Default: "TLS_1_0",
 			},
-			"post_quantum_key_exchange": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: verify.ValidateEnum([]string{"DEFAULT", "ENABLED", "DEFERRED", ""}),
-				Description: `One of 'DEFAULT', 'ENABLED', or 'DEFERRED'. Controls whether the load balancer negotiates
-X25519MLKEM768 key exchange when clients advertise support for it.
-When set to 'DEFAULT', or if no SSL Policy is attached to
-the target proxy, the load balancer disallows X25519MLKEM768 key
-exchange before October 2026, and allows it afterward. When set to
-'ENABLED', the load balancer allows X25519MLKEM768 key
-exchange. When set to 'DEFERRED', the load balancer
-disallows X25519MLKEM768 key exchange until October 2027, and allows
-it afterward. Possible values: ["DEFAULT", "ENABLED", "DEFERRED"]`,
-			},
 			"profile": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -325,12 +311,6 @@ func resourceComputeRegionSslPolicyCreate(d *schema.ResourceData, meta interface
 		return err
 	} else if v, ok := d.GetOkExists("custom_features"); ok || !reflect.DeepEqual(v, customFeaturesProp) {
 		obj["customFeatures"] = customFeaturesProp
-	}
-	postQuantumKeyExchangeProp, err := expandComputeRegionSslPolicyPostQuantumKeyExchange(d.Get("post_quantum_key_exchange"), d, config)
-	if err != nil {
-		return err
-	} else if v, ok := d.GetOkExists("post_quantum_key_exchange"); !tpgresource.IsEmptyValue(reflect.ValueOf(postQuantumKeyExchangeProp)) && (ok || !reflect.DeepEqual(v, postQuantumKeyExchangeProp)) {
-		obj["postQuantumKeyExchange"] = postQuantumKeyExchangeProp
 	}
 	fingerprintProp, err := expandComputeRegionSslPolicyFingerprint(d.Get("fingerprint"), d, config)
 	if err != nil {
@@ -578,12 +558,6 @@ func resourceComputeRegionSslPolicyUpdate(d *schema.ResourceData, meta interface
 	} else if v, ok := d.GetOkExists("custom_features"); ok || !reflect.DeepEqual(v, customFeaturesProp) {
 		obj["customFeatures"] = customFeaturesProp
 	}
-	postQuantumKeyExchangeProp, err := expandComputeRegionSslPolicyPostQuantumKeyExchange(d.Get("post_quantum_key_exchange"), d, config)
-	if err != nil {
-		return err
-	} else if v, ok := d.GetOkExists("post_quantum_key_exchange"); !tpgresource.IsEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, postQuantumKeyExchangeProp)) {
-		obj["postQuantumKeyExchange"] = postQuantumKeyExchangeProp
-	}
 	fingerprintProp, err := expandComputeRegionSslPolicyFingerprint(d.Get("fingerprint"), d, config)
 	if err != nil {
 		return err
@@ -749,10 +723,6 @@ func flattenComputeRegionSslPolicyCustomFeatures(v interface{}, d *schema.Resour
 	return schema.NewSet(schema.HashString, v.([]interface{}))
 }
 
-func flattenComputeRegionSslPolicyPostQuantumKeyExchange(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	return v
-}
-
 func flattenComputeRegionSslPolicyFingerprint(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -782,10 +752,6 @@ func expandComputeRegionSslPolicyMinTlsVersion(v interface{}, d tpgresource.Terr
 
 func expandComputeRegionSslPolicyCustomFeatures(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	v = v.(*schema.Set).List()
-	return v, nil
-}
-
-func expandComputeRegionSslPolicyPostQuantumKeyExchange(v interface{}, d tpgresource.TerraformResourceData, config *transport_tpg.Config) (interface{}, error) {
 	return v, nil
 }
 
@@ -823,9 +789,6 @@ func ResourceComputeRegionSslPolicyFlatten(d *schema.ResourceData, meta interfac
 		return fmt.Errorf("Error reading RegionSslPolicy: %s", err)
 	}
 	if err = d.Set("custom_features", flattenComputeRegionSslPolicyCustomFeatures(res["customFeatures"], d, config)); err != nil {
-		return fmt.Errorf("Error reading RegionSslPolicy: %s", err)
-	}
-	if err = d.Set("post_quantum_key_exchange", flattenComputeRegionSslPolicyPostQuantumKeyExchange(res["postQuantumKeyExchange"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RegionSslPolicy: %s", err)
 	}
 	if err = d.Set("fingerprint", flattenComputeRegionSslPolicyFingerprint(res["fingerprint"], d, config)); err != nil {
