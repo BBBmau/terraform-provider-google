@@ -7,6 +7,7 @@
 
 package projects.reused
 
+import AllTestsName
 import NightlyTestsProjectId
 import ProviderNameBeta
 import ProviderNameGa
@@ -17,6 +18,8 @@ import SharedResourceNameGa
 import builds.*
 import generated.SweepersListBeta
 import generated.SweepersListGa
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import replaceCharsId
@@ -58,6 +61,28 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
     sweeperCron.startHour += 5  // Ensure triggered after the package test builds are triggered
     serviceSweeperConfig.addTrigger(sweeperCron)
 
+    // Create a composite "All Tests" build config that depends on all package builds
+    // This gives global sweepers a single build to depend on when checking if all nightly tests have completed
+    val allTestsId = replaceCharsId("${projectId}_ALL_TESTS")
+    val allTestsBuildConfig = BuildType {
+        id(allTestsId)
+        name = AllTestsName
+        type = BuildTypeSettings.Type.COMPOSITE
+
+        vcs {
+            showDependenciesChanges = true
+        }
+
+        dependencies {
+            packageBuildConfigs.forEach { buildConfiguration ->
+                snapshot(buildConfiguration) {
+                    onDependencyFailure = FailureAction.ADD_PROBLEM
+                }
+            }
+        }
+    }
+    allTestsBuildConfig.addTrigger(cron)
+
     return Project {
         id(projectId)
         name = "Nightly Tests"
@@ -68,6 +93,7 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
             buildType(buildConfiguration)
         }
         buildType(serviceSweeperConfig)
+        buildType(allTestsBuildConfig)
 
         params{
             configureGoogleSpecificTestParameters(config)
