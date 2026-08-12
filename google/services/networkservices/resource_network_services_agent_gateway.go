@@ -126,6 +126,10 @@ func ResourceNetworkServicesAgentGateway() *schema.Resource {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
 					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
 					"location": {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
@@ -337,6 +341,11 @@ If this is provided, it must match the server's etag. If the provided etag
 does not match the server's etag, the request will fail with a 409 ABORTED
 error.`,
 			},
+			"name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Name of the AgentGateway resource.`,
+			},
 			"terraform_labels": {
 				Type:     schema.TypeMap,
 				Computed: true,
@@ -476,20 +485,39 @@ func resourceNetworkServicesAgentGatewayCreate(d *schema.ResourceData, meta inte
 	}
 	d.SetId(id)
 
-	err = NetworkServicesOperationWaitTime(
-		config, res, project, "Creating AgentGateway", userAgent,
+	// Use the resource in the operation response to populate
+	// identity fields and d.Id() before read
+	var opRes map[string]interface{}
+	err = NetworkServicesOperationWaitTimeWithResponse(
+		config, res, &opRes, project, "Creating AgentGateway", userAgent,
 		d.Timeout(schema.TimeoutCreate))
-
 	if err != nil {
 		// The resource didn't actually create
 		d.SetId("")
+
 		return fmt.Errorf("Error waiting to create AgentGateway: %s", err)
 	}
+
+	if err := d.Set("name", flattenNetworkServicesAgentGatewayName(opRes["name"], d, config)); err != nil {
+		return err
+	}
+
+	// This may have caused the ID to update - update it if so.
+	id, err = tpgresource.ReplaceVars(d, config, "projects/{{project}}/locations/{{location}}/agentGateways/{{name}}")
+	if err != nil {
+		return fmt.Errorf("Error constructing id: %s", err)
+	}
+	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating AgentGateway %q: %#v", d.Id(), res)
 
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
 			if err = identity.Set("name", nameValue.(string)); err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
@@ -582,6 +610,12 @@ func resourceNetworkServicesAgentGatewayRead(d *schema.ResourceData, meta interf
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if v, ok := identity.GetOk("location"); !ok && v == "" {
 			err = identity.Set("location", d.Get("location").(string))
 			if err != nil {
@@ -622,6 +656,11 @@ func resourceNetworkServicesAgentGatewayUpdate(d *schema.ResourceData, meta inte
 	}
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
 			if err = identity.Set("name", nameValue.(string)); err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
@@ -852,6 +891,10 @@ func resourceNetworkServicesAgentGatewayImport(d *schema.ResourceData, meta inte
 	d.SetId(id)
 
 	return []*schema.ResourceData{d}, nil
+}
+
+func flattenNetworkServicesAgentGatewayName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
 }
 
 func flattenNetworkServicesAgentGatewayCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1242,6 +1285,9 @@ func expandNetworkServicesAgentGatewayName(v interface{}, d tpgresource.Terrafor
 func ResourceNetworkServicesAgentGatewayFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
 
+	if err = d.Set("name", flattenNetworkServicesAgentGatewayName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading AgentGateway: %s", err)
+	}
 	if err = d.Set("create_time", flattenNetworkServicesAgentGatewayCreateTime(res["createTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading AgentGateway: %s", err)
 	}

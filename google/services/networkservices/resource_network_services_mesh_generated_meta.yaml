@@ -15,6 +15,7 @@ fields:
     - api_field: labels
     - field: location
       provider_only: true
+    - api_field: name
     - field: name
       provider_only: true
     - api_field: selfLink

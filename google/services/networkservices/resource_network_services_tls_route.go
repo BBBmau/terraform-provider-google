@@ -134,9 +134,13 @@ func ResourceNetworkServicesTlsRoute() *schema.Resource {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
 					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
 					"location": {
 						Type:              schema.TypeString,
-						OptionalForImport: true,
+						RequiredForImport: true,
 					},
 					"project": {
 						Type:              schema.TypeString,
@@ -150,6 +154,13 @@ func ResourceNetworkServicesTlsRoute() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"location": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: `Location (region) of the TLS Route.`,
+				Default:     "global",
+			},
 			"name": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -234,13 +245,6 @@ Each gateway reference should match the pattern: projects/*/locations/*/gateways
 					Type: schema.TypeString,
 				},
 			},
-			"location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
-				Description: `Location (region) of the TLS Route.`,
-				Default:     "global",
-			},
 			"meshes": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -264,6 +268,11 @@ Each target proxy reference should match the pattern: projects/*/locations/globa
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: `Time the TlsRoute was created in UTC.`,
+			},
+			"name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Name of the TlsRoute resource.`,
 			},
 			"self_link": {
 				Type:        schema.TypeString,
@@ -397,6 +406,11 @@ func resourceNetworkServicesTlsRouteCreate(d *schema.ResourceData, meta interfac
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
 			if err = identity.Set("location", locationValue.(string)); err != nil {
 				return fmt.Errorf("Error setting location: %s", err)
@@ -484,6 +498,12 @@ func resourceNetworkServicesTlsRouteRead(d *schema.ResourceData, meta interface{
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if v, ok := identity.GetOk("location"); !ok && v == "" {
 			err = identity.Set("location", d.Get("location").(string))
 			if err != nil {
@@ -524,6 +544,11 @@ func resourceNetworkServicesTlsRouteUpdate(d *schema.ResourceData, meta interfac
 	}
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
 			if err = identity.Set("name", nameValue.(string)); err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
@@ -735,6 +760,10 @@ func resourceNetworkServicesTlsRouteImport(d *schema.ResourceData, meta interfac
 	d.SetId(id)
 
 	return []*schema.ResourceData{d}, nil
+}
+
+func flattenNetworkServicesTlsRouteName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
 }
 
 func flattenNetworkServicesTlsRouteSelfLink(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1170,6 +1199,9 @@ func ResourceNetworkServicesTlsRouteUpgradeV0(_ context.Context, rawState map[st
 func ResourceNetworkServicesTlsRouteFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
 
+	if err = d.Set("name", flattenNetworkServicesTlsRouteName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading TlsRoute: %s", err)
+	}
 	if err = d.Set("self_link", flattenNetworkServicesTlsRouteSelfLink(res["selfLink"], d, config)); err != nil {
 		return fmt.Errorf("Error reading TlsRoute: %s", err)
 	}

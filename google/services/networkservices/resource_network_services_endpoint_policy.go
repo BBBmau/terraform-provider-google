@@ -126,6 +126,10 @@ func ResourceNetworkServicesEndpointPolicy() *schema.Resource {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
 					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
 					"project": {
 						Type:              schema.TypeString,
 						OptionalForImport: true,
@@ -182,6 +186,13 @@ func ResourceNetworkServicesEndpointPolicy() *schema.Resource {
 						},
 					},
 				},
+			},
+			"location": {
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: `Location (region) of the EndpointPolicy resource. Only the value 'global' is currently allowed.`,
+				Default:     "global",
 			},
 			"name": {
 				Type:        schema.TypeString,
@@ -252,6 +263,11 @@ Please refer to the field 'effective_labels' for all of the labels present on th
 				Computed:    true,
 				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Name of the EndpointPolicy resource.`,
 			},
 			"terraform_labels": {
 				Type:     schema.TypeMap,
@@ -405,6 +421,11 @@ func resourceNetworkServicesEndpointPolicyCreate(d *schema.ResourceData, meta in
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
 			if err = identity.Set("project", projectValue.(string)); err != nil {
 				return fmt.Errorf("Error setting project: %s", err)
@@ -487,6 +508,12 @@ func resourceNetworkServicesEndpointPolicyRead(d *schema.ResourceData, meta inte
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if v, ok := identity.GetOk("project"); !ok && v == "" {
 			err = identity.Set("project", d.Get("project").(string))
 			if err != nil {
@@ -521,6 +548,11 @@ func resourceNetworkServicesEndpointPolicyUpdate(d *schema.ResourceData, meta in
 	}
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
 			if err = identity.Set("name", nameValue.(string)); err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
@@ -756,6 +788,10 @@ func resourceNetworkServicesEndpointPolicyImport(d *schema.ResourceData, meta in
 	d.SetId(id)
 
 	return []*schema.ResourceData{d}, nil
+}
+
+func flattenNetworkServicesEndpointPolicyName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
 }
 
 func flattenNetworkServicesEndpointPolicyCreateTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -1052,6 +1088,9 @@ func expandNetworkServicesEndpointPolicyEffectiveLabels(v interface{}, d tpgreso
 func ResourceNetworkServicesEndpointPolicyFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
 
+	if err = d.Set("name", flattenNetworkServicesEndpointPolicyName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading EndpointPolicy: %s", err)
+	}
 	if err = d.Set("create_time", flattenNetworkServicesEndpointPolicyCreateTime(res["createTime"], d, config)); err != nil {
 		return fmt.Errorf("Error reading EndpointPolicy: %s", err)
 	}

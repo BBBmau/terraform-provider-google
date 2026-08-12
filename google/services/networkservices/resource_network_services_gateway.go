@@ -249,9 +249,13 @@ func ResourceNetworkServicesGateway() *schema.Resource {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
 					},
+					"name": {
+						Type:              schema.TypeString,
+						RequiredForImport: true,
+					},
 					"location": {
 						Type:              schema.TypeString,
-						OptionalForImport: true,
+						RequiredForImport: true,
 					},
 					"project": {
 						Type:              schema.TypeString,
@@ -265,6 +269,13 @@ func ResourceNetworkServicesGateway() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"location": {
+				Type:     schema.TypeString,
+				Required: true,
+				Description: `The location of the gateway.
+The default value is 'global'.`,
+				Default: "global",
+			},
 			"name": {
 				Type:        schema.TypeString,
 				Required:    true,
@@ -354,13 +365,6 @@ This policy is specific to gateways of type 'SECURE_WEB_GATEWAY'.`,
 Please refer to the field 'effective_labels' for all of the labels present on the resource.`,
 				Elem: &schema.Schema{Type: schema.TypeString},
 			},
-			"location": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Description: `The location of the gateway.
-The default value is 'global'.`,
-				Default: "global",
-			},
 			"network": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -421,6 +425,11 @@ Currently, this field is specific to gateways of type 'SECURE_WEB_GATEWAY'.`,
 				Computed:    true,
 				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"name": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: `Name of the Gateway resource.`,
 			},
 			"self_link": {
 				Type:        schema.TypeString,
@@ -634,6 +643,11 @@ func resourceNetworkServicesGatewayCreate(d *schema.ResourceData, meta interface
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if locationValue, ok := d.GetOk("location"); ok && locationValue.(string) != "" {
 			if err = identity.Set("location", locationValue.(string)); err != nil {
 				return fmt.Errorf("Error setting location: %s", err)
@@ -726,6 +740,12 @@ func resourceNetworkServicesGatewayRead(d *schema.ResourceData, meta interface{}
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
+		if v, ok := identity.GetOk("name"); !ok && v == "" {
+			err = identity.Set("name", d.Get("name").(string))
+			if err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if v, ok := identity.GetOk("location"); !ok && v == "" {
 			err = identity.Set("location", d.Get("location").(string))
 			if err != nil {
@@ -766,6 +786,11 @@ func resourceNetworkServicesGatewayUpdate(d *schema.ResourceData, meta interface
 	}
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
+		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
+			if err = identity.Set("name", nameValue.(string)); err != nil {
+				return fmt.Errorf("Error setting name: %s", err)
+			}
+		}
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
 			if err = identity.Set("name", nameValue.(string)); err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
@@ -1044,6 +1069,10 @@ func resourceNetworkServicesGatewayImport(d *schema.ResourceData, meta interface
 	return []*schema.ResourceData{d}, nil
 }
 
+func flattenNetworkServicesGatewayName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
+	return v
+}
+
 func flattenNetworkServicesGatewaySelfLink(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
 }
@@ -1235,6 +1264,9 @@ func resourceNetworkServicesGatewayUpdateEncoder(d *schema.ResourceData, meta in
 func ResourceNetworkServicesGatewayFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
 
+	if err = d.Set("name", flattenNetworkServicesGatewayName(res["name"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Gateway: %s", err)
+	}
 	if err = d.Set("self_link", flattenNetworkServicesGatewaySelfLink(res["selfLink"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Gateway: %s", err)
 	}
