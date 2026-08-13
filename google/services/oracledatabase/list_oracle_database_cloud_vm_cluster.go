@@ -136,7 +136,8 @@ func ListOracleDatabaseCloudVmClusters(config *transport_tpg.Config,
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -166,6 +167,10 @@ func ListOracleDatabaseCloudVmClusters(config *transport_tpg.Config,
 				if err := d.Set("cloud_vm_cluster_id", v); err != nil {
 					return fmt.Errorf("error setting cloud_vm_cluster_id: %w", err)
 				}
+			}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceOracleDatabaseCloudVmClusterFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err

@@ -136,7 +136,8 @@ func ListOracleDatabaseGoldengateConnectionAssignments(config *transport_tpg.Con
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -166,6 +167,10 @@ func ListOracleDatabaseGoldengateConnectionAssignments(config *transport_tpg.Con
 				if err := d.Set("goldengate_connection_assignment_id", v); err != nil {
 					return fmt.Errorf("error setting goldengate_connection_assignment_id: %w", err)
 				}
+			}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceOracleDatabaseGoldengateConnectionAssignmentFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err

@@ -27,7 +27,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/list"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
@@ -115,7 +114,8 @@ func ListOracleDatabaseCloudExadataInfrastructureExascaleConfigs(config *transpo
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -152,6 +152,10 @@ func ListOracleDatabaseCloudExadataInfrastructureExascaleConfigs(config *transpo
 				if err := d.Set("cloud_exadata_infrastructure", v); err != nil {
 					return fmt.Errorf("error setting cloud_exadata_infrastructure: %w", err)
 				}
+			}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceOracleDatabaseCloudExadataInfrastructureExascaleConfigFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err
