@@ -178,6 +178,13 @@ func ListApigeeEnvironmentApiRevisionDeployments(config *transport_tpg.Config,
 		Flattener: func(res map[string]interface{}, d *schema.ResourceData, config *transport_tpg.Config) error {
 			headers := make(http.Header)
 			var err error
+			res, err = resourceApigeeEnvironmentApiRevisionDeploymentDecoder(d, config, res)
+			if err != nil {
+				return err
+			}
+			if res == nil {
+				return fmt.Errorf("error decoding ApigeeEnvironmentApiRevisionDeployment from list response")
+			}
 			if v, ok := res["org_id"]; ok && v != nil {
 				if err := d.Set("org_id", v); err != nil {
 					return fmt.Errorf("error setting org_id: %w", err)
