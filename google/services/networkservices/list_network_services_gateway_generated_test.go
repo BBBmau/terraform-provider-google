@@ -65,9 +65,7 @@ func TestAccNetworkServicesGatewayListQuery_generated(t *testing.T) {
 							"name",
 						},
 					),
-					listScope.Capture(map[string]string{
-						"location": "google_network_services_gateway.default",
-					}),
+					listScope.Capture(map[string]string{}),
 				),
 			},
 			{
@@ -89,12 +87,10 @@ func TestAccNetworkServicesGatewayListQuery_generated(t *testing.T) {
 
 func testAccNetworkServicesGateway_networkServicesGatewayBasicExampleListQuery(context map[string]interface{}) string {
 	return acctest.Nprintf(`
-variable "location" { type = string }
 list "google_network_services_gateway" "list_query" {
     provider = google
 	limit = 10000
     config {
-        location = var.location
     }
 }
 `, context)

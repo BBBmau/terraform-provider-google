@@ -65,9 +65,7 @@ func TestAccNetworkServicesMeshListQuery_generated(t *testing.T) {
 							"name",
 						},
 					),
-					listScope.Capture(map[string]string{
-						"location": "google_network_services_mesh.default",
-					}),
+					listScope.Capture(map[string]string{}),
 				),
 			},
 			{
@@ -89,12 +87,10 @@ func TestAccNetworkServicesMeshListQuery_generated(t *testing.T) {
 
 func testAccNetworkServicesMesh_networkServicesMeshBasicExampleListQuery(context map[string]interface{}) string {
 	return acctest.Nprintf(`
-variable "location" { type = string }
 list "google_network_services_mesh" "list_query" {
     provider = google
 	limit = 10000
     config {
-        location = var.location
     }
 }
 `, context)

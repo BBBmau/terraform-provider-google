@@ -126,7 +126,8 @@ func ListNetworkServicesEdgeCacheServices(config *transport_tpg.Config,
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -152,10 +153,9 @@ func ListNetworkServicesEdgeCacheServices(config *transport_tpg.Config,
 					return fmt.Errorf("error setting name: %w", err)
 				}
 			}
-			if v, ok := res["name"]; ok && v != nil {
-				if err := d.Set("name", v); err != nil {
-					return fmt.Errorf("error setting name: %w", err)
-				}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceNetworkServicesEdgeCacheServiceFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err

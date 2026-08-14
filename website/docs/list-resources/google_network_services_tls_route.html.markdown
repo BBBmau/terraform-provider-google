@@ -33,7 +33,7 @@ list "google_network_services_tls_route" "all" {
   provider = google
 
   config {
-    location = "..."
+    location = "..." # Optional
     project = "..." # Optional
   }
 }
@@ -42,7 +42,7 @@ list "google_network_services_tls_route" "all" {
 Run `terraform query` from the directory that contains the `.tfquery.hcl` file.
 
 ## Configuration (`config` block)
-* `location` - (Required) Location (region) of the TLS Route.
+* `location` - (Optional) Location (region) of the TLS Route.
 
 * `project` - (Optional)
 

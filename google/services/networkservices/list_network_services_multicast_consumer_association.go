@@ -136,7 +136,8 @@ func ListNetworkServicesMulticastConsumerAssociations(config *transport_tpg.Conf
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -166,6 +167,10 @@ func ListNetworkServicesMulticastConsumerAssociations(config *transport_tpg.Conf
 				if err := d.Set("multicast_consumer_association_id", v); err != nil {
 					return fmt.Errorf("error setting multicast_consumer_association_id: %w", err)
 				}
+			}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceNetworkServicesMulticastConsumerAssociationFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err

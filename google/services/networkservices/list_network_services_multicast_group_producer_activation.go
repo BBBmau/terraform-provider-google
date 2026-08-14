@@ -136,7 +136,8 @@ func ListNetworkServicesMulticastGroupProducerActivations(config *transport_tpg.
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -166,6 +167,10 @@ func ListNetworkServicesMulticastGroupProducerActivations(config *transport_tpg.
 				if err := d.Set("multicast_group_producer_activation_id", v); err != nil {
 					return fmt.Errorf("error setting multicast_group_producer_activation_id: %w", err)
 				}
+			}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceNetworkServicesMulticastGroupProducerActivationFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err

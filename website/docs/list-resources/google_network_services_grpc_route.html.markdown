@@ -33,7 +33,7 @@ list "google_network_services_grpc_route" "all" {
   provider = google
 
   config {
-    location = "..."
+    location = "..." # Optional
     project = "..." # Optional
   }
 }
@@ -42,7 +42,7 @@ list "google_network_services_grpc_route" "all" {
 Run `terraform query` from the directory that contains the `.tfquery.hcl` file.
 
 ## Configuration (`config` block)
-* `location` - (Required) Location (region) of the GRPCRoute resource to be created. Only the value 'global' is currently allowed; defaults to 'global' if omitted.
+* `location` - (Optional) Location (region) of the GRPCRoute resource to be created. Only the value 'global' is currently allowed; defaults to 'global' if omitted.
 
 * `project` - (Optional)
 

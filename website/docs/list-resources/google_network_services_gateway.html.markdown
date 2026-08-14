@@ -33,7 +33,7 @@ list "google_network_services_gateway" "all" {
   provider = google
 
   config {
-    location = "..."
+    location = "..." # Optional
     project = "..." # Optional
   }
 }
@@ -42,7 +42,7 @@ list "google_network_services_gateway" "all" {
 Run `terraform query` from the directory that contains the `.tfquery.hcl` file.
 
 ## Configuration (`config` block)
-* `location` - (Required) The location of the gateway.
+* `location` - (Optional) The location of the gateway.
 The default value is `global`.
 
 * `project` - (Optional)

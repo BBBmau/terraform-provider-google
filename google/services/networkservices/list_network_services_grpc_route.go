@@ -55,7 +55,7 @@ func NewNetworkServicesGrpcRouteListResource() list.ListResource {
 	listR.TypeName = "google_network_services_grpc_route"
 	listR.SDKv2Resource = ResourceNetworkServicesGrpcRoute()
 	listR.ListConfigFields = []tpgresource.ListConfigField{
-		{Name: "location", Kind: tpgresource.ListConfigKindString, Optional: false},
+		{Name: "location", Kind: tpgresource.ListConfigKindString, Optional: true},
 		{Name: "project", Kind: tpgresource.ListConfigKindString, Optional: true},
 	}
 	return listR
@@ -140,7 +140,8 @@ func ListNetworkServicesGrpcRoutes(config *transport_tpg.Config,
 	if err != nil {
 		return err
 	}
-	billingProject := project
+
+	billingProject := ""
 	if bp, err := tpgresource.GetBillingProject(resourceData, config); err == nil {
 		billingProject = bp
 	}
@@ -161,11 +162,6 @@ func ListNetworkServicesGrpcRoutes(config *transport_tpg.Config,
 		Flattener: func(res map[string]interface{}, d *schema.ResourceData, config *transport_tpg.Config) error {
 			headers := make(http.Header)
 			var err error
-			if v, ok := res["name"]; ok && v != nil {
-				if err := d.Set("name", v); err != nil {
-					return fmt.Errorf("error setting name: %w", err)
-				}
-			}
 			if v, ok := res["location"]; ok && v != nil {
 				if err := d.Set("location", v); err != nil {
 					return fmt.Errorf("error setting location: %w", err)
@@ -175,6 +171,10 @@ func ListNetworkServicesGrpcRoutes(config *transport_tpg.Config,
 				if err := d.Set("name", v); err != nil {
 					return fmt.Errorf("error setting name: %w", err)
 				}
+			}
+			project := ""
+			if p, err := tpgresource.GetProject(d, config); err == nil {
+				project = p
 			}
 			if err = ResourceNetworkServicesGrpcRouteFlatten(d, config, res, config, project, userAgent, billingProject, url, headers); err != nil {
 				return err
