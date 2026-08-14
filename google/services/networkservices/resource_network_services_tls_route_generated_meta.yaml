@@ -13,7 +13,6 @@ fields:
     - field: location
       provider_only: true
     - api_field: meshes
-    - api_field: name
     - field: name
       provider_only: true
     - api_field: rules.action.destinations.serviceName

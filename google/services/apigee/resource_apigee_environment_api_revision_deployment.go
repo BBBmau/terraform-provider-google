@@ -329,18 +329,6 @@ func resourceApigeeEnvironmentApiRevisionDeploymentRead(d *schema.ResourceData, 
 
 	log.Printf("[DEBUG] Finished reading ApigeeEnvironmentApiRevisionDeployment %q: %#v", d.Id(), res)
 
-	res, err = resourceApigeeEnvironmentApiRevisionDeploymentDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing ApigeeEnvironmentApiRevisionDeployment because it no longer exists.")
-		d.SetId("")
-		return nil
-	}
-
 	// Explicitly set virtual fields to default values if unset
 	if _, ok := d.GetOkExists("deletion_policy"); !ok {
 		//prioritize config's value if present
@@ -477,21 +465,6 @@ func flattenApigeeEnvironmentApiRevisionDeploymentBasepaths(v interface{}, d *sc
 
 func flattenApigeeEnvironmentApiRevisionDeploymentDeployStartTime(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
 	return v
-}
-
-func resourceApigeeEnvironmentApiRevisionDeploymentDecoder(d *schema.ResourceData, meta interface{}, res map[string]interface{}) (map[string]interface{}, error) {
-	if v, ok := res["revision"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			i, err := strconv.Atoi(s)
-			if err != nil {
-				return res, fmt.Errorf("error converting revision to integer: %w", err)
-			}
-			res["revision"] = i
-		} else if f, ok := v.(float64); ok {
-			res["revision"] = int(f)
-		}
-	}
-	return res, nil
 }
 
 func ResourceApigeeEnvironmentApiRevisionDeploymentFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, userAgent string, billingProject string, url string, headers http.Header) error {

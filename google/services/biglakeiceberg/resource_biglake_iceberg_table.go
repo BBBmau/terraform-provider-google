@@ -59,6 +59,7 @@ var icebergTableIgnoredProperties = map[string]bool{
 	"gcp.biglake.bigquery-advanced.enabled": true,
 	"gcp.biglake.bigquery-dml.enabled":      true,
 	"gcp.biglake.table-management.enabled":  true,
+	"write.parquet.compression-codec":       true,
 }
 
 func icebergTablePropertiesDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
@@ -918,10 +919,10 @@ func resourceBiglakeIcebergIcebergTableUpdate(d *schema.ResourceData, meta inter
 
 	log.Printf("[DEBUG] Updating IcebergTable %q: %#v", d.Id(), obj)
 	headers := make(http.Header)
+
 	if err := addIcebergTableAccessDelegationHeader(d, config, billingProject, userAgent, headers); err != nil {
 		return err
 	}
-
 	if parts := regexp.MustCompile(`projects\/([^\/]+)\/`).FindStringSubmatch(url); parts != nil {
 		billingProject = parts[1]
 	}

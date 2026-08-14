@@ -126,10 +126,6 @@ func ResourceNetworkServicesHttpRoute() *schema.Resource {
 						Type:              schema.TypeString,
 						RequiredForImport: true,
 					},
-					"name": {
-						Type:              schema.TypeString,
-						RequiredForImport: true,
-					},
 					"project": {
 						Type:              schema.TypeString,
 						OptionalForImport: true,
@@ -150,16 +146,10 @@ func ResourceNetworkServicesHttpRoute() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
-			"location": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: `Location (region) of the HttpRoute resource. Only the value 'global' is currently allowed.`,
-				Default:     "global",
-			},
 			"name": {
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: `Name of the HttpRoute resource.`,
 			},
 			"rules": {
@@ -689,11 +679,6 @@ The attached Mesh should be of a type SIDECAR.`,
 				Description: `All of labels (key/value pairs) present on the resource in GCP, including the labels configured through Terraform, other clients and services.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
-			"name": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: `Name of the HttpRoute resource.`,
-			},
 			"self_link": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -839,11 +824,6 @@ func resourceNetworkServicesHttpRouteCreate(d *schema.ResourceData, meta interfa
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
-		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
-			if err = identity.Set("name", nameValue.(string)); err != nil {
-				return fmt.Errorf("Error setting name: %s", err)
-			}
-		}
 		if projectValue, ok := d.GetOk("project"); ok && projectValue.(string) != "" {
 			if err = identity.Set("project", projectValue.(string)); err != nil {
 				return fmt.Errorf("Error setting project: %s", err)
@@ -926,12 +906,6 @@ func resourceNetworkServicesHttpRouteRead(d *schema.ResourceData, meta interface
 				return fmt.Errorf("Error setting name: %s", err)
 			}
 		}
-		if v, ok := identity.GetOk("name"); !ok && v == "" {
-			err = identity.Set("name", d.Get("name").(string))
-			if err != nil {
-				return fmt.Errorf("Error setting name: %s", err)
-			}
-		}
 		if v, ok := identity.GetOk("project"); !ok && v == "" {
 			err = identity.Set("project", d.Get("project").(string))
 			if err != nil {
@@ -966,11 +940,6 @@ func resourceNetworkServicesHttpRouteUpdate(d *schema.ResourceData, meta interfa
 	}
 	identity, err := d.Identity()
 	if err == nil && identity != nil {
-		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
-			if err = identity.Set("name", nameValue.(string)); err != nil {
-				return fmt.Errorf("Error setting name: %s", err)
-			}
-		}
 		if nameValue, ok := d.GetOk("name"); ok && nameValue.(string) != "" {
 			if err = identity.Set("name", nameValue.(string)); err != nil {
 				return fmt.Errorf("Error setting name: %s", err)
@@ -1186,10 +1155,6 @@ func resourceNetworkServicesHttpRouteImport(d *schema.ResourceData, meta interfa
 	d.SetId(id)
 
 	return []*schema.ResourceData{d}, nil
-}
-
-func flattenNetworkServicesHttpRouteName(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
-	return v
 }
 
 func flattenNetworkServicesHttpRouteSelfLink(v interface{}, d *schema.ResourceData, config *transport_tpg.Config) interface{} {
@@ -2962,9 +2927,6 @@ func expandNetworkServicesHttpRouteEffectiveLabels(v interface{}, d tpgresource.
 func ResourceNetworkServicesHttpRouteFlatten(d *schema.ResourceData, meta interface{}, res map[string]interface{}, config *transport_tpg.Config, project string, userAgent string, billingProject string, url string, headers http.Header) error {
 	var err error
 
-	if err = d.Set("name", flattenNetworkServicesHttpRouteName(res["name"], d, config)); err != nil {
-		return fmt.Errorf("Error reading HttpRoute: %s", err)
-	}
 	if err = d.Set("self_link", flattenNetworkServicesHttpRouteSelfLink(res["selfLink"], d, config)); err != nil {
 		return fmt.Errorf("Error reading HttpRoute: %s", err)
 	}
