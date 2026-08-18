@@ -1559,7 +1559,6 @@ func resourceNetappVolumeUpdate(d *schema.ResourceData, meta interface{}) error 
 	if err != nil {
 		return err
 	}
-
 	// remove sizeGib and identifier from the update request for block_devices
 
 	if v, ok := d.GetOk("block_devices"); ok {

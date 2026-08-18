@@ -841,7 +841,6 @@ func resourceNetappStoragePoolUpdate(d *schema.ResourceData, meta interface{}) e
 	if err != nil {
 		return err
 	}
-
 	// detect manual zone switches for service level FLEX
 
 	if d.Get("service_level").(string) == "FLEX" {
