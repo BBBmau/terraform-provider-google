@@ -20,11 +20,13 @@ import generated.SweepersListBeta
 import generated.SweepersListGa
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
+import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
-import components.projects.feature_branches.getServicesList
+import generated.ServicesListBeta
+import generated.ServicesListGa
 import replaceCharsId
 
 fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot, config: AccTestConfiguration, cron: NightlyTriggerConfiguration, servicesToTest: Array<String>? = null): Project {
@@ -45,7 +47,8 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
 
     // Create build configs to run acceptance tests for each package defined in packages.kt and services.kt files
     val allPackages = servicesToTest?.let {
-        getServicesList(it, if (providerName == ProviderNameBeta) "Beta" else "GA")
+        val services = if (providerName == ProviderNameBeta) ServicesListBeta else ServicesListGa
+        it.associateWith { service -> services.getValue(service) }
     } ?: getAllPackageInProviderVersion(providerName)
     // Package builds are dependencies of the composite build and must not acquire shared-resource locks.
     val packageBuildConfigs = BuildConfigurationsForPackages(allPackages, providerName, projectId, vcsRoot, listOf(), config)
@@ -85,7 +88,7 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
     val serviceSweeperConfig = BuildConfigurationForServiceSweeper(providerName, ServiceSweeperName, sweepersList, projectId, vcsRoot, sharedResources, config)
     serviceSweeperConfig.triggers {
         finishBuildTrigger {
-            buildType = compositeId
+            buildType = "${DslContext.projectId}_${compositeId}"
             successfulOnly = false
         }
     }
