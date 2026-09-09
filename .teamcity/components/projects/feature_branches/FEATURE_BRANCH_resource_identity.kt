@@ -35,7 +35,14 @@ fun featureBranchResourceIdentitySubProject(allConfig: AllContextParameters): Pr
         nightlyTestsEnabled = false
     )
     val vcrConfig = getVcrAcceptanceTestConfig(allConfig) // Reused below for both MM testing build configs
-    val servicesToTest = arrayOf("secretmanager", "resourcemanager")
+    val servicesToTest = arrayOf(
+        "secretmanager",
+        "resourcemanager",
+        "pubsub",
+        "activedirectory",
+        "agenticapplications",
+        "biglake"
+    )
 
     // GA
     val gaConfig = getGaAcceptanceTestConfig(allConfig)
