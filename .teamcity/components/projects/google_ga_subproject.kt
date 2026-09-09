@@ -31,7 +31,7 @@ fun googleSubProjectGa(allConfig: AllContextParameters): Project {
         description = "Subproject containing builds for testing the GA version of the Google provider"
 
         // Nightly Test project that uses hashicorp/terraform-provider-google
-        subProject(nightlyTests(gaId, ProviderNameGa, HashiCorpVCSRootGa, gaConfig, NightlyTriggerConfiguration(startHour = 20, startMinute = 16), arrayOf("pubsub", "activedirectory", "agenticapplications", "biglake")))
+        subProject(nightlyTests(gaId, ProviderNameGa, HashiCorpVCSRootGa, gaConfig, NightlyTriggerConfiguration(startHour = 20, startMinute = 26), arrayOf("pubsub", "activedirectory", "agenticapplications", "biglake")))
 
         // MM Upstream project that uses modular-magician/terraform-provider-google
         subProject(mmUpstream(gaId, ProviderNameGa, ModularMagicianVCSRootGa, HashiCorpVCSRootGa, vcrConfig, NightlyTriggerConfiguration()))
