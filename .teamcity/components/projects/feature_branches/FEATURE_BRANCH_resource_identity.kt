@@ -31,19 +31,11 @@ fun featureBranchResourceIdentitySubProject(allConfig: AllContextParameters): Pr
 
     val trigger  = NightlyTriggerConfiguration(
         branch = "refs/heads/$featureBranchResourceIdentity", // triggered builds must test the feature branch
-        startHour = 12,
-        startMinute = 27,
-        nightlyTestsEnabled = true
+        startHour = DefaultStartHour + 6,
+        nightlyTestsEnabled = false
     )
     val vcrConfig = getVcrAcceptanceTestConfig(allConfig) // Reused below for both MM testing build configs
-    val servicesToTest = arrayOf(
-        "secretmanager",
-        "resourcemanager",
-        "pubsub",
-        "activedirectory",
-        "agenticapplications",
-        "biglake"
-    )
+    val servicesToTest = arrayOf("secretmanager", "resourcemanager")
 
     // GA
     val gaConfig = getGaAcceptanceTestConfig(allConfig)

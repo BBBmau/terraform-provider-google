@@ -23,9 +23,10 @@ import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
+import components.projects.feature_branches.getServicesList
 import replaceCharsId
 
-fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot, config: AccTestConfiguration, cron: NightlyTriggerConfiguration): Project {
+fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot, config: AccTestConfiguration, cron: NightlyTriggerConfiguration, servicesToTest: Array<String>? = null): Project {
 
     // Create unique ID for the dynamically-created project
     var projectId = "${parentProject}_${NightlyTestsProjectId}"
@@ -42,7 +43,9 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
     }
 
     // Create build configs to run acceptance tests for each package defined in packages.kt and services.kt files
-    val allPackages = getAllPackageInProviderVersion(providerName)
+    val allPackages = servicesToTest?.let {
+        getServicesList(it, if (providerName == ProviderNameBeta) "Beta" else "GA")
+    } ?: getAllPackageInProviderVersion(providerName)
     // Package builds are dependencies of the composite build and must not acquire shared-resource locks.
     val packageBuildConfigs = BuildConfigurationsForPackages(allPackages, providerName, projectId, vcsRoot, listOf(), config)
 
