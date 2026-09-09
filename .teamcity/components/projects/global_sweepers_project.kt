@@ -42,7 +42,7 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
     // Create build config for sweeping project resources
     // Uses the HashiCorpVCSRootGa VCS Root so that the latest sweepers in hashicorp/terraform-provider-google are used
     val serviceSweeperConfig = BuildConfigurationForGlobalSweeper("N/A", "Project Sweeper", "GoogleProject", SweepersListGa, sweeperId, HashiCorpVCSRootGa, sharedResources, gaConfig)
-    serviceSweeperConfig.addTrigger(NightlyTriggerConfiguration(startHour=14, startMinute=56, timezone="America/Los_Angeles"))
+    serviceSweeperConfig.addTrigger(NightlyTriggerConfiguration(startHour=12))
     serviceSweeperConfig.dependencies {
         snapshot(gaAllTestsId) {
             onDependencyFailure = FailureAction.IGNORE
@@ -56,7 +56,7 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
 
     // Create build config for sweeping folder resources
     val folderSweeperConfig = BuildConfigurationForGlobalSweeper("N/A", "Folder Sweeper", "GoogleFolder", SweepersListGa, sweeperId, HashiCorpVCSRootGa, sharedResources, gaConfig)
-    folderSweeperConfig.addTrigger(NightlyTriggerConfiguration(startHour=14, startMinute=56, timezone="America/Los_Angeles"))
+    folderSweeperConfig.addTrigger(NightlyTriggerConfiguration(startHour=12))
     folderSweeperConfig.dependencies {
         snapshot(gaAllTestsId) {
             onDependencyFailure = FailureAction.IGNORE
