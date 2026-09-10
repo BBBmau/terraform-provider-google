@@ -10,3 +10,9 @@ package generated
 var ServiceParallelism = mapOf(
     "looker" to 1
 )
+
+// ServiceNumberOfBatches optionally overrides the number of TeamCity Parallel
+// Tests batches used for a specific service package. Packages not listed here
+// fall back to DefaultNumberOfBatches. A value of 1 keeps the package on a
+// single agent (Parallel Tests disabled for that package).
+var ServiceNumberOfBatches = mapOf<String, Int>()

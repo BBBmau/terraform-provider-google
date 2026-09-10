@@ -13,8 +13,17 @@ const val ProviderNameBetaDiffTest = "google-beta-diff-test"
 // specifies the default hour (UTC) at which tests should be triggered, if enabled
 const val DefaultStartHour = 4
 
+// specifies the default minute at which tests should be triggered, if enabled
+const val DefaultStartMinute = 0
+
 // specifies the default level of parallelism per-service-package
 const val DefaultParallelism = 6
+
+// specifies the default number of batches used by the TeamCity Parallel Tests
+// build feature to split a service package's acceptance tests across multiple
+// agents. A value of 1 effectively disables the feature.
+// See https://www.jetbrains.com/help/teamcity/parallel-tests.html
+const val DefaultNumberOfBatches = 4
 
 // specifies the default version of Terraform Core which should be used for testing
 // this is updated semi-regularly

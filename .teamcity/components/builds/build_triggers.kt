@@ -11,6 +11,7 @@ import DefaultBranchName
 import DefaultDaysOfMonth
 import DefaultDaysOfWeek
 import DefaultStartHour
+import DefaultStartMinute
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.Triggers
 import jetbrains.buildServer.configs.kotlin.triggers.schedule
@@ -19,7 +20,7 @@ class NightlyTriggerConfiguration(
     val branch: String = DefaultBranchName,
     val nightlyTestsEnabled: Boolean = true,
     var startHour: Int = DefaultStartHour,
-    var startMinute: Int = 0,
+    var startMinute: Int = DefaultStartMinute,
     var daysOfWeek: String = DefaultDaysOfWeek,
     val daysOfMonth: String = DefaultDaysOfMonth
 ){

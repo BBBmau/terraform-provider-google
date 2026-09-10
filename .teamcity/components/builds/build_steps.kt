@@ -118,15 +118,34 @@ fun BuildSteps.runAcceptanceTests() {
                   exit 0
                 fi
                 
-                export TEST_COUNT=${'$'}(./test-binary -test.list="%TEST_PREFIX%" | wc -l)
-                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX%"
+                # When the TeamCity Parallel Tests build feature is enabled, the server
+                # provides an excludes file listing the test classes that must NOT run in
+                # the current batch. Our custom runner (jen20/teamcity-go-test) doesn't
+                # filter tests automatically, so we build the list of tests to run for
+                # this batch by removing the excluded tests.
+                # See https://www.jetbrains.com/help/teamcity/parallel-tests.html#custom-tests
+                EXCLUDES_FILE="%system.teamcity.build.parallelTests.excludesFile%"
+                ./test-binary -test.list="%TEST_PREFIX%" > all-tests.txt
+                if test -n "${'$'}{EXCLUDES_FILE}" && test -f "${'$'}{EXCLUDES_FILE}"; then
+                  echo "Parallel Tests feature active; using excludes file ${'$'}{EXCLUDES_FILE}"
+                  # The excludes file starts with '#'-prefixed metadata lines followed by a
+                  # newline-separated list of test classes to exclude for this batch.
+                  grep -v '^#' "${'$'}{EXCLUDES_FILE}" | grep -v '^\s*$' | sort -u > batch-excludes.txt
+                  echo "Excluding ${'$'}(wc -l < batch-excludes.txt) tests for this batch"
+                  grep -v -x -F -f batch-excludes.txt all-tests.txt > batch-tests.txt || true
+                else
+                  cp all-tests.txt batch-tests.txt
+                fi
+
+                export TEST_COUNT=${'$'}(wc -l < batch-tests.txt)
+                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX% for this batch"
                 if test ${'$'}TEST_COUNT -le "0"; then
                   echo "Skipping test execution; no tests to run"
                   exit 0
                 fi
                 
                 echo "Starting tests"  
-                ./test-binary -test.list="%TEST_PREFIX%" | teamcity-go-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                cat batch-tests.txt | teamcity-go-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }

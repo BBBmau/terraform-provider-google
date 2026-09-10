@@ -9,7 +9,9 @@ package builds
 
 import ArtifactRules
 import DefaultBuildTimeoutDuration
+import DefaultNumberOfBatches
 import DefaultParallelism
+import generated.ServiceNumberOfBatches
 import generated.ServiceParallelism
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
@@ -56,6 +58,11 @@ class PackageDetails(private val packageName: String, private val displayName: S
             parallelism = ServiceParallelism.getValue(packageName)
         }
 
+        var numberOfBatches = DefaultNumberOfBatches
+        if (ServiceNumberOfBatches.containsKey(packageName)){
+            numberOfBatches = ServiceNumberOfBatches.getValue(packageName)
+        }
+
         return BuildType {
             // TC needs a consistent ID for dynamically generated packages
             id(uniqueID())
@@ -83,6 +90,7 @@ class PackageDetails(private val packageName: String, private val displayName: S
 
             features {
                 golang()
+                parallelTestsFeature(numberOfBatches)
                 if (sharedResources.isNotEmpty()) {
                     sharedResources {
                         // When the build runs, it locks the value(s) below
