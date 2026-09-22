@@ -51,7 +51,7 @@ class NightlyTestProjectsTests {
             assertEquals("Nightly runs should not require pending changes", false, trigger.withPendingChangesOnly)
 
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
-            assertFinishTrigger(sweeper, composite, DefaultBranchName)
+            assertTrue("Service sweeper should not have an independent trigger", sweeper.triggers.items.isEmpty())
             project.buildTypes.filter { it != composite && it != sweeper }.forEach { build ->
                 assertTrue("Package build `${build.name}` should have no independent trigger", build.triggers.items.isEmpty())
             }
@@ -97,7 +97,7 @@ class NightlyTestProjectsTests {
         assertEquals(false, schedule.enabled)
         assertEquals("+:${cron.branch}", schedule.branchFilter)
         assertEquals("7", (schedule.schedulingPolicy as ScheduleTrigger.SchedulingPolicy.Cron).hours)
-        assertFinishTrigger(getBuildFromProject(project, ServiceSweeperName), composite, cron.branch)
+        assertTrue("Service sweeper should not have an independent trigger", getBuildFromProject(project, ServiceSweeperName).triggers.items.isEmpty())
     }
 
     @Test
