@@ -135,7 +135,7 @@ Finish triggers explicitly set their branch filters. TeamCity's `+:<default>` se
 
 ### Sweeping the VCR Project
 
-The Service Sweeper in [`Google > Upstream MM Testing`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_MMUPSTREAMTESTS#all-projects) runs every night via CRON and is the single scheduled VCR sweep. The corresponding [`Google Beta > Upstream MM Testing`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_BETA_MMUPSTREAMTESTS#all-projects) sweeper remains available for manual runs but has no nightly trigger, avoiding a second entry point into the nightly dependency chain. The sweeper is designed not to run until there are no builds testing any services in the VCR test GCP project. No acceptance testing builds will start until the sweeper stops.
+The Service Sweeper builds in [`Google > Upstream MM Testing`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_MMUPSTREAMTESTS#all-projects) and [`Google Beta > Upstream MM Testing`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_BETA_MMUPSTREAMTESTS#all-projects) run every night via CRON. They are redundant as both sweep the VCR project, but I've left them both in. They are designed to not run until there are no builds testing any services in the VCR test GCP project. No acceptance testing builds will start until the sweeper stops.
 
 ### Sweeping `google_project` Resources
 
