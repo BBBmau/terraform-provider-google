@@ -12,7 +12,6 @@ import DefaultBranchName
 import ProviderNameBeta
 import ProviderNameGa
 import ServiceSweeperName
-import ServiceSweeperManualName
 import SharedResourceNameBeta
 import SharedResourceNameGa
 import builds.NightlyTriggerConfiguration
@@ -51,7 +50,7 @@ class NightlyTestProjectsTests {
             assertEquals("Nightly runs should not require pending changes", false, trigger.withPendingChangesOnly)
 
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
-            assertTrue("Service sweeper should not have an independent trigger", sweeper.triggers.items.isEmpty())
+            assertFinishTrigger(sweeper, composite, DefaultBranchName)
             project.buildTypes.filter { it != composite && it != sweeper }.forEach { build ->
                 assertTrue("Package build `${build.name}` should have no independent trigger", build.triggers.items.isEmpty())
             }
@@ -76,10 +75,7 @@ class NightlyTestProjectsTests {
             assertSnapshotDependencies(composite, packageBuilds, FailureAction.ADD_PROBLEM)
 
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
-            assertSnapshotDependencies(sweeper, listOf(composite), FailureAction.IGNORE)
-            val manualSweeper = getBuildFromProject(project, ServiceSweeperManualName)
-            assertTrue("Manual nightly sweeper should not have triggers", manualSweeper.triggers.items.isEmpty())
-            assertTrue("Manual nightly sweeper should not have dependencies", manualSweeper.dependencies.items.isEmpty())
+            assertTrue("Service sweeper should not have snapshot dependencies", sweeper.dependencies.items.isEmpty())
         }
     }
 
@@ -97,7 +93,7 @@ class NightlyTestProjectsTests {
         assertEquals(false, schedule.enabled)
         assertEquals("+:${cron.branch}", schedule.branchFilter)
         assertEquals("7", (schedule.schedulingPolicy as ScheduleTrigger.SchedulingPolicy.Cron).hours)
-        assertTrue("Service sweeper should not have an independent trigger", getBuildFromProject(project, ServiceSweeperName).triggers.items.isEmpty())
+        assertFinishTrigger(getBuildFromProject(project, ServiceSweeperName), composite, cron.branch)
     }
 
     @Test

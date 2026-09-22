@@ -125,11 +125,11 @@ In REPLAYING mode the build will download VCR cassettes from a GCS Bucket and ru
 
 ### Sweeping the Nightly Test Projects
 
-The Service Sweeper builds in [`Google > Nightly Tests`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_NIGHTLYTESTS?mode=builds#all-projects) and [`Google Beta > Nightly Tests`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_BETA_NIGHTLYTESTS#all-projects) use a snapshot dependency on their **All Nightly Tests** composite and do not have an additional finish-build trigger. The dependency is the single link that starts the sweeper after the composite; it also allows cleanup after dependency failures or cancellations. The composite records package failures and cancellations as build problems; the service sweeper is a downstream build, not part of the composite itself.
+The Service Sweeper builds in [`Google > Nightly Tests`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_NIGHTLYTESTS?mode=builds#all-projects) and [`Google Beta > Nightly Tests`](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_BETA_NIGHTLYTESTS#all-projects) use finish-build triggers watching their **All Nightly Tests** composite. They do not have snapshot dependencies, so manually dispatching a service sweeper does not start the acceptance-test composite. The composite records package failures and cancellations as build problems; the service sweeper is a downstream build, not part of the composite itself.
 
 Package builds retain per-service shared-resource locks. Each Service Sweeper locks all values of its provider's shared resource, preventing it from overlapping with package builds that acquire those locks, including ad hoc runs. GA and Beta service sweepers use separate provider locks.
 
-For an ad hoc cleanup of nightly-test resources, run **Service Sweeper - Manual** in the corresponding Nightly Tests project. It uses the nightly provider configuration and shared-resource lock, but has no trigger or snapshot dependency, so it does not start the acceptance-test composite. Do not manually run the dependency-backed **Service Sweeper** when the goal is cleanup without rerunning tests.
+For an ad hoc cleanup of nightly-test resources, manually run the existing **Service Sweeper** in the corresponding Nightly Tests project. Its finish-build trigger is not invoked by a manual run, and it has no snapshot dependency, so the manual run does not start the acceptance-test composite.
 
 ### Sweeping the VCR Project
 
@@ -139,7 +139,7 @@ The Service Sweeper builds in [`Google > Upstream MM Testing`](https://hashicorp
 
 When testing the GA and Beta providers we can run tests in parallel because those tests use separate GCP projects. This creates a boundary between the two test suites and ensures they don't clash. However if an acceptance test provisions `google_project` resources in the process then there is no longer a clear GA/Beta boundary based on which host project is in use. This makes sweeping up these resources tough, as there's potential to disrupt any other running build.
 
-The **Global Sweepers** project contains separate **Project Sweeper** and **Folder Sweeper** builds. Both use a finish-build trigger watching the GA Service Sweeper on `refs/heads/nightly-test`, without requiring success. Neither has its own nightly cron trigger. Each has four explicit snapshot dependencies: the GA and Beta **All Nightly Tests** composites and the GA and Beta **Service Sweeper** builds. Dependency failures and cancellations do not prevent cleanup from running.
+The **Global Sweepers** project contains separate **Project Sweeper** and **Folder Sweeper** builds. Both use a finish-build trigger watching the GA Service Sweeper on `refs/heads/nightly-test`, without requiring success. Neither has its own nightly cron trigger or snapshot dependencies, so both can be manually dispatched without starting the nightly test chain.
 
 Both global sweepers acquire all values of the GA, Beta, and VCR shared resources. This prevents them from running concurrently with builds that acquire those locks, or with each other. Branch filters select the events that trigger cleanup; they do not restrict which GCP resources cleanup can affect.
 

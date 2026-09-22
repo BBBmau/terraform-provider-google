@@ -12,7 +12,6 @@ import NightlyTestsProjectId
 import ProviderNameBeta
 import ProviderNameGa
 import ProviderNameBetaDiffTest
-import ServiceSweeperManualName
 import ServiceSweeperName
 import SharedResourceNameBeta
 import SharedResourceNameGa
@@ -21,8 +20,10 @@ import generated.SweepersListBeta
 import generated.SweepersListGa
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
+import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.Project
+import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import replaceCharsId
 
@@ -87,14 +88,13 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
     // We still allow locks in the service sweeper build configuration for adhoc triggers of services
     val serviceSweeperConfig = BuildConfigurationForServiceSweeper(providerName, ServiceSweeperName, sweepersList, projectId, vcsRoot, sharedResources, config)
 
-    // The snapshot dependency is the only link from the composite to the sweeper.
-    serviceSweeperConfig.dependencies {
-        snapshot(compositeConfig) {
-            onDependencyFailure = FailureAction.IGNORE
-            onDependencyCancel = FailureAction.IGNORE
+    serviceSweeperConfig.triggers {
+        finishBuildTrigger {
+            buildType = "${DslContext.projectId}_${compositeId}"
+            branchFilter = "+:${cron.branch}"
+            successfulOnly = false
         }
     }
-    val manualServiceSweeperConfig = BuildConfigurationForServiceSweeper(providerName, ServiceSweeperManualName, sweepersList, projectId, vcsRoot, sharedResources, config)
 
     return Project {
         id(projectId)
@@ -104,7 +104,6 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
         buildType(compositeConfig)
         packageBuildConfigs.forEach { buildType(it) }
         buildType(serviceSweeperConfig)
-        buildType(manualServiceSweeperConfig)
 
         params{
             configureGoogleSpecificTestParameters(config)
