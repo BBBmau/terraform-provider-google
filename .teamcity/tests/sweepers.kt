@@ -18,6 +18,7 @@ import SharedResourceNameVcr
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.SharedResources
+import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -94,6 +95,8 @@ class SweeperTests {
         // Find sweepers inside
         val cronSweeper = getBuildFromProject(project, ServiceSweeperCronName)
         val manualSweeper = getBuildFromProject(project, ServiceSweeperManualName)
+        val cronTrigger = cronSweeper.triggers.items.single() as ScheduleTrigger
+        assertTrue("GA VCR sweeper should retain the single nightly schedule", cronTrigger.enabled)
         val allSweepers: ArrayList<BuildType> = arrayListOf(cronSweeper, manualSweeper)
         allSweepers.forEach{ sweeper ->
             // Check PACKAGE_PATH is in google-beta
@@ -119,6 +122,8 @@ class SweeperTests {
         // Find sweepers inside
         val cronSweeper = getBuildFromProject(project, ServiceSweeperCronName)
         val manualSweeper = getBuildFromProject(project, ServiceSweeperManualName)
+        val cronTrigger = cronSweeper.triggers.items.single() as ScheduleTrigger
+        assertTrue("Beta VCR sweeper should not have a nightly schedule", !cronTrigger.enabled)
         val allSweepers: ArrayList<BuildType> = arrayListOf(cronSweeper, manualSweeper)
         allSweepers.forEach{ sweeper ->
             // Check PACKAGE_PATH is in google-beta

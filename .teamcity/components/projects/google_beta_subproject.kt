@@ -36,7 +36,9 @@ fun googleSubProjectBeta(allConfig: AllContextParameters): Project {
         subProject(nightlyTests(betaId, ProviderNameBeta, HashiCorpVCSRootBeta, betaConfig, NightlyTriggerConfiguration()))
 
         // MM Upstream project that uses modular-magician/terraform-provider-google-beta
-        subProject(mmUpstream(betaId, ProviderNameBeta, ModularMagicianVCSRootBeta, HashiCorpVCSRootBeta, vcrConfig, NightlyTriggerConfiguration()))
+        // The GA upstream project owns the nightly VCR sweep; keep this project's sweeper manual-only
+        // to avoid starting a second entry point into the nightly dependency chain.
+        subProject(mmUpstream(betaId, ProviderNameBeta, ModularMagicianVCSRootBeta, HashiCorpVCSRootBeta, vcrConfig, NightlyTriggerConfiguration(nightlyTestsEnabled = false)))
 
         // VCR recording project that allows VCR recordings to be made using hashicorp/terraform-provider-google-beta OR modular-magician/terraform-provider-google-beta
         // This is only present for the Beta provider, as only TPGB VCR recordings are used.
