@@ -12,6 +12,7 @@ import NightlyTestsProjectId
 import ProviderNameBeta
 import ProviderNameGa
 import ProviderNameBetaDiffTest
+import ServiceSweeperManualName
 import ServiceSweeperName
 import SharedResourceNameBeta
 import SharedResourceNameGa
@@ -102,6 +103,7 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
             onDependencyCancel = FailureAction.IGNORE
         }
     }
+    val manualServiceSweeperConfig = BuildConfigurationForServiceSweeper(providerName, ServiceSweeperManualName, sweepersList, projectId, vcsRoot, sharedResources, config)
 
     return Project {
         id(projectId)
@@ -111,6 +113,7 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
         buildType(compositeConfig)
         packageBuildConfigs.forEach { buildType(it) }
         buildType(serviceSweeperConfig)
+        buildType(manualServiceSweeperConfig)
 
         params{
             configureGoogleSpecificTestParameters(config)

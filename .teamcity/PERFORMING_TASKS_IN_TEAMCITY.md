@@ -129,6 +129,8 @@ The Service Sweeper builds in [`Google > Nightly Tests`](https://hashicorp.teamc
 
 Package builds retain per-service shared-resource locks. Each Service Sweeper locks all values of its provider's shared resource, preventing it from overlapping with package builds that acquire those locks, including ad hoc runs. GA and Beta service sweepers use separate provider locks.
 
+For an ad hoc cleanup of nightly-test resources, run **Service Sweeper - Manual** in the corresponding Nightly Tests project. It uses the nightly provider configuration and shared-resource lock, but has no trigger or snapshot dependency, so it does not start the acceptance-test composite. Do not manually run the dependency-backed **Service Sweeper** when the goal is cleanup without rerunning tests.
+
 Finish triggers explicitly set their branch filters. TeamCity's `+:<default>` selects the VCS default branch (`main` for these VCS roots), not the nightly cron configuration's `refs/heads/nightly-test` branch. Trigger source IDs are resolved using the current DSL project context rather than a hardcoded production project prefix.
 
 ### Sweeping the VCR Project

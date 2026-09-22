@@ -12,6 +12,7 @@ import DefaultBranchName
 import ProviderNameBeta
 import ProviderNameGa
 import ServiceSweeperName
+import ServiceSweeperManualName
 import SharedResourceNameBeta
 import SharedResourceNameGa
 import builds.NightlyTriggerConfiguration
@@ -69,13 +70,16 @@ class NightlyTestProjectsTests {
             assertEquals("Build configuration `${composite.name}` should be a COMPOSITE build", BuildTypeSettings.Type.COMPOSITE, composite.type)
 
             val packageBuilds = project.buildTypes.filter { bt ->
-                bt.name != ServiceSweeperName && bt.name != AllNightlyTestsName
+                !bt.name.startsWith(ServiceSweeperName) && bt.name != AllNightlyTestsName
             }
             assertTrue("Nightly test project `${project.name}` should have package test builds", packageBuilds.isNotEmpty())
             assertSnapshotDependencies(composite, packageBuilds, FailureAction.ADD_PROBLEM)
 
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
             assertSnapshotDependencies(sweeper, listOf(composite), FailureAction.IGNORE)
+            val manualSweeper = getBuildFromProject(project, ServiceSweeperManualName)
+            assertTrue("Manual nightly sweeper should not have triggers", manualSweeper.triggers.items.isEmpty())
+            assertTrue("Manual nightly sweeper should not have dependencies", manualSweeper.dependencies.items.isEmpty())
         }
     }
 
@@ -108,7 +112,7 @@ class NightlyTestProjectsTests {
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
             assertTrue("Composite should not hold locks needed by package builds", composite.features.items.filterIsInstance<SharedResources>().isEmpty())
             assertSharedResourceLocks(sweeper, SharedResources { lockAllValues(resource) })
-            project.buildTypes.filter { it != composite && it != sweeper }.forEach { build ->
+            project.buildTypes.filter { it != composite && !it.name.startsWith(ServiceSweeperName) }.forEach { build ->
                 val path = build.params.findRawParam("PACKAGE_PATH")!!.value
                 val packageName = getAllPackageInProviderVersion(provider).entries.single { it.value.getValue("path") == path }.key
                 assertSharedResourceLocks(build, SharedResources { lockSpecificValue(resource, packageName) })
