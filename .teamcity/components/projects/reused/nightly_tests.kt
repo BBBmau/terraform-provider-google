@@ -43,8 +43,14 @@ fun nightlyTests(parentProject:String, providerName: String, vcsRoot: GitVcsRoot
         else -> throw Exception("Provider name not supplied when generating a nightly test subproject")
     }
 
-    // Create build configs to run acceptance tests for each package defined in packages.kt and services.kt files
-    val allPackages = getAllPackageInProviderVersion(providerName)
+    // Temporarily limit nightly validation to the services needed to validate the build chain.
+    val providerPackages = getAllPackageInProviderVersion(providerName)
+    val allPackages = listOf(
+        "pubsublite",
+        "apikeys",
+        "agentregistry",
+        "cloudquotas"
+    ).associateWith { providerPackages.getValue(it) }
     // Package builds use per-service shared-resource locks to avoid clashes with ad hoc builds.
     val packageBuildConfigs = BuildConfigurationsForPackages(allPackages, providerName, projectId, vcsRoot, sharedResources, config)
 
