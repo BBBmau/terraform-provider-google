@@ -69,7 +69,7 @@ class NightlyTestProjectsTests {
             assertEquals("Build configuration `${composite.name}` should be a COMPOSITE build", BuildTypeSettings.Type.COMPOSITE, composite.type)
 
             val packageBuilds = project.buildTypes.filter { bt ->
-                !bt.name.startsWith(ServiceSweeperName) && bt.name != AllNightlyTestsName
+                bt.name != ServiceSweeperName && bt.name != AllNightlyTestsName
             }
             assertTrue("Nightly test project `${project.name}` should have package test builds", packageBuilds.isNotEmpty())
             assertSnapshotDependencies(composite, packageBuilds, FailureAction.ADD_PROBLEM)
@@ -93,6 +93,7 @@ class NightlyTestProjectsTests {
         assertEquals(false, schedule.enabled)
         assertEquals("+:${cron.branch}", schedule.branchFilter)
         assertEquals("7", (schedule.schedulingPolicy as ScheduleTrigger.SchedulingPolicy.Cron).hours)
+        assertEquals("0", (schedule.schedulingPolicy as ScheduleTrigger.SchedulingPolicy.Cron).minutes)
         assertFinishTrigger(getBuildFromProject(project, ServiceSweeperName), composite, cron.branch)
     }
 
@@ -108,7 +109,7 @@ class NightlyTestProjectsTests {
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
             assertTrue("Composite should not hold locks needed by package builds", composite.features.items.filterIsInstance<SharedResources>().isEmpty())
             assertSharedResourceLocks(sweeper, SharedResources { lockAllValues(resource) })
-            project.buildTypes.filter { it != composite && !it.name.startsWith(ServiceSweeperName) }.forEach { build ->
+            project.buildTypes.filter { it != composite && it != sweeper }.forEach { build ->
                 val path = build.params.findRawParam("PACKAGE_PATH")!!.value
                 val packageName = getAllPackageInProviderVersion(provider).entries.single { it.value.getValue("path") == path }.key
                 assertSharedResourceLocks(build, SharedResources { lockSpecificValue(resource, packageName) })

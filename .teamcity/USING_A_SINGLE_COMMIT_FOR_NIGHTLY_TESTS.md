@@ -22,9 +22,9 @@ The solution we've implemented includes:
     * Renames the previous day's `nightly-test` branch to `UTC-nightly-test-YYYY-MM-DD`, where the date corresponds to when the base commit was made in UTC.
     * Creates a new `nightly-test` branch using the latest commit on the `main` branch
     * Sweeps up old `UTC-nightly-test-YYYY-MM-DD` branches [over 3 days old](https://github.com/hashicorp/terraform-provider-google/blob/5bce89216324fcf9165ef5fc8d1634e55465282b/.github/workflows/teamcity-nightly-workflow.yaml#L83)
-* The nightly cron at **4am UTC** triggers each provider's **All Nightly Tests** composite on `refs/heads/nightly-test`. Package builds are registered snapshot dependencies, not independently cron-triggered builds.
-* Each Service Sweeper uses a finish-build trigger watching its composite on the same branch, plus a snapshot dependency on that composite. It no longer has a fixed five-hour delay. Package build failures or cancellations are recorded on the composite, while the sweeper's dependency settings allow cleanup after those outcomes.
-* Global project and folder sweepers watch the GA Service Sweeper and snapshot-depend on both providers' composites and service sweepers. See [sweeper orchestration and build reuse](./PERFORMING_TASKS_IN_TEAMCITY.md#sweepers) for the trigger and locking behavior.
+* The temporary nightly cron at **23:12 UTC** triggers each provider's **All Nightly Tests** composite on `refs/heads/nightly-test`. It is configured for the current validation run; restore the normal 4am UTC schedule afterward. Package builds are registered snapshot dependencies, not independently cron-triggered builds.
+* Each Service Sweeper uses a finish-build trigger watching its composite on `refs/heads/nightly-test`, without requiring success. It has no snapshot dependencies, so manually running it does not start the test chain.
+* Global project and folder sweepers use finish-build triggers watching the GA Service Sweeper on `refs/heads/nightly-test`, also without snapshot dependencies. See [sweeper orchestration](./PERFORMING_TASKS_IN_TEAMCITY.md#sweepers) for the trigger and locking behavior.
 
 <p align="center">
 <img src="./docs/images/clock-timings-of-branch-making-and-usage.png">
