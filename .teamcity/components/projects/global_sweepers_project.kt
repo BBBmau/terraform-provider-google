@@ -16,7 +16,11 @@ import SharedResourceNameGa
 import SharedResourceNameVcr
 import builds.*
 import generated.SweepersListGa
+import jetbrains.buildServer.configs.kotlin.AbsoluteId
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import replaceCharsId
@@ -36,7 +40,34 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
 
     // Match the GA service sweeper ID created by googleSubProjectGa() and nightlyTests().
     val gaProjectId = replaceCharsId("GOOGLE")
+    val betaProjectId = replaceCharsId("GOOGLE_BETA")
     val gaServiceSweeperId = "${DslContext.projectId}_${replaceCharsId("${gaProjectId}_${NightlyTestsProjectId}_${ServiceSweeperName}")}"
+    val betaServiceSweeperId = "${DslContext.projectId}_${replaceCharsId("${betaProjectId}_${NightlyTestsProjectId}_${ServiceSweeperName}")}"
+
+    // Join both provider sweeper chains before global cleanup. Manual runs of the
+    // global sweepers do not depend on this gate and therefore do not start tests.
+    val nightlySweeperGate = BuildType {
+        id(replaceCharsId("${sweeperId}_NIGHTLY_SWEEPER_GATE"))
+        name = "Nightly Sweeper Gate"
+        type = BuildTypeSettings.Type.COMPOSITE
+        triggers {
+            finishBuildTrigger {
+                buildType = gaServiceSweeperId
+                branchFilter = "+:$DefaultBranchName"
+                successfulOnly = false
+            }
+        }
+        dependencies {
+            snapshot(AbsoluteId(gaServiceSweeperId)) {
+                onDependencyFailure = FailureAction.IGNORE
+                onDependencyCancel = FailureAction.IGNORE
+            }
+            snapshot(AbsoluteId(betaServiceSweeperId)) {
+                onDependencyFailure = FailureAction.IGNORE
+                onDependencyCancel = FailureAction.IGNORE
+            }
+        }
+    }
 
     // Create build config for sweeping project resources
     // Uses the HashiCorpVCSRootGa VCS Root so that the latest sweepers in hashicorp/terraform-provider-google are used
@@ -47,7 +78,7 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
     sweepers.forEach { sweeper ->
         sweeper.triggers {
             finishBuildTrigger {
-                buildType = gaServiceSweeperId
+                buildType = nightlySweeperGate.id!!.value
                 branchFilter = "+:$DefaultBranchName"
                 successfulOnly = false
             }
@@ -60,6 +91,7 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
         description = "Subproject containing build configurations for sweeping global resources like projects and folders"
 
         // Register build configs in the project
+        buildType(nightlySweeperGate)
         sweepers.forEach { buildType(it) }
 
         params {

@@ -16,6 +16,7 @@ import SharedResourceNameBeta
 import SharedResourceNameGa
 import SharedResourceNameVcr
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.SharedResources
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -143,9 +144,14 @@ class SweeperTests {
             assertFinishTrigger(sweeperGa, gaComposite, DefaultBranchName)
 
             val globalSweepers = getSubProject(root, globalSweepersProjectName)
+            val gate = getBuildFromProject(globalSweepers, "Nightly Sweeper Gate")
+            val betaNightly = getNestedProjectFromRoot(root, betaProjectName, nightlyTestsProjectName)
+            val sweeperBeta = getBuildFromProject(betaNightly, ServiceSweeperName)
+            assertFinishTrigger(gate, sweeperGa, DefaultBranchName)
+            assertSnapshotDependencies(gate, listOf(sweeperGa, sweeperBeta), FailureAction.IGNORE)
             listOf("Project Sweeper", "Folder Sweeper").forEach { name ->
                 val sweeper = getBuildFromProject(globalSweepers, name)
-                assertFinishTrigger(sweeper, sweeperGa, DefaultBranchName)
+                assertFinishTrigger(sweeper, gate, DefaultBranchName)
                 assertTrue("Global sweeper should not have snapshot dependencies", sweeper.dependencies.items.isEmpty())
                 assertSharedResourceLocks(sweeper, SharedResources {
                     lockAllValues(SharedResourceNameGa)
