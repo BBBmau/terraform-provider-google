@@ -42,6 +42,16 @@ object HashiCorpVCSRootBeta: GitVcsRoot({
     """.trimIndent()
 })
 
+object HashiCorpVCSRootBetaNightly: GitVcsRoot({
+    name = "https://github.com/hashicorp/terraform-provider-${ProviderNameBeta}#${DefaultBranchName}"
+    url = "https://github.com/hashicorp/terraform-provider-${ProviderNameBeta}"
+    branch = DefaultBranchName
+    branchSpec = """
+        +:*
+        -:refs/pull/*/head
+    """.trimIndent()
+})
+
 object ModularMagicianVCSRootGa: GitVcsRoot({
     name = "https://github.com/modular-magician/terraform-provider-${ProviderNameGa}#refs/heads/main"
     url = "https://github.com/modular-magician/terraform-provider-${ProviderNameGa}"

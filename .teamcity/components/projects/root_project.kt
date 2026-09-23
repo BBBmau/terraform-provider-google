@@ -32,6 +32,7 @@ fun googleCloudRootProject(allConfig: AllContextParameters): Project {
         vcsRoot(vcs_roots.HashiCorpVCSRootGa)
         vcsRoot(vcs_roots.HashiCorpVCSRootGaNightly)
         vcsRoot(vcs_roots.HashiCorpVCSRootBeta)
+        vcsRoot(vcs_roots.HashiCorpVCSRootBetaNightly)
         vcsRoot(vcs_roots.ModularMagicianVCSRootGa)
         vcsRoot(vcs_roots.ModularMagicianVCSRootBeta)
 
