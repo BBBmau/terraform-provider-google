@@ -24,7 +24,7 @@ import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import replaceCharsId
-import vcs_roots.HashiCorpVCSRootGa
+import vcs_roots.HashiCorpVCSRootGaNightly
 
 // globalSweepersSubProject returns a subproject that contains sweepers for global resources (projects, folders)
 // Sweeping projects is an edge case because it doesn't respect boundaries between different testing projects GA/Beta/PR
@@ -67,9 +67,9 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
 
     // Create build config for sweeping project resources
     // Uses the HashiCorpVCSRootGa VCS Root so that the latest sweepers in hashicorp/terraform-provider-google are used
-    val projectSweeperConfig = BuildConfigurationForGlobalSweeper("N/A", "Project Sweeper", "GoogleProject", SweepersListGa, sweeperId, HashiCorpVCSRootGa, sharedResources, gaConfig)
+    val projectSweeperConfig = BuildConfigurationForGlobalSweeper("N/A", "Project Sweeper", "GoogleProject", SweepersListGa, sweeperId, HashiCorpVCSRootGaNightly, sharedResources, gaConfig)
     // Create build config for sweeping folder resources
-    val folderSweeperConfig = BuildConfigurationForGlobalSweeper("N/A", "Folder Sweeper", "GoogleFolder", SweepersListGa, sweeperId, HashiCorpVCSRootGa, sharedResources, gaConfig)
+    val folderSweeperConfig = BuildConfigurationForGlobalSweeper("N/A", "Folder Sweeper", "GoogleFolder", SweepersListGa, sweeperId, HashiCorpVCSRootGaNightly, sharedResources, gaConfig)
     val sweepers = listOf(projectSweeperConfig, folderSweeperConfig)
     sweepers.forEach { sweeper ->
         sweeper.triggers {
