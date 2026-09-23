@@ -147,7 +147,7 @@ class SweeperTests {
             val gate = getBuildFromProject(globalSweepers, "Nightly Sweeper Gate")
             val betaNightly = getNestedProjectFromRoot(root, betaProjectName, nightlyTestsProjectName)
             val sweeperBeta = getBuildFromProject(betaNightly, ServiceSweeperName)
-            assertFinishTrigger(gate, sweeperGa, DefaultBranchName)
+            assertFinishTrigger(gate, gaComposite, DefaultBranchName)
             assertSnapshotDependencies(gate, listOf(sweeperGa, sweeperBeta), FailureAction.IGNORE)
             listOf("Project Sweeper", "Folder Sweeper").forEach { name ->
                 val sweeper = getBuildFromProject(globalSweepers, name)
