@@ -34,7 +34,7 @@ fun googleSubProjectBeta(allConfig: AllContextParameters): Project {
         description = "Subproject containing builds for testing the Beta version of the Google provider"
 
         // Nightly Test project that uses hashicorp/terraform-provider-google-beta
-        subProject(nightlyTests(betaId, ProviderNameBeta, HashiCorpVCSRootBetaNightly, betaConfig, NightlyTriggerConfiguration(startHour = 16, startMinute = 36)))
+        subProject(nightlyTests(betaId, ProviderNameBeta, HashiCorpVCSRootBetaNightly, betaConfig, NightlyTriggerConfiguration(startHour = 17, startMinute = 34)))
 
         // MM Upstream project that uses modular-magician/terraform-provider-google-beta
         subProject(mmUpstream(betaId, ProviderNameBeta, ModularMagicianVCSRootBeta, HashiCorpVCSRootBeta, vcrConfig, NightlyTriggerConfiguration()))
