@@ -93,8 +93,8 @@ fun googleCloudRootProject(allConfig: AllContextParameters): Project {
         }.also {
             it.addTrigger(NightlyTriggerConfiguration(
                 branch = DefaultBranchName,
-                startHour = 17,
-                startMinute = 54
+                startHour = 18,
+                startMinute = 3
             ))
         })
 
