@@ -54,12 +54,18 @@ class NightlyTestProjectsTests {
                 assertTrue("Package build `${build.name}` should have no independent trigger", build.triggers.items.isEmpty())
             }
         }
+        val providerComposites = listOf(
+            getBuildFromProject(gaNightlyTestProject, AllNightlyTestsName),
+            getBuildFromProject(betaNightlyTestProject, AllNightlyTestsName)
+        )
+        val packageBuilds = listOf(gaNightlyTestProject, betaNightlyTestProject).flatMap { project ->
+            project.buildTypes.filter { bt ->
+                bt.name != ServiceSweeperName && bt.name != AllNightlyTestsName
+            }
+        }
         assertSnapshotDependencies(
             allProvidersComposite,
-            listOf(
-                getBuildFromProject(gaNightlyTestProject, AllNightlyTestsName),
-                getBuildFromProject(betaNightlyTestProject, AllNightlyTestsName)
-            ),
+            providerComposites + packageBuilds,
             FailureAction.ADD_PROBLEM
         )
     }

@@ -85,6 +85,20 @@ fun googleCloudRootProject(allConfig: AllContextParameters): Project {
                 root(HashiCorpVCSRootGaNightly)
             }
             dependencies {
+                listOf(
+                    "GOOGLE" to "google",
+                    "GOOGLE_BETA" to "google-beta"
+                ).forEach { (providerProject, providerName) ->
+                    listOf("pubsublite", "apikeys", "agentregistry", "cloudquotas").forEach { packageName ->
+                        val packageBuildId = replaceCharsId(
+                            "${providerProject}_NightlyTests_${providerName}_PACKAGE_${packageName}"
+                        )
+                        snapshot(AbsoluteId("${DslContext.projectId}_$packageBuildId")) {
+                            onDependencyFailure = FailureAction.ADD_PROBLEM
+                            onDependencyCancel = FailureAction.ADD_PROBLEM
+                        }
+                    }
+                }
                 snapshot(AbsoluteId("${DslContext.projectId}_${replaceCharsId("GOOGLE_NightlyTests_all_tests")}")) {
                     onDependencyFailure = FailureAction.ADD_PROBLEM
                     onDependencyCancel = FailureAction.ADD_PROBLEM
