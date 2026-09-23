@@ -51,7 +51,7 @@ You can find the builds for nightly tests at:
 * [Google > Nightly Tests](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_NIGHTLYTESTS?branch=refs%2Fheads%2Fnightly-test&mode=builds#all-projects)
 * [Google Beta > Nightly Tests](https://hashicorp.teamcity.com/project/TerraformProviders_GoogleCloud_GOOGLE_BETA_NIGHTLYTESTS?branch=refs%2Fheads%2Fnightly-test&mode=builds#all-projects)
 
-These projects contain a build configuration per service package, plus a composite **All Nightly Tests** build. The root **All Providers Nightly Tests** composite is the only nightly cron entry point; it snapshot-depends on the GA and Beta composites so both package chains enter the queue together on `refs/heads/nightly-test`. The provider-level schedules remain disabled to avoid starting separate sequential chains. Each provider's Service Sweeper has a finish-build trigger watching its composite.
+These projects contain a build configuration per service package, plus a composite **All Nightly Tests** build. The root **All Providers Nightly Tests** composite is the only nightly cron entry point; it snapshot-depends on the GA and Beta composites so both package chains enter the queue together on `refs/heads/nightly-test`. The provider-level composites have no cron triggers, avoiding separate sequential chains. Each provider's Service Sweeper has a finish-build trigger watching its composite.
 
 To view all the failed tests for a given commit:
 

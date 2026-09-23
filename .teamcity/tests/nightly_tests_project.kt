@@ -46,14 +46,7 @@ class NightlyTestProjectsTests {
 
         listOf(gaNightlyTestProject, betaNightlyTestProject).forEach { project ->
             val composite = getBuildFromProject(project, AllNightlyTestsName)
-            assertEquals("Composite should have one schedule trigger", 1, composite.triggers.items.size)
-            val trigger = composite.triggers.items.single()
-            assertTrue("Composite should use a schedule trigger", trigger is ScheduleTrigger)
-            trigger as ScheduleTrigger
-            assertEquals("Provider composite schedule should be disabled", false, trigger.enabled)
-            assertTrue("Composite should use CRON scheduling", trigger.schedulingPolicy is ScheduleTrigger.SchedulingPolicy.Cron)
-            assertEquals("Composite should select the nightly branch", "+:$DefaultBranchName", trigger.branchFilter)
-            assertEquals("Nightly runs should not require pending changes", false, trigger.withPendingChangesOnly)
+            assertTrue("Provider composite should not have an independent schedule", composite.triggers.items.isEmpty())
 
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
             assertFinishTrigger(sweeper, composite, DefaultBranchName)
@@ -103,11 +96,7 @@ class NightlyTestProjectsTests {
         )
         val project = nightlyTests("EXPERIMENTAL", ProviderNameGa, HashiCorpVCSRootGa, config, cron)
         val composite = getBuildFromProject(project, AllNightlyTestsName)
-        val schedule = composite.triggers.items.single() as ScheduleTrigger
-        assertEquals(false, schedule.enabled)
-        assertEquals("+:${cron.branch}", schedule.branchFilter)
-        assertEquals("7", (schedule.schedulingPolicy as ScheduleTrigger.SchedulingPolicy.Cron).hours)
-        assertEquals("0", (schedule.schedulingPolicy as ScheduleTrigger.SchedulingPolicy.Cron).minutes)
+        assertTrue("Disabled nightly configuration should not create a schedule", composite.triggers.items.isEmpty())
         assertFinishTrigger(getBuildFromProject(project, ServiceSweeperName), composite, cron.branch)
     }
 
