@@ -162,14 +162,15 @@ class SweeperTests {
             }
         }
 
-        private fun assertFinishTriggerWithoutBranchFilter(build: BuildType, source: BuildType) {
-            assertEquals("${build.name} should have exactly one trigger", 1, build.triggers.items.size)
-            val trigger = build.triggers.items.single()
-            assertTrue("${build.name} should use a finish-build trigger", trigger is FinishBuildTrigger)
-            trigger as FinishBuildTrigger
-            assertEquals("${build.name} should watch the source build's resolved ID", source.id!!.value, trigger.buildType)
-            assertTrue("${build.name} should not filter the composite gate branch", trigger.branchFilter.isNullOrEmpty())
-            assertEquals("${build.name} should not require a successful source build", false, trigger.successfulOnly)
-        }
+    }
+
+    private fun assertFinishTriggerWithoutBranchFilter(build: BuildType, source: BuildType) {
+        assertEquals("${build.name} should have exactly one trigger", 1, build.triggers.items.size)
+        val trigger = build.triggers.items.single()
+        assertTrue("${build.name} should use a finish-build trigger", trigger is FinishBuildTrigger)
+        trigger as FinishBuildTrigger
+        assertEquals("${build.name} should watch the source build's resolved ID", source.id!!.value, trigger.buildType)
+        assertTrue("${build.name} should not filter the composite gate branch", trigger.branchFilter.isNullOrEmpty())
+        assertEquals("${build.name} should not require a successful source build", false, trigger.successfulOnly)
     }
 }
