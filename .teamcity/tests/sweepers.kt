@@ -18,6 +18,7 @@ import SharedResourceNameVcr
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.SharedResources
+import jetbrains.buildServer.configs.kotlin.triggers.FinishBuildTrigger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -151,7 +152,7 @@ class SweeperTests {
             assertSnapshotDependencies(gate, listOf(sweeperGa, sweeperBeta), FailureAction.IGNORE)
             listOf("Project Sweeper", "Folder Sweeper").forEach { name ->
                 val sweeper = getBuildFromProject(globalSweepers, name)
-                assertFinishTrigger(sweeper, gate, DefaultBranchName)
+                assertFinishTriggerWithoutBranchFilter(sweeper, gate)
                 assertTrue("Global sweeper should not have snapshot dependencies", sweeper.dependencies.items.isEmpty())
                 assertSharedResourceLocks(sweeper, SharedResources {
                     lockAllValues(SharedResourceNameGa)
@@ -159,6 +160,16 @@ class SweeperTests {
                     lockAllValues(SharedResourceNameVcr)
                 })
             }
+        }
+
+        private fun assertFinishTriggerWithoutBranchFilter(build: BuildType, source: BuildType) {
+            assertEquals("${build.name} should have exactly one trigger", 1, build.triggers.items.size)
+            val trigger = build.triggers.items.single()
+            assertTrue("${build.name} should use a finish-build trigger", trigger is FinishBuildTrigger)
+            trigger as FinishBuildTrigger
+            assertEquals("${build.name} should watch the source build's resolved ID", source.id!!.value, trigger.buildType)
+            assertTrue("${build.name} should not filter the composite gate branch", trigger.branchFilter.isNullOrEmpty())
+            assertEquals("${build.name} should not require a successful source build", false, trigger.successfulOnly)
         }
     }
 }

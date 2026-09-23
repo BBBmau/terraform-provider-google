@@ -80,7 +80,6 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
         sweeper.triggers {
             finishBuildTrigger {
                 buildType = nightlySweeperGate.id!!.value
-                branchFilter = "+:$DefaultBranchName"
                 successfulOnly = false
             }
         }
