@@ -8,6 +8,7 @@
 package tests
 
 import AllNightlyTestsName
+import AllProvidersNightlyTestsName
 import DefaultBranchName
 import ProviderNameBeta
 import ProviderNameGa
@@ -32,6 +33,10 @@ class NightlyTestProjectsTests {
     @Test
     fun onlyCompositeShouldHaveNightlySchedule() {
         val root = googleCloudRootProject(testContextParameters())
+        val allProvidersComposite = getBuildFromProject(root, AllProvidersNightlyTestsName)
+        val rootSchedule = allProvidersComposite.triggers.single() as ScheduleTrigger
+        assertEquals("+:$DefaultBranchName", rootSchedule.branchFilter)
+        assertEquals(true, rootSchedule.enabled)
 
         // Find GA nightly test project
         var gaNightlyTestProject = getNestedProjectFromRoot(root, gaProjectName, nightlyTestsProjectName)
@@ -45,6 +50,7 @@ class NightlyTestProjectsTests {
             val trigger = composite.triggers.items.single()
             assertTrue("Composite should use a schedule trigger", trigger is ScheduleTrigger)
             trigger as ScheduleTrigger
+            assertEquals("Provider composite schedule should be disabled", false, trigger.enabled)
             assertTrue("Composite should use CRON scheduling", trigger.schedulingPolicy is ScheduleTrigger.SchedulingPolicy.Cron)
             assertEquals("Composite should select the nightly branch", "+:$DefaultBranchName", trigger.branchFilter)
             assertEquals("Nightly runs should not require pending changes", false, trigger.withPendingChangesOnly)
@@ -55,6 +61,14 @@ class NightlyTestProjectsTests {
                 assertTrue("Package build `${build.name}` should have no independent trigger", build.triggers.items.isEmpty())
             }
         }
+        assertSnapshotDependencies(
+            allProvidersComposite,
+            listOf(
+                getBuildFromProject(gaNightlyTestProject, AllNightlyTestsName),
+                getBuildFromProject(betaNightlyTestProject, AllNightlyTestsName)
+            ),
+            FailureAction.ADD_PROBLEM
+        )
     }
 
     @Test
