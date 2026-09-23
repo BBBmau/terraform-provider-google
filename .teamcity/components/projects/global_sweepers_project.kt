@@ -41,7 +41,6 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
     // Match the GA service sweeper ID created by googleSubProjectGa() and nightlyTests().
     val gaProjectId = replaceCharsId("GOOGLE")
     val betaProjectId = replaceCharsId("GOOGLE_BETA")
-    val gaNightlyTestsId = "${DslContext.projectId}_${replaceCharsId("${gaProjectId}_${NightlyTestsProjectId}_all_tests")}"
     val gaServiceSweeperId = "${DslContext.projectId}_${replaceCharsId("${gaProjectId}_${NightlyTestsProjectId}_${ServiceSweeperName}")}"
     val betaServiceSweeperId = "${DslContext.projectId}_${replaceCharsId("${betaProjectId}_${NightlyTestsProjectId}_${ServiceSweeperName}")}"
 
@@ -53,16 +52,12 @@ fun globalSweepersSubProject(allConfig: AllContextParameters): Project {
         type = BuildTypeSettings.Type.COMPOSITE
         triggers {
             finishBuildTrigger {
-                buildType = gaNightlyTestsId
+                buildType = gaServiceSweeperId
                 branchFilter = "+:$DefaultBranchName"
                 successfulOnly = false
             }
         }
         dependencies {
-            snapshot(AbsoluteId(gaServiceSweeperId)) {
-                onDependencyFailure = FailureAction.IGNORE
-                onDependencyCancel = FailureAction.IGNORE
-            }
             snapshot(AbsoluteId(betaServiceSweeperId)) {
                 onDependencyFailure = FailureAction.IGNORE
                 onDependencyCancel = FailureAction.IGNORE
