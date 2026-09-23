@@ -34,7 +34,7 @@ class NightlyTestProjectsTests {
     fun onlyCompositeShouldHaveNightlySchedule() {
         val root = googleCloudRootProject(testContextParameters())
         val allProvidersComposite = getBuildFromProject(root, AllProvidersNightlyTestsName)
-        val rootSchedule = allProvidersComposite.triggers.single() as ScheduleTrigger
+        val rootSchedule = allProvidersComposite.triggers.items.single() as ScheduleTrigger
         assertEquals("+:$DefaultBranchName", rootSchedule.branchFilter)
         assertEquals(true, rootSchedule.enabled)
 
