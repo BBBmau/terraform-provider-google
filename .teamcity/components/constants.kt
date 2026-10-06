@@ -51,5 +51,6 @@ const val VcrRecordingProjectId = "VCRRecording"
 
 // Artifact rules controls which artifacts are uploaded to S3
 // https://www.jetbrains.com/help/teamcity/2024.07/configuring-general-settings.html#Artifact+Paths
-// The value below lacks a file extension, to allow upload of individual .txt files or a single .tar.gz file
-const val ArtifactRules = "%teamcity.build.checkoutDir%/debug*"
+// Temporary diagnostic rule for the development TeamCity project: publish one Dataform debug log
+// to isolate single-file artifact publication from multi-file publication.
+const val ArtifactRules = "%teamcity.build.checkoutDir%/debug*TestAccDataformConfig_dataformConfigWithKmsKeyExample.txt"
