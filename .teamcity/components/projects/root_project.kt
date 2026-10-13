@@ -17,10 +17,6 @@ import builds.AllContextParameters
 import builds.NightlyTriggerConfiguration
 import builds.addTrigger
 import builds.readOnlySettings
-import generated.PackagesListBeta
-import generated.PackagesListGa
-import generated.ServicesListBeta
-import generated.ServicesListGa
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.AbsoluteId
 import jetbrains.buildServer.configs.kotlin.BuildType
@@ -30,6 +26,8 @@ import jetbrains.buildServer.configs.kotlin.FailureAction
 import jetbrains.buildServer.configs.kotlin.sharedResource
 import projects.feature_branches.featureBranchResourceIdentitySubProject
 import replaceCharsId
+import serviceLockName
+import serviceLockPackageNames
 import vcs_roots.HashiCorpVCSRootGaNightly
 
 // googleCloudRootProject returns a root project that contains a subprojects for the GA and Beta version of the
@@ -49,26 +47,20 @@ fun googleCloudRootProject(allConfig: AllContextParameters): Project {
         vcsRoot(vcs_roots.ModularMagicianVCSRootBeta)
 
         features {
-            // For controlling sweeping of the GA nightly test project
-            sharedResource {
-                id = "GA_NIGHTLY_SERVICE_LOCK_SHARED_RESOURCE"
-                name = SharedResourceNameGa
-                enabled = true
-                resourceType = customValues(getPackageNameList(ServicesListGa) + getPackageNameList(PackagesListGa))
-            }
-            // For controlling sweeping of the Beta nightly test project
-            sharedResource {
-                id = "BETA_NIGHTLY_SERVICE_LOCK_SHARED_RESOURCE"
-                name = SharedResourceNameBeta
-                enabled = true
-                resourceType = customValues(getPackageNameList(ServicesListBeta) + getPackageNameList(PackagesListBeta))
-            }
-            // For controlling sweeping of the PR testing project
-            sharedResource {
-                id = "PR_SERVICE_LOCK_SHARED_RESOURCE"
-                name = SharedResourceNameVcr
-                enabled = true
-                resourceType = customValues(getPackageNameList(ServicesListBeta) + getPackageNameList(PackagesListBeta)) // Use Beta list of services here, assuming Beta is a superset of GA
+            // Per-service locks for the GA nightly, Beta nightly, and PR testing projects, used to control sweeping
+            mapOf(
+                "GA_NIGHTLY" to SharedResourceNameGa,
+                "BETA_NIGHTLY" to SharedResourceNameBeta,
+                "PR" to SharedResourceNameVcr
+            ).forEach { (idPrefix, sharedResourceName) ->
+                serviceLockPackageNames(sharedResourceName).forEach { packageName ->
+                    sharedResource {
+                        id = replaceCharsId("${idPrefix}_SERVICE_LOCK_${packageName}")
+                        name = serviceLockName(sharedResourceName, packageName)
+                        enabled = true
+                        resourceType = quoted(1)
+                    }
+                }
             }
         }
 

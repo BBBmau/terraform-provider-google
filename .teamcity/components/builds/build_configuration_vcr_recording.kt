@@ -16,6 +16,7 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.sharedResources
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
+import serviceLockNames
 
 class VcrDetails(private val providerName: String, private val buildId: String, private val vcsRoot: GitVcsRoot, private val sharedResources: List<String>) {
 
@@ -62,9 +63,9 @@ class VcrDetails(private val providerName: String, private val buildId: String, 
                 parallelTestsFeature(DefaultNumberOfBatches)
                 if (sharedResources.isNotEmpty()) {
                     sharedResources {
-                        // When the build runs, it locks the value(s) below
+                        // When the build runs, it locks every service of the resource(s) below
                         sharedResources.forEach { sr ->
-                            lockAllValues(sr)
+                            serviceLockNames(sr).forEach { writeLock(it) }
                         }
                     }
                 }
