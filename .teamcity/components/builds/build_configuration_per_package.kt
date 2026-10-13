@@ -91,7 +91,9 @@ class PackageDetails(private val packageName: String, private val displayName: S
             features {
                 golang()
                 parallelTestsFeature(numberOfBatches)
-                if (sharedResources.isNotEmpty()) {
+                // Each batch would take the exclusive per-service lock separately, serializing the batches.
+                // TeamCity cannot lock custom-value resources on the composite, so batched builds skip it.
+                if (sharedResources.isNotEmpty() && numberOfBatches <= 1) {
                     sharedResources {
                         // When the build runs, it locks the value(s) below
                         sharedResources.forEach { sr ->
