@@ -16,6 +16,12 @@ const val DefaultStartHour = 4
 // specifies the default level of parallelism per-service-package
 const val DefaultParallelism = 6
 
+// specifies the default number of batches used by the TeamCity Parallel Tests
+// build feature to split a service package's acceptance tests across multiple
+// agents. A value of 1 effectively disables the feature.
+// See https://www.jetbrains.com/help/teamcity/parallel-tests.html
+const val DefaultNumberOfBatches = 4
+
 // specifies the default version of Terraform Core which should be used for testing
 // this is updated semi-regularly
 const val DefaultTerraformCoreVersion = "1.14.3"
