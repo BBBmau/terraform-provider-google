@@ -58,10 +58,17 @@ fun parallelTestsListScript(): String = """
     awk 'FILENAME == ARGV[1] { excluded[${'$'}0] = 1; next } !(${'$'}0 in excluded)' batch-excludes.txt all-tests.txt > batch-tests.txt || exit 1
 """.trimIndent()
 
-fun parallelTestsReportingScript(): String = """
-    set -o pipefail
-    go build -o ./teamcity-report-tests "%teamcity.build.checkoutDir%/scripts/teamcityreporter/main.go" || exit 1
-    reportParallelTests() {
-        ./teamcity-report-tests -format="${'$'}1"
-    }
-""".trimIndent()
+// The heredoc terminator must stay at column 0, and %% escapes literal % from TeamCity parameter expansion.
+fun parallelTestsReportingScript(): String = listOf(
+    "set -o pipefail",
+    "REPORTER_DIR=${'$'}(mktemp -d) || exit 1",
+    "cat > \"${'$'}REPORTER_DIR/main.go\" <<'TEAMCITY_REPORTER_SOURCE'",
+    parallelTestsReporterSource.trim().replace("%", "%%"),
+    "TEAMCITY_REPORTER_SOURCE",
+    "printf 'module teamcityreporter\\n\\ngo 1.21\\n' > \"${'$'}REPORTER_DIR/go.mod\" || exit 1",
+    "(cd \"${'$'}REPORTER_DIR\" && GOFLAGS= GOWORK=off go build -o \"${'$'}OLDPWD/teamcity-report-tests\" .) || exit 1",
+    "rm -rf \"${'$'}REPORTER_DIR\"",
+    "reportParallelTests() {",
+    "    ./teamcity-report-tests -format=\"${'$'}1\"",
+    "}",
+).joinToString("\n")

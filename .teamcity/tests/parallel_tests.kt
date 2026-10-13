@@ -18,7 +18,9 @@ import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.buildFeatures.ParallelTestsFeature
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import projects.googleCloudRootProject
 import java.nio.file.Files
@@ -105,6 +107,9 @@ class ParallelTestsFeatureTests {
                         param.value.contains(parallelTestsReportingScript()) &&
                         param.value.contains("| reportParallelTests ")
                 }
+            })
+            assertFalse("Build '${bt.id}' should not depend on reporter files from its checkout", bt.steps.items.any {
+                it.params.any { param -> param.value.contains("teamcityreporter/") }
             })
         }
     }
@@ -194,5 +199,94 @@ class ParallelTestsFeatureTests {
         """.trimIndent())
         assertEquals(output, 1, status)
         assertTrue(output, output.contains("Cannot read Parallel Tests exclusions"))
+    }
+
+    // Runs the reporting script as TeamCity would after resolving %% escapes.
+    private fun runReporter(format: String, input: String): Pair<Int, String> {
+        assumeTrue("Go is required to build the test reporter", ProcessBuilder("go", "version").start().waitFor() == 0)
+        val directory = Files.createTempDirectory("teamcity-test-reporter").toFile()
+        try {
+            directory.resolve("input.txt").writeText(input)
+            val process = ProcessBuilder("bash", "-c",
+                parallelTestsReportingScript().replace("%%", "%") + "\nreportParallelTests $format < input.txt"
+            ).directory(directory).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            return Pair(process.waitFor(), output)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun reportingScriptShouldEscapeTeamCityParameterReferences() {
+        val script = parallelTestsReportingScript()
+        assertFalse(script, Regex("(?<!%)%(?!%)").containsMatchIn(script))
+        assertTrue(script, script.lines().contains("TEAMCITY_REPORTER_SOURCE"))
+    }
+
+    @Test
+    fun reporterShouldRenameServiceMessageTests() {
+        val input = listOf("testStarted", "testFinished", "testFailed", "testIgnored", "testStdOut", "testStdErr", "testMetadata", "testDiffFailed").joinToString("") {
+            "##teamcity[$it timestamp='2026-10-13' name='TestAccOne' out='nested name=|'TestAccTwo|'|n']\n"
+        } + "ordinary output\n" +
+            "##teamcity[testSuiteStarted name='suite']\n" +
+            "##teamcity[testStarted name='TestAccOne/with.dot']\n" +
+            "##teamcity[testStarted name='TestAccOne/with%2Edot']\n" +
+            "##teamcity[testStarted name='TestAccOne/quote|'and||pipe']\n" +
+            "##teamcity[testStdOut name='TestAccOne' out='" + "x".repeat(100000) + "']\n"
+        val want = input.replace(" name='TestAccOne'", " name='TestAccOne.run'")
+            .replace("name='TestAccOne/with.dot'", "name='TestAccOne.run/with%2Edot'")
+            .replace("name='TestAccOne/with%2Edot'", "name='TestAccOne.run/with%252Edot'")
+            .replace("name='TestAccOne/quote", "name='TestAccOne.run/quote")
+        val (status, output) = runReporter("service-messages", input)
+        assertEquals(output, 0, status)
+        assertEquals(want, output)
+    }
+
+    @Test
+    fun reporterShouldConvertGoJSONEvents() {
+        val input = """
+            {"Action":"start","Package":"pubsub"}
+            {"Action":"run","Package":"pubsub","Test":"TestAccOne"}
+            {"Action":"output","Package":"pubsub","Test":"TestAccOne","Output":"quote ' and [brackets]\n"}
+            {"Action":"fail","Package":"pubsub","Test":"TestAccOne","Elapsed":1.5}
+            {"Action":"run","Package":"pubsub","Test":"TestAccTwo"}
+            {"Action":"skip","Package":"pubsub","Test":"TestAccTwo"}
+            {"Action":"run","Package":"pubsub","Test":"TestAccThree/sub.test"}
+            {"Action":"pass","Package":"pubsub","Test":"TestAccThree/sub.test","Elapsed":2}
+            {"Action":"output","Package":"pubsub","Output":"FAIL pubsub\n"}
+            {"Action":"fail","Package":"pubsub"}
+        """.trimIndent() + "\n"
+        val want = """
+            ##teamcity[testSuiteStarted name='pubsub' flowId='pubsub']
+            ##teamcity[testStarted name='TestAccOne.run' flowId='pubsub']
+            ##teamcity[testStdOut name='TestAccOne.run' flowId='pubsub' out='quote |' and |[brackets|]|n']
+            ##teamcity[testFailed name='TestAccOne.run' flowId='pubsub' message='Go test failed']
+            ##teamcity[testFinished name='TestAccOne.run' flowId='pubsub' duration='1500']
+            ##teamcity[testStarted name='TestAccTwo.run' flowId='pubsub']
+            ##teamcity[testIgnored name='TestAccTwo.run' flowId='pubsub' message='Go test skipped']
+            ##teamcity[testFinished name='TestAccTwo.run' flowId='pubsub' duration='0']
+            ##teamcity[testStarted name='TestAccThree.run/sub%2Etest' flowId='pubsub']
+            ##teamcity[testFinished name='TestAccThree.run/sub%2Etest' flowId='pubsub' duration='2000']
+            FAIL pubsub
+            ##teamcity[testSuiteFinished name='pubsub' flowId='pubsub']
+        """.trimIndent() + "\n"
+        val (status, output) = runReporter("go-json", input)
+        assertEquals(output, 0, status)
+        assertEquals(want, output)
+    }
+
+    @Test
+    fun reporterShouldRejectMalformedInput() {
+        for (input in listOf("##teamcity[testStarted]\n", "##teamcity[testStarted name='unterminated\n")) {
+            val (status, output) = runReporter("service-messages", input)
+            assertEquals(output, 1, status)
+        }
+        for (input in listOf("not JSON\n", "{}\n", "{\"Action\":\"unknown\",\"Test\":\"TestAccOne\"}\n")) {
+            val (status, output) = runReporter("go-json", input)
+            assertEquals(output, 1, status)
+        }
+        val (status, output) = runReporter("unknown", "")
+        assertEquals(output, 1, status)
     }
 }

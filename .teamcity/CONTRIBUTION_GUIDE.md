@@ -36,7 +36,7 @@ export JAVA_HOME=/usr/local/Cellar/openjdk@21/21.0.9/libexec/openjdk.jdk/Content
     * Errors that prevent the code building
     * Logical errors in TeamCity-specific logic, e.g. the need for unique identifiers for builds.
 * Run `make test` to run the automated tests defined in `.teamcity/tests`
-* Run `cd ../scripts && go test ./teamcityreporter` to test the shared test-name reporter. This is part of the separate `scripts` Go module.
+* The shared test-name reporter is embedded in `components/builds/parallel_tests_reporter.kt` (test builds check out branches that may not contain it) and is tested end-to-end by `make test` when Go is available.
 
 ## Rough description of the code base
 
