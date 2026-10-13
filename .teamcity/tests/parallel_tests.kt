@@ -10,6 +10,7 @@ package tests
 import DefaultNumberOfBatches
 import builds.parallelTestsBatchScript
 import builds.parallelTestsListScript
+import builds.parallelTestsReportingScript
 import generated.ServiceNumberOfBatches
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
@@ -91,6 +92,19 @@ class ParallelTestsFeatureTests {
         collectBuilds(googleCloudRootProject(testContextParameters())).filter { isAcceptanceBuild(it) }.forEach { bt ->
             assertTrue("Build '${bt.id}' should consume the batch exclusions", bt.steps.items.any {
                 it.params.any { param -> param.name == "script.content" && param.value.contains(parallelTestsBatchScript()) }
+            })
+        }
+    }
+
+    @Test
+    fun everyTestRunnerShouldReportTestClasses() {
+        collectBuilds(googleCloudRootProject(testContextParameters())).filter { isAcceptanceBuild(it) }.forEach { bt ->
+            assertTrue("Build '${bt.id}' should report each Go test as a separate class", bt.steps.items.any {
+                it.params.any { param ->
+                    param.name == "script.content" &&
+                        param.value.contains(parallelTestsReportingScript()) &&
+                        param.value.contains("| reportParallelTests ")
+                }
             })
         }
     }

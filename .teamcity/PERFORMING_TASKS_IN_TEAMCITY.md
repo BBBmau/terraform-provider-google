@@ -55,6 +55,8 @@ These projects contain one build per service package and an **All Nightly Tests*
 
 Acceptance-test builds use TeamCity's Parallel Tests feature with four agent batches by default. This includes nightly, upstream MM, feature-branch, weekly diff, and VCR recording builds; sweepers and composite builds do not enable batching. `DefaultNumberOfBatches` controls the default and `ServiceNumberOfBatches` overrides it for individual package builds (set a service to `1` to disable batching). `PARALLELISM` still controls concurrency within each agent batch. Both custom runners and `go test` honor TeamCity's per-batch exclusions.
 
+TeamCity splits by **test class**, not by Go function name. The shared reporter emits names such as `TestAccPubsubTopic_basic.run`, so each Go function becomes a distinct class and exclusions still contain the original Go function names. Native Go runners report through `go test -json`; custom runner service messages are normalized without changing their outcomes or output. After enabling this naming scheme, complete a run to collect the new class-level statistics, then check that the next run creates populated batches. Bare `TestAcc...` names have an empty class and collapse into a single batching unit, regardless of the configured batch count.
+
 For native `go test` builds, custom `-skip` filters are combined with the batch exclusions. Subtest `-skip` filters containing `/` cannot be combined with nonempty batch exclusions and fail explicitly; use a single batch for those runs.
 
 To view all the failed tests for a given commit:

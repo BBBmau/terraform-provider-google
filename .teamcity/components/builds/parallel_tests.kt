@@ -57,3 +57,11 @@ fun parallelTestsListScript(): String = """
     ./test-binary -test.list="%TEST_PREFIX%" > all-tests.txt || exit 1
     awk 'FILENAME == ARGV[1] { excluded[${'$'}0] = 1; next } !(${'$'}0 in excluded)' batch-excludes.txt all-tests.txt > batch-tests.txt || exit 1
 """.trimIndent()
+
+fun parallelTestsReportingScript(): String = """
+    set -o pipefail
+    go build -o ./teamcity-report-tests "%teamcity.build.checkoutDir%/scripts/teamcityreporter/main.go" || exit 1
+    reportParallelTests() {
+        ./teamcity-report-tests -format="${'$'}1"
+    }
+""".trimIndent()

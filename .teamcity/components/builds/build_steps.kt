@@ -93,7 +93,8 @@ fun BuildSteps.runAcceptanceTests() {
             scriptContent = """
                 #!/bin/bash
                 ${parallelTestsBatchScript()}
-                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
+                ${parallelTestsReportingScript()}
+                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json | reportParallelTests go-json
             """.trimIndent()
         })
     } else {
@@ -133,7 +134,8 @@ fun BuildSteps.runAcceptanceTests() {
                 fi
                 
                 echo "Starting tests"  
-                cat batch-tests.txt | teamcity-go-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                ${parallelTestsReportingScript()}
+                cat batch-tests.txt | teamcity-go-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h" | reportParallelTests service-messages
             """.trimIndent()
         })
     }
@@ -245,7 +247,8 @@ fun BuildSteps.runDiffTests() {
             scriptContent = """
                 #!/bin/bash
                 ${parallelTestsBatchScript()}
-                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
+                ${parallelTestsReportingScript()}
+                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json | reportParallelTests go-json
             """.trimIndent()
         })
     } else {
@@ -290,7 +293,8 @@ fun BuildSteps.runDiffTests() {
                 fi
                 
                 echo "Starting tests"
-                cat batch-tests.txt | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                ${parallelTestsReportingScript()}
+                cat batch-tests.txt | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h" | reportParallelTests service-messages
             """.trimIndent()
         })
     }
