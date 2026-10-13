@@ -19,7 +19,6 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.sharedResources
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import replaceCharsId
-import serviceLockName
 
 // BuildConfigurationsForPackages accepts a map containing details of multiple packages in a provider and returns a list of build configurations for them all.
 // Intended to be used in projects where we're testing all packages, e.g. the nightly test projects
@@ -92,11 +91,13 @@ class PackageDetails(private val packageName: String, private val displayName: S
             features {
                 golang()
                 parallelTestsFeature(numberOfBatches)
-                if (sharedResources.isNotEmpty()) {
+                // Each batch would take the exclusive per-service lock separately, serializing the batches.
+                // TeamCity cannot lock custom-value resources on the composite, so batched builds skip it.
+                if (sharedResources.isNotEmpty() && numberOfBatches <= 1) {
                     sharedResources {
-                        // Exclusive per-service lock; with Parallel Tests the composite holds it for all batches
+                        // When the build runs, it locks the value(s) below
                         sharedResources.forEach { sr ->
-                            writeLock(serviceLockName(sr, packageName))
+                            lockSpecificValue(sr, packageName)
                         }
                     }
                 }

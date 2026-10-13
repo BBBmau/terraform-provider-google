@@ -17,7 +17,6 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.sharedResources
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import replaceCharsId
-import serviceLockNames
 
 
 fun BuildConfigurationForServiceSweeper(providerName: String, sweeperName: String, packages: Map<String, Map<String, String>>, parentProjectName: String, vcsRoot: GitVcsRoot, sharedResources: List<String>, environmentVariables: AccTestConfiguration): BuildType {
@@ -88,9 +87,9 @@ class SweeperDetails(private val sweeperName: String, private val parentProjectN
                 })
                 if (sharedResources.isNotEmpty()) {
                     sharedResources {
-                        // When the build runs, it locks every service of the resource(s) below
+                        // When the build runs, it locks the value(s) below
                         sharedResources.forEach { sr ->
-                            serviceLockNames(sr).forEach { writeLock(it) }
+                            lockAllValues(sr)
                         }
                     }
                 }

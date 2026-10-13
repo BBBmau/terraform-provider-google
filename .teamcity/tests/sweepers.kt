@@ -26,7 +26,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import projects.googleCloudRootProject
-import serviceLockNames
 
 class SweeperTests {
     @Test
@@ -165,9 +164,9 @@ class SweeperTests {
                 assertFinishTriggerWithoutBranchFilter(sweeper, gate)
                 assertTrue("Global sweeper should not have snapshot dependencies", sweeper.dependencies.items.isEmpty())
                 assertSharedResourceLocks(sweeper, SharedResources {
-                    listOf(SharedResourceNameGa, SharedResourceNameBeta, SharedResourceNameVcr).forEach { sr ->
-                        serviceLockNames(sr).forEach { writeLock(it) }
-                    }
+                    lockAllValues(SharedResourceNameGa)
+                    lockAllValues(SharedResourceNameBeta)
+                    lockAllValues(SharedResourceNameVcr)
                 })
             }
 

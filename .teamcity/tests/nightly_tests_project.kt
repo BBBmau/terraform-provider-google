@@ -16,7 +16,6 @@ import ProviderNameGa
 import ServiceSweeperName
 import SharedResourceNameBeta
 import SharedResourceNameGa
-import SharedResourceNameVcr
 import builds.NightlyTriggerConfiguration
 import builds.getGaAcceptanceTestConfig
 import generated.ServiceNumberOfBatches
@@ -29,8 +28,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import projects.googleCloudRootProject
-import serviceLockName
-import serviceLockNames
 import projects.reused.getAllPackageInProviderVersion
 import projects.reused.nightlyTests
 import vcs_roots.HashiCorpVCSRootGa
@@ -140,9 +137,10 @@ class NightlyTestProjectsTests {
     }
 
     @Test
-    fun nightlyPackagesAndSweepersShouldRetainServiceLocks() {
-        // Batched and single-batch package builds both hold an exclusive lock for their own service
-        ServiceNumberOfBatches = mapOf("pubsub" to 1)
+    fun nightlyPackagesAndSweepersShouldRetainProviderLocks() {
+        // Batched builds cannot share the exclusive per-service lock, so only single-batch builds keep it.
+        ServiceNumberOfBatches = getAllPackageInProviderVersion(ProviderNameGa).keys.associateWith { 1 } +
+            getAllPackageInProviderVersion(ProviderNameBeta).keys.associateWith { 1 }
         val root = googleCloudRootProject(testContextParameters())
         listOf(
             Triple(gaProjectName, ProviderNameGa, SharedResourceNameGa),
@@ -152,23 +150,32 @@ class NightlyTestProjectsTests {
             val composite = getBuildFromProject(project, AllNightlyTestsName)
             val sweeper = getBuildFromProject(project, ServiceSweeperName)
             assertTrue("Composite should not hold locks needed by package builds", composite.features.items.filterIsInstance<SharedResources>().isEmpty())
-            assertSharedResourceLocks(sweeper, SharedResources { serviceLockNames(resource).forEach { writeLock(it) } })
+            assertSharedResourceLocks(sweeper, SharedResources { lockAllValues(resource) })
             project.buildTypes.filter { it != composite && it != sweeper }.forEach { build ->
                 val path = build.params.findRawParam("PACKAGE_PATH")!!.value
                 val packageName = getAllPackageInProviderVersion(provider).entries.single { it.value.getValue("path") == path }.key
-                assertSharedResourceLocks(build, SharedResources { writeLock(serviceLockName(resource, packageName)) })
+                assertSharedResourceLocks(build, SharedResources { lockSpecificValue(resource, packageName) })
             }
         }
     }
 
     @Test
-    fun rootProjectShouldDefineExclusiveServiceLocks() {
-        val root = googleCloudRootProject(testContextParameters())
-        val resources = root.features.items.filter { it.type == "JetBrains.SharedResources" }
-        val expected = listOf(SharedResourceNameGa, SharedResourceNameBeta, SharedResourceNameVcr).flatMap { serviceLockNames(it) }
-        assertEquals(expected, resources.map { it.params.single { p -> p.name == "name" }.value })
-        resources.forEach { resource ->
-            assertEquals("${resource.id} should be an exclusive quota resource", "1", resource.params.single { it.name == "quota" }.value)
+    fun batchedPackagesShouldNotSerializeOnServiceLock() {
+        ServiceNumberOfBatches = mapOf("pubsub" to 1)
+        val project = getNestedProjectFromRoot(googleCloudRootProject(testContextParameters()), gaProjectName, nightlyTestsProjectName)
+        val composite = getBuildFromProject(project, AllNightlyTestsName)
+        val sweeper = getBuildFromProject(project, ServiceSweeperName)
+        val packages = getAllPackageInProviderVersion(ProviderNameGa)
+        project.buildTypes.filter { it != composite && it != sweeper }.forEach { build ->
+            val path = build.params.findRawParam("PACKAGE_PATH")!!.value
+            val packageName = packages.entries.single { it.value.getValue("path") == path }.key
+            val locks = build.features.items.filterIsInstance<SharedResources>()
+            if (packageName == "pubsub") {
+                assertSharedResourceLocks(build, SharedResources { lockSpecificValue(SharedResourceNameGa, packageName) })
+            } else {
+                assertTrue("${build.name} batches should not wait on each other's service lock", locks.isEmpty())
+            }
         }
+        assertSharedResourceLocks(sweeper, SharedResources { lockAllValues(SharedResourceNameGa) })
     }
 }
