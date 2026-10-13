@@ -211,6 +211,7 @@ fun ParametrizedWithType.acceptanceTestBuildParams(parallelism: Int, prefix: Str
     text("PARALLELISM", "%d".format(parallelism))
     text("TEST_PREFIX", prefix)
     text("TIMEOUT", timeout)
+    hiddenVariable("system.teamcity.build.parallelTests.excludesFile", "", "TeamCity supplies the test exclusions for each parallel batch")
     if (releaseDiffTest) {
         text("env.RELEASE_DIFF", "true")
     } else {

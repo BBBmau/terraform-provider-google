@@ -53,6 +53,10 @@ You can find the builds for nightly tests at:
 
 These projects contain one build per service package and an **All Nightly Tests** composite. At 4am UTC, **All Providers Nightly Tests** starts both provider composites on `refs/heads/nightly-test`; those composites run their package builds. Service Sweepers run after the root composite.
 
+Acceptance-test builds use TeamCity's Parallel Tests feature with four agent batches by default. This includes nightly, upstream MM, feature-branch, weekly diff, and VCR recording builds; sweepers and composite builds do not enable batching. `DefaultNumberOfBatches` controls the default and `ServiceNumberOfBatches` overrides it for individual package builds (set a service to `1` to disable batching). `PARALLELISM` still controls concurrency within each agent batch. Both custom runners and `go test` honor TeamCity's per-batch exclusions.
+
+For native `go test` builds, custom `-skip` filters are combined with the batch exclusions. Subtest `-skip` filters containing `/` cannot be combined with nonempty batch exclusions and fail explicitly; use a single batch for those runs.
+
 To view all the failed tests for a given commit:
 
 * Navigate to the `Change Log` tab on the relevant Nightly Tests page.

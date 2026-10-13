@@ -26,12 +26,7 @@ fun BuildFeatures.golang() {
     }
 }
 
-// parallelTests enables TeamCity's Parallel Tests build feature, which splits a
-// build's tests into several batches that run in parallel on suitable agents and
-// gathers the results back into a composite build overview.
-// The feature is only enabled when numberOfBatches is greater than 1, so callers
-// can safely pass the default (1) to keep the historical single-batch behaviour.
-// See https://www.jetbrains.com/help/teamcity/parallel-tests.html
+// A single batch keeps the historical single-agent behavior.
 fun BuildFeatures.parallelTestsFeature(numberOfBatches: Int) {
     if (numberOfBatches > 1) {
         parallelTests {

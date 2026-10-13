@@ -90,7 +90,11 @@ fun BuildSteps.runAcceptanceTests() {
     if (UseTeamCityGoTest) {
         step(ScriptBuildStep {
             name = "Run Tests"
-            scriptContent = "go test -v \"%PACKAGE_PATH%\" -timeout=\"%TIMEOUT%h\" -test.parallel=\"%PARALLELISM%\" -run=\"%TEST_PREFIX%\" -json"
+            scriptContent = """
+                #!/bin/bash
+                ${parallelTestsBatchScript()}
+                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
+            """.trimIndent()
         })
     } else {
         step(ScriptBuildStep {
@@ -118,24 +122,8 @@ fun BuildSteps.runAcceptanceTests() {
                   exit 0
                 fi
                 
-                # When the TeamCity Parallel Tests build feature is enabled, the server
-                # provides an excludes file listing the test classes that must NOT run in
-                # the current batch. Our custom runner (jen20/teamcity-go-test) doesn't
-                # filter tests automatically, so we build the list of tests to run for
-                # this batch by removing the excluded tests.
-                # See https://www.jetbrains.com/help/teamcity/parallel-tests.html#custom-tests
-                EXCLUDES_FILE="%system.teamcity.build.parallelTests.excludesFile%"
-                ./test-binary -test.list="%TEST_PREFIX%" > all-tests.txt
-                if test -n "${'$'}{EXCLUDES_FILE}" && test -f "${'$'}{EXCLUDES_FILE}"; then
-                  echo "Parallel Tests feature active; using excludes file ${'$'}{EXCLUDES_FILE}"
-                  # The excludes file starts with '#'-prefixed metadata lines followed by a
-                  # newline-separated list of test classes to exclude for this batch.
-                  grep -v '^#' "${'$'}{EXCLUDES_FILE}" | grep -v '^\s*$' | sort -u > batch-excludes.txt
-                  echo "Excluding ${'$'}(wc -l < batch-excludes.txt) tests for this batch"
-                  grep -v -x -F -f batch-excludes.txt all-tests.txt > batch-tests.txt || true
-                else
-                  cp all-tests.txt batch-tests.txt
-                fi
+                ${parallelTestsBatchScript()}
+                ${parallelTestsListScript()}
 
                 export TEST_COUNT=${'$'}(wc -l < batch-tests.txt)
                 echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX% for this batch"
@@ -254,7 +242,11 @@ fun BuildSteps.runDiffTests() {
     if (UseTeamCityGoTest) {
         step(ScriptBuildStep {
             name = "Run Diff Tests"
-            scriptContent = "go test -v \"%PACKAGE_PATH%\" -timeout=\"%TIMEOUT%h\" -test.parallel=\"%PARALLELISM%\" -run=\"%TEST_PREFIX%\" -json"
+            scriptContent = """
+                #!/bin/bash
+                ${parallelTestsBatchScript()}
+                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
+            """.trimIndent()
         })
     } else {
         step(ScriptBuildStep {
@@ -288,15 +280,17 @@ fun BuildSteps.runDiffTests() {
                 popd > /dev/null
 
 
-                export TEST_COUNT=${'$'}(./test-binary -test.list="%TEST_PREFIX%" | wc -l)
-                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX%"
+                ${parallelTestsBatchScript()}
+                ${parallelTestsListScript()}
+                export TEST_COUNT=${'$'}(wc -l < batch-tests.txt)
+                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX% for this batch"
                 if test ${'$'}TEST_COUNT -le "0"; then
                     echo "Skipping test execution; no tests to run"
                     exit 0
                 fi
                 
                 echo "Starting tests"
-                ./test-binary -test.list="%TEST_PREFIX%" | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                cat batch-tests.txt | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }

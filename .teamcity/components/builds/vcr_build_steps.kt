@@ -77,11 +77,13 @@ fun BuildSteps.runVcrAcceptanceTests() {
     step(ScriptBuildStep {
         name = "Run Tests"
         scriptContent =  """
+        #!/bin/bash
+        ${parallelTestsBatchScript()}
         echo "VCR Testing: Running acceptance tests"
         echo "TESTARGS = ${'$'}TESTARGS"
         echo "TEST = ${'$'}TEST"
 
-        go test ${'$'}TEST -v ${'$'}TESTARGS -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -ldflags="-X=github.com/hashicorp/terraform-provider-google-beta/version.ProviderVersion=acc"
+        runBatchGoTests ${'$'}TEST -v ${'$'}TESTARGS -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -ldflags="-X=github.com/hashicorp/terraform-provider-google-beta/version.ProviderVersion=acc"
         """.trimIndent()
     })
 }
