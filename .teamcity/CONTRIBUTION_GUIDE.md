@@ -36,7 +36,6 @@ export JAVA_HOME=/usr/local/Cellar/openjdk@21/21.0.9/libexec/openjdk.jdk/Content
     * Errors that prevent the code building
     * Logical errors in TeamCity-specific logic, e.g. the need for unique identifiers for builds.
 * Run `make test` to run the automated tests defined in `.teamcity/tests`
-* Parallel Tests batching (exclusions and test naming) is implemented by the custom test runner in `scripts/teamcitytestscripts`; run its tests with `cd scripts && go test ./teamcitytestscripts`.
 
 ## Rough description of the code base
 

@@ -62,6 +62,10 @@ class PackageDetails(private val packageName: String, private val displayName: S
         if (ServiceNumberOfBatches.containsKey(packageName)){
             numberOfBatches = ServiceNumberOfBatches.getValue(packageName)
         }
+        // Diff tests run via scripts/teamcitytestscripts, which does not apply Parallel Tests exclusions.
+        if (releaseDiffTest) {
+            numberOfBatches = 1
+        }
 
         return BuildType {
             // TC needs a consistent ID for dynamically generated packages

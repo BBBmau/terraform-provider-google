@@ -22,6 +22,11 @@ const val DefaultParallelism = 6
 // See https://www.jetbrains.com/help/teamcity/parallel-tests.html
 const val DefaultNumberOfBatches = 4
 
+// teamcity-go-test with -parallel-tests support (batch exclusions and per-test class names).
+// Built from this fork until the change is available on the build agents.
+const val TeamCityGoTestRepo = "https://github.com/BBBmau/teamcity-go-test"
+const val TeamCityGoTestRef = "parallel-tests"
+
 // specifies the default version of Terraform Core which should be used for testing
 // this is updated semi-regularly
 const val DefaultTerraformCoreVersion = "1.14.3"

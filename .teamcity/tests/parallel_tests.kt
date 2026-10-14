@@ -8,6 +8,8 @@
 package tests
 
 import DefaultNumberOfBatches
+import TeamCityGoTestRef
+import TeamCityGoTestRepo
 import generated.ServiceNumberOfBatches
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
@@ -31,8 +33,12 @@ class ParallelTestsFeatureTests {
     private fun collectBuilds(root: Project): List<BuildType> =
         root.buildTypes + root.subProjects.flatMap { collectBuilds(it) }
 
+    private fun isDiffBuild(build: BuildType): Boolean =
+        build.params.findRawParam("env.RELEASE_DIFF")?.value == "true"
+
+    // Diff builds run scripts/teamcitytestscripts, which does not apply batch exclusions, so they are not batched.
     private fun isAcceptanceBuild(build: BuildType): Boolean =
-        build.name.endsWith(" - Acceptance Tests")
+        build.name.endsWith(" - Acceptance Tests") && !isDiffBuild(build)
 
     @Test
     fun parallelTestsFeatureEnabledByDefault() {
@@ -78,6 +84,7 @@ class ParallelTestsFeatureTests {
         val builds = collectBuilds(googleCloudRootProject(testContextParameters()))
         assertTrue("There should be composites", builds.any { it.type == BuildTypeSettings.Type.COMPOSITE })
         assertTrue("There should be VCR recording builds", builds.any { it.name.startsWith("VCR Recording - ") })
+        assertTrue("There should be diff test builds", builds.any { isDiffBuild(it) })
         builds.filter { !isAcceptanceBuild(it) }.forEach { bt ->
             assertTrue("Non-test build '${bt.id}' should not enable Parallel Tests", bt.features.items.filterIsInstance<ParallelTestsFeature>().isEmpty())
         }
@@ -87,8 +94,11 @@ class ParallelTestsFeatureTests {
     fun everyTestRunnerShouldRunOnlyItsBatch() {
         collectBuilds(googleCloudRootProject(testContextParameters())).filter { isAcceptanceBuild(it) }.forEach { bt ->
             val scripts = bt.steps.items.flatMap { step -> step.params.filter { it.name == "script.content" }.map { it.value } }
-            assertTrue("Build '${bt.id}' should run tests through scripts/teamcitytestscripts with -parallel-tests", scripts.any {
-                it.contains("teamcity-test-runner\" -mode acceptance -parallel-tests ") || it.contains("teamcity-diff-test -parallel-tests ")
+            assertTrue("Build '${bt.id}' should build teamcity-go-test from $TeamCityGoTestRepo@$TeamCityGoTestRef", scripts.any {
+                it.contains("git clone -q --depth 1 --branch \"$TeamCityGoTestRef\" \"$TeamCityGoTestRepo\"")
+            })
+            assertTrue("Build '${bt.id}' should run teamcity-go-test with -parallel-tests", scripts.any {
+                it.contains("/teamcity-go-test\" -parallel-tests -test ./test-binary")
             })
         }
     }

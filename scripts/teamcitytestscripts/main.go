@@ -28,7 +28,7 @@ import (
 
 func usage() string {
 	return `Usage:
-	teamcity-diff-test -test <binary> [-parallelism n] [-timeout t] [-mode diff|acceptance] [-parallel-tests]
+	teamcity-diff-test -test <binary> [-parallelism n] [-timeout t]
 
 	Test names must be listed one per line on stdin.
 `
@@ -38,17 +38,9 @@ func main() {
 	testBinary := flag.String("test", "", "executable containing the tests to run")
 	parallelism := flag.Int("parallelism", 1, "number of tests to execute in parallel")
 	timeout := flag.String("timeout", "", "an optional per-test timeout")
-	mode := flag.String("mode", ModeDiff, "result reporting: diff (failures are ignored) or acceptance (failures fail the build)")
-	parallelTests := flag.Bool("parallel-tests", false, "support TeamCity Parallel Tests: run only this batch's tests and report them as TestName.run so TeamCity can batch by test function")
 	flag.Parse()
 
 	if testBinary == nil || *testBinary == "" {
-		fmt.Fprint(os.Stderr, usage())
-		os.Exit(1)
-	}
-
-	if *mode != ModeDiff && *mode != ModeAcceptance {
-		fmt.Fprintf(os.Stderr, "Unsupported mode: %s\n", *mode)
 		fmt.Fprint(os.Stderr, usage())
 		os.Exit(1)
 	}
@@ -66,7 +58,7 @@ func main() {
 		if err != nil {
 			if err == io.EOF {
 				if strings.TrimSpace(line) != "" {
-					testNames = append(testNames, strings.TrimSpace(line))
+					testNames = append(testNames, line)
 				}
 				break
 			}
@@ -75,22 +67,8 @@ func main() {
 		}
 
 		if strings.TrimSpace(line) != "" {
-			testNames = append(testNames, strings.TrimSpace(line))
+			testNames = append(testNames, line)
 		}
-	}
-
-	if *parallelTests {
-		batch, err := batchTests(testNames)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-		testNames = batch
-	}
-
-	if len(testNames) == 0 {
-		fmt.Println("No tests to run")
-		return
 	}
 
 	testQueue := make(chan string)
@@ -98,12 +76,12 @@ func main() {
 	completed := make(chan struct{})
 
 	for i := 0; i < *parallelism; i++ {
-		go runWorker(testQueue, messages, completed, *testBinary, *timeout, *mode, *parallelTests)
+		go runWorker(testQueue, messages, completed, *testBinary, *timeout)
 	}
 
 	go func() {
 		for _, testName := range testNames {
-			testQueue <- testName
+			testQueue <- strings.TrimSpace(testName)
 		}
 	}()
 
@@ -122,13 +100,11 @@ func main() {
 	}
 }
 
-func runWorker(inputQueue <-chan string, messages chan<- string, done chan<- struct{}, binaryName, timeout, mode string, parallelTestNames bool) {
+func runWorker(inputQueue <-chan string, messages chan<- string, done chan<- struct{}, binaryName, timeout string) {
 	for {
 		select {
 		case testName := <-inputQueue:
 			test := NewTeamCityTest(testName)
-			test.Mode = mode
-			test.ParallelTestNames = parallelTestNames
 			//messages <- fmt.Sprintf("%s", test.FormatStartNotice())
 			runTest(test, binaryName, timeout)
 			messages <- test.FormatTestOutput()

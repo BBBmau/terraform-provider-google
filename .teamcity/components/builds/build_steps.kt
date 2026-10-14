@@ -7,6 +7,8 @@
 
 package builds
 
+import TeamCityGoTestRef
+import TeamCityGoTestRepo
 import jetbrains.buildServer.configs.kotlin.BuildSteps
 import jetbrains.buildServer.configs.kotlin.buildSteps.ScriptBuildStep
 
@@ -85,8 +87,8 @@ fun BuildSteps.runSweepers(sweeperStepName: String) {
 
 // RunAcceptanceTests runs tests for a given directory, using either:
 // - TeamCity's test runner - stops remaining tests after a failure
-// - scripts/teamcitytestscripts in acceptance mode - allows tests to continue after a failure, and requires a test binary.
-//   With -parallel-tests it runs only the tests TeamCity assigned to this Parallel Tests batch.
+// - teamcity-go-test - allows tests to continue after a failure, and requires a test binary.
+//   It is built from TeamCityGoTestRepo; -parallel-tests runs only the tests TeamCity assigned to this batch.
 fun BuildSteps.runAcceptanceTests() {
     if (UseTeamCityGoTest) {
         step(ScriptBuildStep {
@@ -110,7 +112,7 @@ fun BuildSteps.runAcceptanceTests() {
         })
 
         step(ScriptBuildStep {
-            name = "Run via scripts/teamcitytestscripts"
+            name = "Run via teamcity-go-test"
             workingDir = "%PACKAGE_PATH%"
             scriptContent = """
                 #!/bin/bash
@@ -125,12 +127,14 @@ fun BuildSteps.runAcceptanceTests() {
                   echo "Skipping test execution; no tests to run"
                   exit 0
                 fi
-
-                echo "Compiling scripts/teamcitytestscripts"
-                (cd "%teamcity.build.checkoutDir%/scripts/teamcitytestscripts" && go build -o "%teamcity.build.checkoutDir%/teamcity-test-runner" .) || exit 1
                 
+                echo "Building teamcity-go-test from $TeamCityGoTestRepo@$TeamCityGoTestRef"
+                TEAMCITY_GO_TEST_SRC=${'$'}(mktemp -d) || exit 1
+                git clone -q --depth 1 --branch "$TeamCityGoTestRef" "$TeamCityGoTestRepo" "${'$'}TEAMCITY_GO_TEST_SRC" || exit 1
+                (cd "${'$'}TEAMCITY_GO_TEST_SRC" && go build -o teamcity-go-test .) || exit 1
+
                 echo "Starting tests"  
-                ./test-binary -test.list="%TEST_PREFIX%" | "%teamcity.build.checkoutDir%/teamcity-test-runner" -mode acceptance -parallel-tests -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                ./test-binary -test.list="%TEST_PREFIX%" | "${'$'}TEAMCITY_GO_TEST_SRC/teamcity-go-test" -parallel-tests -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }
@@ -281,7 +285,7 @@ fun BuildSteps.runDiffTests() {
                 fi
                 
                 echo "Starting tests"
-                ./test-binary -test.list="%TEST_PREFIX%" | ../../../teamcity-diff-test -parallel-tests -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                ./test-binary -test.list="%TEST_PREFIX%" | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }
