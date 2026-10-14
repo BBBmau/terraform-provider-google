@@ -8,9 +8,6 @@
 package tests
 
 import DefaultNumberOfBatches
-import builds.parallelTestsBatchScript
-import builds.parallelTestsListScript
-import builds.parallelTestsRunnerScript
 import generated.ServiceNumberOfBatches
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
@@ -18,11 +15,9 @@ import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.buildFeatures.ParallelTestsFeature
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import projects.googleCloudRootProject
-import java.nio.file.Files
 
 class ParallelTestsFeatureTests {
 
@@ -89,152 +84,12 @@ class ParallelTestsFeatureTests {
     }
 
     @Test
-    fun everyTestRunnerShouldFilterBatches() {
-        collectBuilds(googleCloudRootProject(testContextParameters())).filter { isAcceptanceBuild(it) }.forEach { bt ->
-            assertTrue("Build '${bt.id}' should consume the batch exclusions", bt.steps.items.any {
-                it.params.any { param -> param.name == "script.content" && param.value.contains(parallelTestsBatchScript()) }
-            })
-        }
-    }
-
-    @Test
-    fun everyTestRunnerShouldReportTestClasses() {
+    fun everyTestRunnerShouldRunOnlyItsBatch() {
         collectBuilds(googleCloudRootProject(testContextParameters())).filter { isAcceptanceBuild(it) }.forEach { bt ->
             val scripts = bt.steps.items.flatMap { step -> step.params.filter { it.name == "script.content" }.map { it.value } }
-            assertTrue("Build '${bt.id}' should report each Go test as a separate class", scripts.any {
-                (it.contains(parallelTestsRunnerScript()) && it.contains("-mode acceptance -parallel-test-names")) ||
-                    it.contains("DIFF_TEST_ARGS=(-parallel-test-names)")
-            })
-            assertFalse("Build '${bt.id}' should not embed a separate test reporter", scripts.any {
-                it.contains("reportParallelTests") || it.contains("teamcity-report-tests")
+            assertTrue("Build '${bt.id}' should run tests through scripts/teamcitytestscripts with -parallel-tests", scripts.any {
+                it.contains("teamcity-test-runner\" -mode acceptance -parallel-tests ") || it.contains("teamcity-diff-test -parallel-tests ")
             })
         }
-    }
-
-    // Runs the runner script against a fake checkout, with go stubbed out.
-    private fun runRunnerScript(mainGo: String?): Pair<Int, String> {
-        val checkout = Files.createTempDirectory("teamcity-test-runner").toFile()
-        try {
-            if (mainGo != null) {
-                val source = checkout.resolve("scripts/teamcitytestscripts")
-                source.mkdirs()
-                source.resolve("main.go").writeText(mainGo)
-            }
-            val script = """
-                go() { echo "go ${'$'}* in ${'$'}PWD"; }
-                ${parallelTestsRunnerScript().replace("%teamcity.build.checkoutDir%", checkout.canonicalPath)}
-                echo "supported=${'$'}RUNNER_SUPPORTS_PARALLEL_TEST_NAMES"
-            """.trimIndent()
-            val process = ProcessBuilder("bash", "-c", script).directory(checkout).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            return Pair(process.waitFor(), output.replace(checkout.canonicalPath, "CHECKOUT"))
-        } finally {
-            checkout.deleteRecursively()
-        }
-    }
-
-    @Test
-    fun runnerScriptBuildsRunnersThatSupportParallelTestNames() {
-        val (status, output) = runRunnerScript("flag.Bool(\"parallel-test-names\", false, \"\")")
-        assertEquals(output, 0, status)
-        assertTrue(output, output.contains("go build -o CHECKOUT/teamcity-test-runner . in CHECKOUT/scripts/teamcitytestscripts"))
-        assertTrue(output, output.trim().endsWith("supported=true"))
-    }
-
-    @Test
-    fun runnerScriptFallsBackForOlderCheckouts() {
-        listOf("package main", null).forEach { mainGo ->
-            val (status, output) = runRunnerScript(mainGo)
-            assertEquals(output, 0, status)
-            assertFalse(output, output.contains("go build"))
-            assertTrue(output, output.trim().endsWith("supported=false"))
-        }
-    }
-
-    private fun runBatchScripts(exclusions: String?, script: String): Pair<Int, String> {
-        val directory = Files.createTempDirectory("teamcity-parallel-tests").toFile()
-        try {
-            val excludesFile = directory.resolve("excludes.txt")
-            if (exclusions != null) excludesFile.writeText(exclusions)
-            val path = if (exclusions == null) "" else excludesFile.absolutePath
-            val process = ProcessBuilder("bash", "-c",
-                parallelTestsBatchScript().replace("%system.teamcity.build.parallelTests.excludesFile%", path) + "\n" + script
-            ).directory(directory).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            return Pair(process.waitFor(), output)
-        } finally {
-            directory.deleteRecursively()
-        }
-    }
-
-    @Test
-    fun customRunnersShouldExcludeOnlyExactTestNames() {
-        val script = parallelTestsListScript().replace(
-            "./test-binary -test.list=\"%TEST_PREFIX%\"",
-            "printf 'TestAccOne\\nTestAccOneMore\\nTestAccTwo\\n'"
-        ) + "\ncat batch-tests.txt"
-        val (status, output) = runBatchScripts("# metadata\n\nTestAccOne\r\n", script)
-        assertEquals(output, 0, status)
-        assertEquals("TestAccOneMore\nTestAccTwo\n", output)
-    }
-
-    @Test
-    fun emptyExclusionsShouldKeepAllTests() {
-        listOf(null, "", "# metadata\n \n").forEach { exclusions ->
-            val script = parallelTestsListScript().replace(
-                "./test-binary -test.list=\"%TEST_PREFIX%\"",
-                "printf 'TestAccOne\\nTestAccTwo\\n'"
-            ) + "\ncat batch-tests.txt"
-            val (status, output) = runBatchScripts(exclusions, script)
-            assertEquals(output, 0, status)
-            assertEquals("TestAccOne\nTestAccTwo\n", output)
-        }
-    }
-
-    @Test
-    fun completelyExcludedBatchShouldHaveNoTests() {
-        val script = parallelTestsListScript().replace(
-            "./test-binary -test.list=\"%TEST_PREFIX%\"",
-            "printf 'TestAccOne\\nTestAccTwo\\n'"
-        ) + "\ncat batch-tests.txt"
-        val (status, output) = runBatchScripts("TestAccOne\nTestAccTwo\n", script)
-        assertEquals(output, 0, status)
-        assertEquals("", output)
-    }
-
-    @Test
-    fun nativeGoRunnerShouldPreserveUserFlagsAndEscapeExclusions() {
-        listOf("-skip=TestAccManual", "-skip TestAccManual", "-test.skip=TestAccManual").forEach { skip ->
-            val (status, output) = runBatchScripts("TestAccOne.More\n", """
-                go() { printf '%s\n' "${'$'}@"; }
-                runBatchGoTests ./google/services/... -run=TestAcc $skip
-            """.trimIndent())
-            assertEquals(output, 0, status)
-            assertEquals("test\n./google/services/...\n-run=TestAcc\n-skip=^(TestAccOne\\.More)${'$'}|(TestAccManual)\n", output)
-        }
-    }
-
-    @Test
-    fun subtestSkipFiltersShouldNotSilentlyBreakBatchExclusions() {
-        val script = """
-            go() { printf '%s\n' "${'$'}@"; }
-            runBatchGoTests ./google/services/... -skip=TestAccOne/subtest
-        """.trimIndent()
-        val (status, output) = runBatchScripts("TestAccTwo\n", script)
-        assertEquals(output, 1, status)
-        assertTrue(output, output.contains("Cannot combine a subtest -skip filter"))
-        val (singleBatchStatus, singleBatchOutput) = runBatchScripts(null, script)
-        assertEquals(singleBatchOutput, 0, singleBatchStatus)
-        assertEquals("test\n./google/services/...\n-skip=TestAccOne/subtest\n", singleBatchOutput)
-    }
-
-    @Test
-    fun missingExclusionsShouldFailInsteadOfRunningAllTests() {
-        val (status, output) = runBatchScripts(null, """
-            EXCLUDES_FILE=/does/not/exist
-            ${parallelTestsBatchScript().replace("EXCLUDES_FILE=\"%system.teamcity.build.parallelTests.excludesFile%\"", "")}
-        """.trimIndent())
-        assertEquals(output, 1, status)
-        assertTrue(output, output.contains("Cannot read Parallel Tests exclusions"))
     }
 }

@@ -86,16 +86,12 @@ fun BuildSteps.runSweepers(sweeperStepName: String) {
 // RunAcceptanceTests runs tests for a given directory, using either:
 // - TeamCity's test runner - stops remaining tests after a failure
 // - scripts/teamcitytestscripts in acceptance mode - allows tests to continue after a failure, and requires a test binary.
-//   Checkouts whose runner predates -parallel-test-names fall back to jen20/teamcity-go-test.
+//   With -parallel-tests it runs only the tests TeamCity assigned to this Parallel Tests batch.
 fun BuildSteps.runAcceptanceTests() {
     if (UseTeamCityGoTest) {
         step(ScriptBuildStep {
             name = "Run Tests"
-            scriptContent = """
-                #!/bin/bash
-                ${parallelTestsBatchScript()}
-                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
-            """.trimIndent()
+            scriptContent = "go test -v \"%PACKAGE_PATH%\" -timeout=\"%TIMEOUT%h\" -test.parallel=\"%PARALLELISM%\" -run=\"%TEST_PREFIX%\" -json"
         })
     } else {
         step(ScriptBuildStep {
@@ -123,26 +119,18 @@ fun BuildSteps.runAcceptanceTests() {
                   exit 0
                 fi
                 
-                ${parallelTestsBatchScript()}
-                ${parallelTestsListScript()}
-
-                export TEST_COUNT=${'$'}(wc -l < batch-tests.txt)
-                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX% for this batch"
+                export TEST_COUNT=${'$'}(./test-binary -test.list="%TEST_PREFIX%" | wc -l)
+                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX%"
                 if test ${'$'}TEST_COUNT -le "0"; then
                   echo "Skipping test execution; no tests to run"
                   exit 0
                 fi
 
-                ${parallelTestsRunnerScript()}
-                if test "${'$'}RUNNER_SUPPORTS_PARALLEL_TEST_NAMES" = "true"; then
-                  TEST_RUNNER=("${'$'}RUNNER" -mode acceptance -parallel-test-names)
-                else
-                  echo "Falling back to jen20/teamcity-go-test"
-                  TEST_RUNNER=(teamcity-go-test)
-                fi
+                echo "Compiling scripts/teamcitytestscripts"
+                (cd "%teamcity.build.checkoutDir%/scripts/teamcitytestscripts" && go build -o "%teamcity.build.checkoutDir%/teamcity-test-runner" .) || exit 1
                 
                 echo "Starting tests"  
-                cat batch-tests.txt | "${'$'}{TEST_RUNNER[@]}" -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
+                ./test-binary -test.list="%TEST_PREFIX%" | "%teamcity.build.checkoutDir%/teamcity-test-runner" -mode acceptance -parallel-tests -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }
@@ -251,11 +239,7 @@ fun BuildSteps.runDiffTests() {
     if (UseTeamCityGoTest) {
         step(ScriptBuildStep {
             name = "Run Diff Tests"
-            scriptContent = """
-                #!/bin/bash
-                ${parallelTestsBatchScript()}
-                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
-            """.trimIndent()
+            scriptContent = "go test -v \"%PACKAGE_PATH%\" -timeout=\"%TIMEOUT%h\" -test.parallel=\"%PARALLELISM%\" -run=\"%TEST_PREFIX%\" -json"
         })
     } else {
         step(ScriptBuildStep {
@@ -287,23 +271,17 @@ fun BuildSteps.runDiffTests() {
                 pushd ../../../scripts/teamcitytestscripts > /dev/null
                 go build -o ../../teamcity-diff-test .
                 popd > /dev/null
-                DIFF_TEST_ARGS=()
-                if grep -qs -- 'parallel-test-names' ../../../scripts/teamcitytestscripts/main.go; then
-                    DIFF_TEST_ARGS=(-parallel-test-names)
-                fi
 
 
-                ${parallelTestsBatchScript()}
-                ${parallelTestsListScript()}
-                export TEST_COUNT=${'$'}(wc -l < batch-tests.txt)
-                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX% for this batch"
+                export TEST_COUNT=${'$'}(./test-binary -test.list="%TEST_PREFIX%" | wc -l)
+                echo "Found ${'$'}{TEST_COUNT} tests that match the given test prefix %TEST_PREFIX%"
                 if test ${'$'}TEST_COUNT -le "0"; then
                     echo "Skipping test execution; no tests to run"
                     exit 0
                 fi
                 
                 echo "Starting tests"
-                cat batch-tests.txt | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h" "${'$'}{DIFF_TEST_ARGS[@]}"
+                ./test-binary -test.list="%TEST_PREFIX%" | ../../../teamcity-diff-test -parallel-tests -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }
