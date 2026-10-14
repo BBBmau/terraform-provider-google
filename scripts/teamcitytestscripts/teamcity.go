@@ -35,11 +35,18 @@ const (
 	TeamCityTestStdErr      = "##teamcity[testStdErr name='%s' out='%s']\n"
 )
 
+const (
+	ModeDiff       = "diff"
+	ModeAcceptance = "acceptance"
+)
+
 var (
 	// Looks for the final status line, accommodating both simple and full summaries.
-	end     = regexp.MustCompile(`\n(PASS|SKIP|FAIL)(?:[\t\s]+(.*)\s+([0-9\.]+[a-z]+))?\s*$`)
-	diff    = regexp.MustCompile(`\[Diff\] (.*)`)
-	paniced = regexp.MustCompile(`panic:\s+(.*)\s+\[recovered\]\n`)
+	end = regexp.MustCompile(`\n(PASS|SKIP|FAIL)(?:[\t\s]+(.*)\s+([0-9\.]+[a-z]+))?\s*$`)
+	// Matches the first test result line, as jen20/teamcity-go-test does.
+	acceptanceEnd = regexp.MustCompile(`--- (PASS|SKIP|FAIL):\s+([a-zA-Z_]\S*) \(([\.\d]+)`)
+	diff          = regexp.MustCompile(`\[Diff\] (.*)`)
+	paniced       = regexp.MustCompile(`panic:\s+(.*)\s+\[recovered\]\n`)
 	//suite   = regexp.MustCompile("^(ok|FAIL)\\s+([^\\s]+)\\s+([\\.\\d]+)s")
 	race = regexp.MustCompile("^WARNING: DATA RACE")
 )
@@ -48,15 +55,33 @@ type TeamCityTest struct {
 	Name, Output, ErrOutput, Duration string
 	Race, Fail, Skip, Pass, Diff      bool
 	Started                           time.Time
+	Mode                              string
+	ParallelTestNames                 bool
 }
 
 func NewTeamCityTest(testName string) *TeamCityTest {
 	return &TeamCityTest{
 		Name: testName,
+		Mode: ModeDiff,
 	}
 }
 
+// ReportedName is the name sent to TeamCity. TeamCity Parallel Tests batches by
+// test class (the text before the last "."), and Go test names contain no dots,
+// so ParallelTestNames makes each Go test function its own class.
+func (test *TeamCityTest) ReportedName() string {
+	if test.ParallelTestNames {
+		return test.Name + ".run"
+	}
+	return test.Name
+}
+
 func (test *TeamCityTest) ParseTestRunnerOutput(testOutput string, errOutput string) {
+	if test.Mode == ModeAcceptance {
+		test.parseAcceptanceOutput(testOutput, errOutput)
+		return
+	}
+
 	hasDataRace := race.MatchString(testOutput)
 	test.Race = hasDataRace
 
@@ -81,52 +106,102 @@ func (test *TeamCityTest) ParseTestRunnerOutput(testOutput string, errOutput str
 	test.ErrOutput = errOutput
 }
 
+func (test *TeamCityTest) parseAcceptanceOutput(testOutput string, errOutput string) {
+	test.Race = race.MatchString(testOutput)
+
+	resultLines := acceptanceEnd.FindStringSubmatch(testOutput)
+	if resultLines != nil {
+		switch resultLines[1] {
+		case "PASS":
+			test.Pass = true
+		case "SKIP":
+			test.Skip = true
+		case "FAIL":
+			test.Fail = true
+		}
+		test.Duration = resultLines[3]
+	}
+
+	// Panics are reported with a dedicated failure message below.
+	if paniced.MatchString(errOutput) {
+		test.Fail = false
+	}
+
+	test.Output = testOutput
+	test.ErrOutput = errOutput
+}
+
 func (test *TeamCityTest) FormatTestOutput() string {
 	now := time.Now().Format(TeamCityTimestampFormat)
+	name := test.ReportedName()
 
 	var output bytes.Buffer
 
-	output.WriteString(fmt.Sprintf(TeamCityTestStarted, test.Started.Format(TeamCityTimestampFormat), test.Name))
+	output.WriteString(fmt.Sprintf(TeamCityTestStarted, test.Started.Format(TeamCityTimestampFormat), name))
 
-	output.WriteString(fmt.Sprintf(TeamCityTestStdOut, test.Name, escapeOutput(test.Output)))
-	output.WriteString(fmt.Sprintf(TeamCityTestStdErr, test.Name, escapeOutput(test.ErrOutput)))
+	output.WriteString(fmt.Sprintf(TeamCityTestStdOut, name, escapeOutput(test.Output)))
+	output.WriteString(fmt.Sprintf(TeamCityTestStdErr, name, escapeOutput(test.ErrOutput)))
+
+	if test.Mode == ModeAcceptance {
+		test.formatAcceptanceResult(&output, now, name)
+		return output.String()
+	}
 
 	if test.Diff {
-		output.WriteString(fmt.Sprintf(TeamCityTestDiffFailed, now, test.Name))
+		output.WriteString(fmt.Sprintf(TeamCityTestDiffFailed, now, name))
 		// have to fail so that teamcity catches failure correctly
-		output.WriteString(fmt.Sprintf(TeamCityTestFailedPanic, now, test.Name))
-		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, test.Name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFailedPanic, now, name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
 		return output.String()
 
 	}
 
 	if test.Fail {
 		// skip failures for diff tests
-		output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, test.Name))
-		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, test.Name))
+		output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
 		return output.String()
 	}
 
 	if test.Race {
-		output.WriteString(fmt.Sprintf(TeamCityTestFailedRace, now, test.Name))
-		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, test.Name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFailedRace, now, name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
 		return output.String()
 	}
 
 	if test.Skip {
-		output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, test.Name))
+		output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, name))
 		return output.String()
 	}
 
 	if test.Pass {
-		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, test.Name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
 		return output.String()
 	}
 
 	// instead of failing when something unexpected happens, we skip the test now
-	output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, test.Name))
+	output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, name))
 
 	return output.String()
+}
+
+// formatAcceptanceResult reports results the same way as jen20/teamcity-go-test.
+func (test *TeamCityTest) formatAcceptanceResult(output *bytes.Buffer, now, name string) {
+	switch {
+	case test.Fail:
+		output.WriteString(fmt.Sprintf(TeamCityTestFailed, now, name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
+	case test.Race:
+		output.WriteString(fmt.Sprintf(TeamCityTestFailedRace, now, name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
+	case test.Skip:
+		output.WriteString(fmt.Sprintf(TeamCityTestIgnored, now, name))
+	case test.Pass:
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
+	default:
+		output.WriteString(fmt.Sprintf(TeamCityTestFailedPanic, now, name))
+		output.WriteString(fmt.Sprintf(TeamCityTestFinished, now, name))
+	}
 }
 
 func escapeOutput(outputLines string) string {

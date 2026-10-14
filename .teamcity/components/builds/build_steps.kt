@@ -85,7 +85,8 @@ fun BuildSteps.runSweepers(sweeperStepName: String) {
 
 // RunAcceptanceTests runs tests for a given directory, using either:
 // - TeamCity's test runner - stops remaining tests after a failure
-// - jen20/teamcity-go-test - allows tests to continue after a failure, and requires a test binary
+// - scripts/teamcitytestscripts in acceptance mode - allows tests to continue after a failure, and requires a test binary.
+//   Checkouts whose runner predates -parallel-test-names fall back to jen20/teamcity-go-test.
 fun BuildSteps.runAcceptanceTests() {
     if (UseTeamCityGoTest) {
         step(ScriptBuildStep {
@@ -93,8 +94,7 @@ fun BuildSteps.runAcceptanceTests() {
             scriptContent = """
                 #!/bin/bash
                 ${parallelTestsBatchScript()}
-                ${parallelTestsReportingScript()}
-                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json | reportParallelTests go-json
+                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
             """.trimIndent()
         })
     } else {
@@ -114,7 +114,7 @@ fun BuildSteps.runAcceptanceTests() {
         })
 
         step(ScriptBuildStep {
-            name = "Run via jen20/teamcity-go-test"
+            name = "Run via scripts/teamcitytestscripts"
             workingDir = "%PACKAGE_PATH%"
             scriptContent = """
                 #!/bin/bash
@@ -132,10 +132,17 @@ fun BuildSteps.runAcceptanceTests() {
                   echo "Skipping test execution; no tests to run"
                   exit 0
                 fi
+
+                ${parallelTestsRunnerScript()}
+                if test "${'$'}RUNNER_SUPPORTS_PARALLEL_TEST_NAMES" = "true"; then
+                  TEST_RUNNER=("${'$'}RUNNER" -mode acceptance -parallel-test-names)
+                else
+                  echo "Falling back to jen20/teamcity-go-test"
+                  TEST_RUNNER=(teamcity-go-test)
+                fi
                 
                 echo "Starting tests"  
-                ${parallelTestsReportingScript()}
-                cat batch-tests.txt | teamcity-go-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h" | reportParallelTests service-messages
+                cat batch-tests.txt | "${'$'}{TEST_RUNNER[@]}" -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h"
             """.trimIndent()
         })
     }
@@ -247,8 +254,7 @@ fun BuildSteps.runDiffTests() {
             scriptContent = """
                 #!/bin/bash
                 ${parallelTestsBatchScript()}
-                ${parallelTestsReportingScript()}
-                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json | reportParallelTests go-json
+                runBatchGoTests -v "%PACKAGE_PATH%" -timeout="%TIMEOUT%h" -test.parallel="%PARALLELISM%" -run="%TEST_PREFIX%" -json
             """.trimIndent()
         })
     } else {
@@ -281,6 +287,10 @@ fun BuildSteps.runDiffTests() {
                 pushd ../../../scripts/teamcitytestscripts > /dev/null
                 go build -o ../../teamcity-diff-test .
                 popd > /dev/null
+                DIFF_TEST_ARGS=()
+                if grep -qs -- 'parallel-test-names' ../../../scripts/teamcitytestscripts/main.go; then
+                    DIFF_TEST_ARGS=(-parallel-test-names)
+                fi
 
 
                 ${parallelTestsBatchScript()}
@@ -293,8 +303,7 @@ fun BuildSteps.runDiffTests() {
                 fi
                 
                 echo "Starting tests"
-                ${parallelTestsReportingScript()}
-                cat batch-tests.txt | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h" | reportParallelTests service-messages
+                cat batch-tests.txt | ../../../teamcity-diff-test -test ./test-binary -parallelism "%PARALLELISM%" -timeout "%TIMEOUT%h" "${'$'}{DIFF_TEST_ARGS[@]}"
             """.trimIndent()
         })
     }

@@ -9,7 +9,6 @@ package builds
 
 import ArtifactRules
 import DefaultBuildTimeoutDuration
-import DefaultNumberOfBatches
 import DefaultParallelism
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
@@ -59,7 +58,6 @@ class VcrDetails(private val providerName: String, private val buildId: String, 
 
             features {
                 golang()
-                parallelTestsFeature(DefaultNumberOfBatches)
                 if (sharedResources.isNotEmpty()) {
                     sharedResources {
                         // When the build runs, it locks the value(s) below

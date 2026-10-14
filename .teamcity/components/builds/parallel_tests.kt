@@ -58,17 +58,17 @@ fun parallelTestsListScript(): String = """
     awk 'FILENAME == ARGV[1] { excluded[${'$'}0] = 1; next } !(${'$'}0 in excluded)' batch-excludes.txt all-tests.txt > batch-tests.txt || exit 1
 """.trimIndent()
 
-// The heredoc terminator must stay at column 0, and %% escapes literal % from TeamCity parameter expansion.
-fun parallelTestsReportingScript(): String = listOf(
-    "set -o pipefail",
-    "REPORTER_DIR=${'$'}(mktemp -d) || exit 1",
-    "cat > \"${'$'}REPORTER_DIR/main.go\" <<'TEAMCITY_REPORTER_SOURCE'",
-    parallelTestsReporterSource.trim().replace("%", "%%"),
-    "TEAMCITY_REPORTER_SOURCE",
-    "printf 'module teamcityreporter\\n\\ngo 1.21\\n' > \"${'$'}REPORTER_DIR/go.mod\" || exit 1",
-    "(cd \"${'$'}REPORTER_DIR\" && GOFLAGS= GOWORK=off go build -o \"${'$'}OLDPWD/teamcity-report-tests\" .) || exit 1",
-    "rm -rf \"${'$'}REPORTER_DIR\"",
-    "reportParallelTests() {",
-    "    ./teamcity-report-tests -format=\"${'$'}1\"",
-    "}",
-).joinToString("\n")
+// Builds scripts/teamcitytestscripts from the checkout into RUNNER. Checkouts whose runner predates
+// -parallel-test-names (e.g. older branches) set RUNNER_SUPPORTS_PARALLEL_TEST_NAMES=false and skip the build.
+fun parallelTestsRunnerScript(): String = """
+    RUNNER_SOURCE="%teamcity.build.checkoutDir%/scripts/teamcitytestscripts"
+    RUNNER="%teamcity.build.checkoutDir%/teamcity-test-runner"
+    RUNNER_SUPPORTS_PARALLEL_TEST_NAMES=false
+    if grep -qs -- 'parallel-test-names' "${'$'}RUNNER_SOURCE/main.go"; then
+        echo "Compiling scripts/teamcitytestscripts"
+        (cd "${'$'}RUNNER_SOURCE" && go build -o "${'$'}RUNNER" .) || exit 1
+        RUNNER_SUPPORTS_PARALLEL_TEST_NAMES=true
+    else
+        echo "scripts/teamcitytestscripts does not support -parallel-test-names; Parallel Tests cannot balance batches by test function"
+    fi
+""".trimIndent()
